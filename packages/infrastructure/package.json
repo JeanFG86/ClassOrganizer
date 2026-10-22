@@ -1,0 +1,26 @@
+{
+  "name": "@classorganizer/infrastructure",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "postinstall": "prisma generate",
+    "typecheck": "tsc -p tsconfig.json",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@classorganizer/core": "workspace:*",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "12.2.1",
+    "prisma": "7.10.1"
+  }
+}
