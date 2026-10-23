@@ -22,9 +22,28 @@ const c6a: ClassGroupDto = { id: 'c6a', name: '6º ano A', ...noShift, ...base }
 const c6b: ClassGroupDto = { id: 'c6b', name: '6º ano B', ...noShift, ...base };
 const math: SubjectDto = { id: 'math', name: 'Matemática', ...base };
 const history: SubjectDto = { id: 'hist', name: 'História', ...base };
-const ana: TeacherDto = { id: 'ana', name: 'Ana', subjectIds: ['math', 'hist'], ...base };
-const bruno: TeacherDto = { id: 'bruno', name: 'Bruno', subjectIds: ['math'], ...base };
-const carla: TeacherDto = { id: 'carla', name: 'Carla', subjectIds: ['hist'], ...base };
+const noLimits = { maxWeeklyLessons: null, planningPeriods: 0, unavailable: [] };
+const ana: TeacherDto = {
+  id: 'ana',
+  name: 'Ana',
+  subjectIds: ['math', 'hist'],
+  ...noLimits,
+  ...base,
+};
+const bruno: TeacherDto = {
+  id: 'bruno',
+  name: 'Bruno',
+  subjectIds: ['math'],
+  ...noLimits,
+  ...base,
+};
+const carla: TeacherDto = {
+  id: 'carla',
+  name: 'Carla',
+  subjectIds: ['hist'],
+  ...noLimits,
+  ...base,
+};
 
 function catalog<T>(
   items: T[],
@@ -86,6 +105,7 @@ async function mountPage(
     update: vi.fn(),
     archive: vi.fn(),
     restore: vi.fn(),
+    changeAvailability: vi.fn(),
   };
   const wrapper = mount(AssignmentsPage, {
     global: {
@@ -136,9 +156,9 @@ describe('AssignmentsPage', () => {
       .findAll('tbody tr')
       .map((r) => r.findAll('th, td').map((c) => c.text()));
     expect(loads).toEqual([
-      ['Ana', '5', '1'],
-      ['Bruno', '0', '0'],
-      ['Carla', '3', '1'],
+      ['Ana', '5', '—', '0', '1'],
+      ['Bruno', '0', '—', '0', '0'],
+      ['Carla', '3', '—', '0', '1'],
     ]);
   });
 
@@ -298,5 +318,31 @@ describe('AssignmentsPage', () => {
     const wrapper = await mountPage(fakeAssignmentsApi(), { classGroups: [] });
 
     expect(wrapper.text()).toContain('Nenhuma turma cadastrada.');
+  });
+
+  it('avisa quem passou da carga máxima, sem impedir a atribuição', async () => {
+    const wrapper = await mountPage(
+      fakeAssignmentsApi([
+        assignment('a1', 'c6a', 'math', 'ana', 5),
+        assignment('a2', 'c6b', 'math', 'ana', 5),
+      ]),
+      {
+        teachers: [
+          { ...ana, maxWeeklyLessons: 8, planningPeriods: 4 },
+          { ...bruno, maxWeeklyLessons: 20 },
+          carla,
+        ],
+      },
+    );
+
+    expect(wrapper.get('p.error').text()).toBe('Acima da carga máxima: Ana (10 de 8).');
+    const ana10 = wrapper.get('table[aria-label="Carga semanal por professor"] tbody tr');
+    expect(ana10.findAll('th, td').map((c) => c.text())).toEqual([
+      'Ana',
+      '10 (acima do máximo)',
+      '8',
+      '4',
+      '2',
+    ]);
   });
 });

@@ -1,6 +1,7 @@
 export { DomainError, NotFoundError, type DomainErrorKind } from './shared/domain-error.ts';
 export type { Clock, IdGenerator } from './shared/ports.ts';
 export { StaleVersionError, type VersionedRef } from './shared/versioning.ts';
+export { WEEKDAYS, isWeekday, type Weekday } from './shared/weekdays.ts';
 export { statusOf, type EntityStatus } from './shared/archiving.ts';
 
 export {
@@ -86,19 +87,27 @@ export {
 
 export {
   ArchivedSubjectError,
+  InvalidAvailabilityError,
   InvalidTeacherNameError,
+  InvalidWorkloadError,
+  MAX_PLANNING_PERIODS,
+  MAX_WEEKLY_LESSONS_LIMIT,
   QualificationInUseError,
   TEACHER_NAME_MAX_LENGTH,
   TeacherHasAssignmentsError,
   TeacherNotFoundError,
   UnknownSubjectError,
   createTeacher,
+  setUnavailability,
   type SubjectStatus,
   type Teacher,
+  type UnavailableSlot,
+  type WorkloadInput,
 } from './modules/teaching/domain/teacher.ts';
 export type {
   AssignmentRepository,
   ClassGroupStatusLookup,
+  PeriodLookup,
   SubjectLookup,
   TeacherRepository,
 } from './modules/teaching/application/ports.ts';
@@ -132,9 +141,11 @@ export {
 } from './modules/teaching/application/list-teachers.ts';
 export {
   makeArchiveTeacher,
+  makeChangeTeacherAvailability,
   makeRestoreTeacher,
   makeUpdateTeacher,
   type ArchiveTeacher,
+  type ChangeTeacherAvailability,
   type RestoreTeacher,
   type UpdateTeacher,
 } from './modules/teaching/application/change-teacher.ts';

@@ -93,15 +93,22 @@ const teacherLoads = computed(() =>
   activeTeachers.value
     .map((teacher) => {
       const own = assignments.value.filter((a) => a.teacherId === teacher.id);
+      const total = own.reduce((sum, a) => sum + a.weeklyLessons, 0);
       return {
         id: teacher.id,
         name: teacher.name,
-        total: own.reduce((sum, a) => sum + a.weeklyLessons, 0),
+        total,
+        max: teacher.maxWeeklyLessons,
+        planning: teacher.planningPeriods,
+        over: teacher.maxWeeklyLessons !== null && total > teacher.maxWeeklyLessons,
         classGroups: new Set(own.map((a) => a.classGroupId)).size,
       };
     })
     .toSorted((a, b) => compareNames(a.name, b.name)),
 );
+
+/** A carga máxima é um alerta, não um bloqueio (ADR 0008). */
+const overloaded = computed(() => teacherLoads.value.filter((t) => t.over));
 
 // ---------- Carregamento ----------
 
@@ -504,19 +511,30 @@ onMounted(load);
       </p>
 
       <h2>Carga por professor</h2>
+      <p v-if="overloaded.length > 0" class="error">
+        Acima da carga máxima:
+        {{ overloaded.map((t) => `${t.name} (${t.total} de ${t.max})`).join(', ') }}.
+      </p>
       <p v-if="teacherLoads.length === 0">Nenhum professor cadastrado ainda.</p>
       <table v-else class="table card" aria-label="Carga semanal por professor">
         <thead>
           <tr>
             <th scope="col">Professor</th>
             <th scope="col" class="num">Aulas/semana</th>
+            <th scope="col" class="num">Máximo</th>
+            <th scope="col" class="num">Hora-atividade</th>
             <th scope="col" class="num">Turmas</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="teacherLoad in teacherLoads" :key="teacherLoad.id">
             <th scope="row">{{ teacherLoad.name }}</th>
-            <td class="num">{{ teacherLoad.total }}</td>
+            <td class="num" :class="{ error: teacherLoad.over }">
+              {{ teacherLoad.total }}
+              <span v-if="teacherLoad.over" class="visually-hidden">(acima do máximo)</span>
+            </td>
+            <td class="num">{{ teacherLoad.max ?? '—' }}</td>
+            <td class="num">{{ teacherLoad.planning }}</td>
             <td class="num">{{ teacherLoad.classGroups }}</td>
           </tr>
         </tbody>

@@ -16,6 +16,7 @@ export function stubDeps(): AppDeps {
     updateTeacher: vi.fn(),
     archiveTeacher: vi.fn(),
     restoreTeacher: vi.fn(),
+    changeTeacherAvailability: vi.fn(),
     registerClassGroup: vi.fn(),
     listClassGroups: vi.fn(),
     updateClassGroup: vi.fn(),

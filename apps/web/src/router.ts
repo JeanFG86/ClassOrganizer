@@ -30,6 +30,12 @@ export const router = createRouter({
       meta: { title: 'Professores' },
     },
     {
+      path: '/disponibilidade',
+      name: 'availability',
+      component: () => import('./pages/AvailabilityPage.vue'),
+      meta: { title: 'Disponibilidade' },
+    },
+    {
       path: '/atribuicoes',
       name: 'assignments',
       component: () => import('./pages/AssignmentsPage.vue'),

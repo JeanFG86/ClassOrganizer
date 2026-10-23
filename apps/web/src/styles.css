@@ -505,3 +505,34 @@ td.gap {
   flex: 1 1 14rem;
   width: auto;
 }
+
+.day-toggle[aria-pressed='true'] {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+a.button.small {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+a.button.ghost {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 480px) {
+  .matrix th,
+  .matrix td {
+    padding: 0.35rem 0.25rem;
+  }
+
+  .day-toggle {
+    padding: 0.2rem 0.3rem;
+  }
+
+  .group {
+    padding: 0.75rem 0.4rem;
+  }
+}

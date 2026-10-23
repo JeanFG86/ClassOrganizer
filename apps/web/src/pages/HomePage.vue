@@ -13,7 +13,8 @@
       </li>
       <li>
         <RouterLink to="/professores">Professores</RouterLink>, com as disciplinas que cada um pode
-        lecionar;
+        lecionar, a carga máxima e a hora-atividade, e a
+        <RouterLink to="/disponibilidade">disponibilidade</RouterLink> de cada um;
       </li>
       <li>
         <RouterLink to="/atribuicoes">Atribuições</RouterLink>: quem dá cada disciplina em cada

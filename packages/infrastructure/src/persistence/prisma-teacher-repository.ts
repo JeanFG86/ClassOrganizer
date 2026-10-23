@@ -1,9 +1,10 @@
 import {
+  InvalidAvailabilityError,
   QualificationInUseError,
   StaleVersionError,
   UnknownSubjectError,
 } from '@classorganizer/core';
-import type { Teacher, TeacherRepository } from '@classorganizer/core';
+import type { Teacher, TeacherRepository, Weekday } from '@classorganizer/core';
 import type { Prisma } from '../generated/prisma/client.ts';
 import type { Database } from './database.ts';
 import { PrismaErrorCode, translatePrismaError } from './prisma-errors.ts';
@@ -11,6 +12,10 @@ import { isUuid } from './uuid.ts';
 
 const withSubjects = {
   subjects: { select: { subjectId: true }, orderBy: { position: 'asc' } },
+  unavailable: {
+    select: { weekday: true, periodId: true },
+    orderBy: [{ weekday: 'asc' }, { periodId: 'asc' }],
+  },
 } as const satisfies Prisma.TeacherInclude;
 
 type TeacherRecord = Prisma.TeacherGetPayload<{ include: typeof withSubjects }>;
@@ -20,6 +25,13 @@ function toDomain(record: TeacherRecord): Teacher {
     id: record.id,
     name: record.name,
     subjectIds: record.subjects.map((s) => s.subjectId),
+    maxWeeklyLessons: record.maxWeeklyLessons,
+    planningPeriods: record.planningPeriods,
+    // O CHECK da tabela garante dias de 1 a 5.
+    unavailable: record.unavailable.map((u) => ({
+      weekday: u.weekday as Weekday,
+      periodId: u.periodId,
+    })),
     createdAt: record.createdAt,
     archivedAt: record.archivedAt,
     version: record.version,
@@ -54,6 +66,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
     return record ? toDomain(record) : null;
   }
 
+  /** Professores nascem sem horários indisponíveis (`createTeacher`); eles são gravados por `update`. */
   async add(teacher: Teacher): Promise<void> {
     await translateUnknownSubject(() =>
       // Criação aninhada: professor e habilitações na mesma instrução, de forma atômica.
@@ -61,6 +74,8 @@ export class PrismaTeacherRepository implements TeacherRepository {
         data: {
           id: teacher.id,
           name: teacher.name,
+          maxWeeklyLessons: teacher.maxWeeklyLessons,
+          planningPeriods: teacher.planningPeriods,
           createdAt: teacher.createdAt,
           archivedAt: teacher.archivedAt,
           version: teacher.version,
@@ -76,7 +91,13 @@ export class PrismaTeacherRepository implements TeacherRepository {
       // a linha fica bloqueada até o fim da transação.
       const { count } = await tx.teacher.updateMany({
         where: { id: teacher.id, version: teacher.version },
-        data: { name: teacher.name, archivedAt: teacher.archivedAt, version: { increment: 1 } },
+        data: {
+          name: teacher.name,
+          maxWeeklyLessons: teacher.maxWeeklyLessons,
+          planningPeriods: teacher.planningPeriods,
+          archivedAt: teacher.archivedAt,
+          version: { increment: 1 },
+        },
       });
       if (count === 0) {
         throw new StaleVersionError();
@@ -102,6 +123,17 @@ export class PrismaTeacherRepository implements TeacherRepository {
           }),
         );
       }
+
+      // Nada referencia os horários indisponíveis, então eles são simplesmente substituídos.
+      await tx.teacherUnavailability.deleteMany({ where: { teacherId: teacher.id } });
+      await translatePrismaError(
+        () =>
+          tx.teacherUnavailability.createMany({
+            data: teacher.unavailable.map((slot) => ({ teacherId: teacher.id, ...slot })),
+          }),
+        PrismaErrorCode.foreignKeyViolation,
+        () => new InvalidAvailabilityError(),
+      );
     });
     return { ...teacher, version: teacher.version + 1 };
   }

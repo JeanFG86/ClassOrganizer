@@ -18,7 +18,18 @@ function teacher(
   subjectIds: string[],
   extra: Partial<TeacherDto> = {},
 ): TeacherDto {
-  return { id, name, subjectIds, createdAt, archivedAt: null, version: 1, ...extra };
+  return {
+    id,
+    name,
+    subjectIds,
+    maxWeeklyLessons: null,
+    planningPeriods: 0,
+    unavailable: [],
+    createdAt,
+    archivedAt: null,
+    version: 1,
+    ...extra,
+  };
 }
 
 const math = subject('s1', 'Matemática');
@@ -47,14 +58,20 @@ function fakeTeachersApi(initial: TeacherDto[] = []): TeachersApi & { items: Tea
   return {
     items,
     list: vi.fn(async () => [...items]),
-    register: vi.fn(async ({ name, subjectIds }) => {
-      const created = teacher(`t${items.length + 1}`, name, subjectIds);
+    register: vi.fn(async ({ name, subjectIds, maxWeeklyLessons, planningPeriods }) => {
+      const created = teacher(`t${items.length + 1}`, name, subjectIds, {
+        maxWeeklyLessons,
+        planningPeriods,
+      });
       items.push(created);
       return created;
     }),
-    update: vi.fn(async (id, { name, subjectIds }) => replace(id, { name, subjectIds })),
+    update: vi.fn(async (id, { name, subjectIds, maxWeeklyLessons, planningPeriods }) =>
+      replace(id, { name, subjectIds, maxWeeklyLessons, planningPeriods }),
+    ),
     archive: vi.fn(async (id) => replace(id, { archivedAt: createdAt })),
     restore: vi.fn(async (id) => replace(id, { archivedAt: null })),
+    changeAvailability: vi.fn(),
   };
 }
 
@@ -125,7 +142,12 @@ describe('TeachersPage', () => {
     await wrapper.get('form').trigger('submit');
     await flushPromises();
 
-    expect(teachersApi.register).toHaveBeenCalledWith({ name: 'Ana Souza', subjectIds: ['s2'] });
+    expect(teachersApi.register).toHaveBeenCalledWith({
+      name: 'Ana Souza',
+      subjectIds: ['s2'],
+      maxWeeklyLessons: null,
+      planningPeriods: 0,
+    });
     expect(wrapper.findAll('[role="status"]').map((s) => s.text())).toEqual([
       'Professor(a) "Ana Souza" cadastrado(a).',
     ]);
@@ -200,6 +222,8 @@ describe('TeachersPage', () => {
       expect(teachersApi.update).toHaveBeenCalledWith('t1', {
         name: 'Ana Souza',
         subjectIds: ['s1', 's2'],
+        maxWeeklyLessons: null,
+        planningPeriods: 0,
         version: 1,
       });
       expect(wrapper.get('[role="status"]').text()).toBe('Professor(a) "Ana Souza" atualizado(a).');
@@ -281,6 +305,63 @@ describe('TeachersPage', () => {
       await flushPromises();
 
       expect(wrapper.get('#teacher-form-title').text()).toBe('Novo professor');
+    });
+  });
+
+  describe('carga máxima e hora-atividade', () => {
+    it('cadastra com os valores informados e os mostra na lista', async () => {
+      const teachersApi = fakeTeachersApi();
+      const wrapper = await mountPage(fakeSubjectsApi([math]), teachersApi);
+
+      await wrapper.get('#teacher-name').setValue('Ana');
+      await wrapper.get('#teacher-max-lessons').setValue('20');
+      await wrapper.get('#teacher-planning').setValue('7');
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+
+      expect(teachersApi.register).toHaveBeenCalledWith({
+        name: 'Ana',
+        subjectIds: [],
+        maxWeeklyLessons: 20,
+        planningPeriods: 7,
+      });
+      expect(wrapper.get('ul[aria-label="Professores cadastrados"] .item-detail').text()).toBe(
+        '· até 20 aulas · 7 de hora-atividade',
+      );
+      expect(wrapper.get<HTMLInputElement>('#teacher-max-lessons').element.value).toBe('');
+    });
+
+    it('carrega os valores na edição; apagar a carga máxima envia sem limite', async () => {
+      const teachersApi = fakeTeachersApi([
+        teacher('t1', 'Ana', [], { maxWeeklyLessons: 20, planningPeriods: 7 }),
+      ]);
+      const wrapper = await mountPage(fakeSubjectsApi([math]), teachersApi);
+
+      await wrapper.get('button[aria-label="Editar Ana"]').trigger('click');
+      expect(wrapper.get<HTMLInputElement>('#teacher-max-lessons').element.value).toBe('20');
+      expect(wrapper.get<HTMLInputElement>('#teacher-planning').element.value).toBe('7');
+
+      await wrapper.get('#teacher-max-lessons').setValue('');
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+
+      expect(teachersApi.update).toHaveBeenCalledWith('t1', {
+        name: 'Ana',
+        subjectIds: [],
+        maxWeeklyLessons: null,
+        planningPeriods: 7,
+        version: 1,
+      });
+    });
+
+    it('leva à disponibilidade do professor', async () => {
+      const wrapper = await mountPage(
+        fakeSubjectsApi([math]),
+        fakeTeachersApi([teacher('t1', 'Ana', [])]),
+      );
+
+      const link = wrapper.getComponent(RouterLinkStub);
+      expect(link.props('to')).toEqual({ path: '/disponibilidade', query: { professor: 't1' } });
     });
   });
 });

@@ -4,7 +4,7 @@ Aplicação web para a secretaria escolar distribuir cargas de professores e mon
 
 O plano completo está em [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md) e as decisões técnicas em [docs/adr](docs/adr).
 
-> **Estado atual:** fundação técnica (E1) concluída e cadastros da E3 em andamento: disciplinas, turmas e professores (com habilitações), com edição, arquivamento e proteção contra edição simultânea, atribuição de aulas (quem dá cada disciplina em cada turma e a carga semanal) e turnos com o horário de cada aula, incluindo quais aulas cada turma tem. Próximos passos: disponibilidade e hora-atividade dos professores, aulas com mais de um professor e a prova técnica do motor de horários.
+> **Estado atual:** fundação técnica (E1) concluída e cadastros da E3 em andamento: disciplinas, turmas e professores (com habilitações), com edição, arquivamento e proteção contra edição simultânea, atribuição de aulas (quem dá cada disciplina em cada turma e a carga semanal) turnos com o horário de cada aula (incluindo quais aulas cada turma tem) e, para cada professor, carga máxima, hora-atividade e horários indisponíveis. Próximos passos: aulas com mais de um professor e a prova técnica do motor de horários.
 
 ## Usar localmente (Docker)
 
