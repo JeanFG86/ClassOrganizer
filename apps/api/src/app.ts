@@ -6,8 +6,10 @@ import { registerHealthRoutes } from './http/health-routes.ts';
 import type { HealthDeps } from './http/health-routes.ts';
 import { registerSubjectRoutes } from './http/subject-routes.ts';
 import type { SubjectRoutesDeps } from './http/subject-routes.ts';
+import { registerTeacherRoutes } from './http/teacher-routes.ts';
+import type { TeacherRoutesDeps } from './http/teacher-routes.ts';
 
-export type AppDeps = HealthDeps & SubjectRoutesDeps;
+export type AppDeps = HealthDeps & SubjectRoutesDeps & TeacherRoutesDeps;
 
 export interface AppOptions {
   logger: FastifyServerOptions['logger'];
@@ -24,6 +26,7 @@ export function buildApp(deps: AppDeps, options: AppOptions): FastifyInstance {
   registerErrorHandling(app);
   registerHealthRoutes(app, deps);
   registerSubjectRoutes(app, deps);
+  registerTeacherRoutes(app, deps);
 
   return app;
 }

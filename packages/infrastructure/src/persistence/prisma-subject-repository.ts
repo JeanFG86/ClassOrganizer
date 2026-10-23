@@ -1,10 +1,16 @@
 import { SubjectNameAlreadyInUseError } from '@classorganizer/core';
-import type { Subject, SubjectRepository } from '@classorganizer/core';
+import type { Subject, SubjectLookup, SubjectRepository } from '@classorganizer/core';
 import { Prisma } from '../generated/prisma/client.ts';
 import type { Subject as SubjectRecord } from '../generated/prisma/client.ts';
 import type { Database } from './database.ts';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Ids que não são UUID não existem no banco; filtrá-los evita erro de conversão do PostgreSQL. */
+function isUuid(id: string): boolean {
+  return UUID_PATTERN.test(id);
+}
 
 function toDomain(record: SubjectRecord): Subject {
   return {
@@ -15,7 +21,8 @@ function toDomain(record: SubjectRecord): Subject {
   };
 }
 
-export class PrismaSubjectRepository implements SubjectRepository {
+/** Também atende a porta `SubjectLookup` do módulo de ensino. */
+export class PrismaSubjectRepository implements SubjectRepository, SubjectLookup {
   readonly #db: Database;
 
   constructor(db: Database) {
@@ -49,6 +56,17 @@ export class PrismaSubjectRepository implements SubjectRepository {
       }
       throw error;
     }
+  }
+
+  async existingSubjectIds(ids: readonly string[]): Promise<Set<string>> {
+    if (ids.length === 0) {
+      return new Set();
+    }
+    const found = await this.#db.subject.findMany({
+      where: { id: { in: ids.filter(isUuid) } },
+      select: { id: true },
+    });
+    return new Set(found.map((s) => s.id));
   }
 
   async listAll(): Promise<Subject[]> {

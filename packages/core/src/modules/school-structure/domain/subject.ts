@@ -1,4 +1,5 @@
 import { DomainError } from '../../../shared/domain-error.ts';
+import { cleanName, normalizeName } from '../../../shared/names.ts';
 
 export const SUBJECT_NAME_MAX_LENGTH = 80;
 
@@ -24,19 +25,10 @@ export class SubjectNameAlreadyInUseError extends DomainError {
   }
 }
 
-export function cleanSubjectName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ');
-}
-
-export function normalizeSubjectName(name: string): string {
-  return cleanSubjectName(name)
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLocaleLowerCase('pt-BR');
-}
+export const normalizeSubjectName = normalizeName;
 
 export function createSubject(input: { id: string; name: string; createdAt: Date }): Subject {
-  const name = cleanSubjectName(input.name);
+  const name = cleanName(input.name);
 
   if (name.length === 0) {
     throw new InvalidSubjectNameError('Informe o nome da disciplina.');

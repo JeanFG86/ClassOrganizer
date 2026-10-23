@@ -11,6 +11,12 @@ export const router = createRouter({
       component: () => import('./pages/SubjectsPage.vue'),
       meta: { title: 'Disciplinas' },
     },
+    {
+      path: '/professores',
+      name: 'teachers',
+      component: () => import('./pages/TeachersPage.vue'),
+      meta: { title: 'Professores' },
+    },
   ],
 });
 
