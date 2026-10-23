@@ -13,3 +13,8 @@ test-results/
 backups/
 *.dump
 **/src/generated/
+
+# Dados locais de trabalho: não versionar
+privado/
+*.roz
+*.xlsx
