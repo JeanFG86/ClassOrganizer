@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAccess } from '../services/access-api.ts';
 import type { AssignmentDto, ShiftDto, TeacherDto } from '@classorganizer/contracts';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -10,6 +11,7 @@ import { ordinal } from '../services/periods.ts';
 import { shiftsApiKey } from '../services/shifts-api.ts';
 import { teachersApiKey } from '../services/teachers-api.ts';
 
+const { canWrite } = useAccess();
 const teachersApi = injectRequired(teachersApiKey);
 const shiftsApi = injectRequired(shiftsApiKey);
 const assignmentsApi = injectRequired(assignmentsApiKey);
@@ -213,6 +215,7 @@ onMounted(load);
                   <button
                     type="button"
                     class="small ghost day-toggle"
+                    :disabled="!canWrite"
                     :aria-pressed="dayFullyBlocked(shift, weekday.value)"
                     :aria-label="`${weekday.long} inteira indisponível na ${shift.name}`"
                     @click="toggleDay(shift, weekday.value)"
@@ -230,6 +233,7 @@ onMounted(load);
                 <td v-for="weekday in WEEKDAYS" :key="weekday.value">
                   <input
                     type="checkbox"
+                    :disabled="!canWrite"
                     :checked="draft.has(key(weekday.value, period.id))"
                     :aria-label="cellLabel(shift, index, weekday)"
                     @change="
@@ -243,10 +247,15 @@ onMounted(load);
         </section>
 
         <div class="form-actions">
-          <button type="button" :disabled="saving || !dirty" @click="save">
+          <button type="button" :disabled="saving || !dirty || !canWrite" @click="save">
             {{ saving ? 'Salvando…' : 'Salvar disponibilidade' }}
           </button>
-          <button type="button" class="ghost" :disabled="saving || !dirty" @click="resetDraft">
+          <button
+            type="button"
+            class="ghost"
+            :disabled="saving || !dirty || !canWrite"
+            @click="resetDraft"
+          >
             Desfazer alterações
           </button>
         </div>

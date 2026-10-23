@@ -24,6 +24,7 @@ export type AppDeps = HealthDeps &
 
 export interface AppOptions {
   logger: FastifyServerOptions['logger'];
+  configure?: (app: FastifyInstance) => void;
 }
 
 /** Monta a aplicação HTTP a partir dos casos de uso já compostos. Não abre portas. */
@@ -35,6 +36,7 @@ export function buildApp(deps: AppDeps, options: AppOptions): FastifyInstance {
   });
 
   registerErrorHandling(app);
+  options.configure?.(app);
   registerHealthRoutes(app, deps);
   registerSubjectRoutes(app, deps);
   registerTeacherRoutes(app, deps);

@@ -12,3 +12,16 @@ export {
   type LogLevel,
   type Logger,
 } from './logging/logger.ts';
+
+export { type PersistenceClient } from './persistence/database.ts';
+export { createAccessUnitOfWork, sessionActor, audit } from './access/unit-of-work.ts';
+export {
+  makeAccounts,
+  makeLogin,
+  prepareAccount,
+  preparePassword,
+  publicUser,
+  bootstrapAdmin,
+} from './access/accounts.ts';
+export { hashToken } from './access/passwords.ts';
+export { PrismaPlanningRepository } from './persistence/prisma-planning-repository.ts';

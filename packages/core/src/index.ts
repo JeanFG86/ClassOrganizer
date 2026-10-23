@@ -178,3 +178,9 @@ export {
   makeGenerateTimetable,
   type GenerateTimetable,
 } from './modules/generation/application/generate-timetable.ts';
+
+export * from './modules/access/domain/access.ts';
+export * from './modules/access/application/authorize.ts';
+export * from './modules/planning/domain/planning.ts';
+export * from './modules/planning/application/plannings.ts';
+export * from './modules/access/application/accounts.ts';

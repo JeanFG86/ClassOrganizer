@@ -6,7 +6,7 @@ import type {
   SubjectStatus,
 } from '@classorganizer/core';
 import type { Subject as SubjectRecord } from '../generated/prisma/client.ts';
-import type { Database } from './database.ts';
+import type { PersistenceClient } from './database.ts';
 import { PrismaErrorCode, isPrismaError } from './prisma-errors.ts';
 import { isUuid } from './uuid.ts';
 
@@ -27,9 +27,9 @@ function isUniqueViolation(error: unknown): boolean {
 
 /** Também atende a porta `SubjectLookup` do módulo de ensino. */
 export class PrismaSubjectRepository implements SubjectRepository, SubjectLookup {
-  readonly #db: Database;
+  readonly #db: PersistenceClient;
 
-  constructor(db: Database) {
+  constructor(db: PersistenceClient) {
     this.#db = db;
   }
 

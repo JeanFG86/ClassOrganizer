@@ -6,7 +6,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 - **Produto:** organizador de aulas para a secretaria de uma escola. Distribui as cargas dos professores e monta a grade semanal.
 - **Plano completo:** [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md), com as entregas E0 a E9.
-- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0010).
+- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0012).
 - **Como rodar:** [README.md](README.md).
 
 ---
@@ -32,24 +32,25 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ## 2. Onde o projeto está
 
-### Já entregue (PRs #1 a #8, todos na `main`)
+### Já entregue (PRs #1 a #9, todos na `main`)
 
-| PR  | Branch                       | Entrega                                                                                                                                                                           |
-| --- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| #1  | `e1/fundacao`                | **E1:** monorepo pnpm, TypeScript estrito, Fastify, Prisma/PostgreSQL, Vue, worker, Docker Compose, CI (3 jobs), regras de arquitetura (dependency-cruiser), Vitest e Playwright. |
-| #2  | `e3/professores`             | Disciplinas e professores com habilitações; E2E do CI na imagem oficial do Playwright.                                                                                            |
-| #3  | `e3/editar-arquivar`         | Editar, arquivar e restaurar, com controle otimista de versão ([ADR 0005](docs/adr/0005-concorrencia-otimista-e-arquivamento.md)).                                                |
-| #4  | `e3/turmas-atribuicoes`      | Turmas e atribuições de ensino (turma + disciplina → professor + aulas por semana) ([ADR 0006](docs/adr/0006-atribuicoes-de-ensino.md)).                                          |
-| #5  | `chore/ignorar-dados-locais` | `.gitignore` para `privado/`, `*.roz` e `*.xlsx`.                                                                                                                                 |
-| #6  | `e3/turnos-horarios`         | Turnos com horário de cada aula e as aulas que cada turma usa ([ADR 0007](docs/adr/0007-turnos-e-aulas.md)).                                                                      |
-| #7  | `e3/disponibilidade-ha`      | Carga máxima, hora-atividade e horários indisponíveis do professor ([ADR 0008](docs/adr/0008-carga-e-disponibilidade-do-professor.md)).                                           |
-| #8  | `e3/aulas-compartilhadas`    | Atribuições em blocos simultâneos com um ou mais professores e disciplinas; divisão de carga em blocos separados ([ADR 0009](docs/adr/0009-aulas-compartilhadas.md)).             |
+| PR  | Branch                       | Entrega                                                                                                                                                                                                    |
+| --- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #1  | `e1/fundacao`                | **E1:** monorepo pnpm, TypeScript estrito, Fastify, Prisma/PostgreSQL, Vue, worker, Docker Compose, CI (3 jobs), regras de arquitetura (dependency-cruiser), Vitest e Playwright.                          |
+| #2  | `e3/professores`             | Disciplinas e professores com habilitações; E2E do CI na imagem oficial do Playwright.                                                                                                                     |
+| #3  | `e3/editar-arquivar`         | Editar, arquivar e restaurar, com controle otimista de versão ([ADR 0005](docs/adr/0005-concorrencia-otimista-e-arquivamento.md)).                                                                         |
+| #4  | `e3/turmas-atribuicoes`      | Turmas e atribuições de ensino (turma + disciplina → professor + aulas por semana) ([ADR 0006](docs/adr/0006-atribuicoes-de-ensino.md)).                                                                   |
+| #5  | `chore/ignorar-dados-locais` | `.gitignore` para `privado/`, `*.roz` e `*.xlsx`.                                                                                                                                                          |
+| #6  | `e3/turnos-horarios`         | Turnos com horário de cada aula e as aulas que cada turma usa ([ADR 0007](docs/adr/0007-turnos-e-aulas.md)).                                                                                               |
+| #7  | `e3/disponibilidade-ha`      | Carga máxima, hora-atividade e horários indisponíveis do professor ([ADR 0008](docs/adr/0008-carga-e-disponibilidade-do-professor.md)).                                                                    |
+| #8  | `e3/aulas-compartilhadas`    | Atribuições em blocos simultâneos com um ou mais professores e disciplinas; divisão de carga em blocos separados ([ADR 0009](docs/adr/0009-aulas-compartilhadas.md)).                                      |
+| #9  | `e2/motor-prova`             | **E2:** contrato autocontido, validador independente, motor TypeScript em thread e benchmark; homologação operacional pendente antes da E6 ([ADR 0010](docs/adr/0010-motor-de-referencia-e-validacao.md)). |
 
-**Telas existentes:** Início, Disciplinas, Turmas, Turnos (`/turnos`), Professores, Disponibilidade (`/disponibilidade`) e Atribuições.
+**Telas existentes:** Início, Disciplinas, Turmas, Turnos (`/turnos`), Professores, Disponibilidade (`/disponibilidade`) e Atribuições; Entrar, Minha conta, Acessos, Planejamentos e Auditoria na E4.
 
 ### Entrega em revisão
 
-- **E2 — prova do motor:** contrato autocontido, validador independente, busca TypeScript isolada em thread e CLI/benchmark. Veja a [ADR 0010](docs/adr/0010-motor-de-referencia-e-validacao.md) e a [prova técnica](docs/testing/motor-prova.md). Metas no hardware pretendido e homologação das políticas completas continuam pendentes antes da E6.
+- **E4 — acesso e revisões:** contas locais sem credenciais padrão, papéis, sessões persistidas, autorização no core, auditoria atômica e planejamentos com fotografias da base, cópia e conferências. Veja as ADRs [0011](docs/adr/0011-acesso-e-sessoes.md) e [0012](docs/adr/0012-planejamentos-e-revisoes.md) e o [primeiro acesso](docs/operations/acesso-local.md). A grade manual entra na E5.
 
 ### Situação da E0 (levantamento)
 
@@ -75,7 +76,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 ## 3. O que falta fazer (ordem sugerida)
 
 1. **Recursos especiais, se forem confirmados** (quadra, laboratório): o item "configuração dos recursos especiais" da E3.
-2. **E4 a E8** conforme o plano: login e papéis; revisões e auditoria; grade manual com validador; geração no worker; versões e saídas (PDF, XLSX, CSV); piloto, backup e operação local.
+2. **E5 a E8** conforme o plano: grade manual com validador; geração no worker; versões e saídas (PDF, XLSX, CSV); piloto, backup e operação local.
 
 **Antes de E6:** pactuar metas e repetir a prova do motor com as políticas completas. Os relatórios de referência e crescimento ficam somente em `privado/e2/`; não publicar volumes nem resultados derivados da escola. O exemplo público é inteiramente fictício.
 
@@ -111,6 +112,8 @@ tests/e2e           Playwright contra o Compose completo
 - pnpm 10, TypeScript 6 estrito (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `erasableSyntaxOnly`: **sem `enum` e sem _parameter properties_**).
 - Fastify 5, Zod 4, Prisma 7 (gerador `prisma-client`, saída em `src/generated/prisma`), PostgreSQL 18, Vue 3.5, Vitest 4, Playwright 1.64.
 
+**Acesso e revisões:** a produção usa `createSecureApp`; todo caso de uso exposto é protegido por `makeAuthorizedOperation`. Escritas, versão do catálogo e auditoria usam a mesma transação e o bloqueio `app_state`. Repositórios aceitam cliente transacional. Cadastros são a base compartilhada; cada revisão guarda uma fotografia imutável. A E5 deve manter autorização, versão do planejamento e auditoria na edição da grade.
+
 **Camadas** (verificadas por `pnpm check:arch`):
 
 - `core` não importa framework nem pacote npm em tempo de execução.
@@ -123,7 +126,7 @@ tests/e2e           Playwright contra o Compose completo
 - **Módulos:** `school-structure` (disciplinas, turmas, turnos) e `teaching` (professores, atribuições).
 - **Casos de uso** são fábricas `makeX(deps)` que devolvem uma função. Os tipos são exportados como `type X = ReturnType<typeof makeX>`.
 - **Portas:** são definidas pelo módulo que as usa (por exemplo, `SubjectLookup`, `PeriodLookup` em `teaching/application/ports.ts`) e implementadas pelos repositórios.
-- **Erros:** `DomainError` tem `code` estável e `kind` (`validation`, `conflict` ou `not_found`), que a API traduz para 400, 409 ou 404. As mensagens são para a secretaria, em português.
+- **Erros:** `DomainError` tem `code` estável e `kind` (`validation`, `conflict`, `not_found`, `unauthorized`, `forbidden` ou `rate_limit`), que a API traduz para 400, 409, 404, 401, 403 ou 429. As mensagens são para a secretaria, em português.
 - **Concorrência otimista:** todo cadastro tem `version`. A gravação usa `updateMany WHERE id AND version` e, se nada mudar, lança `StaleVersionError` (409 `concurrency.stale`). A tela recarrega.
 - **Arquivar em vez de excluir** (`archivedAt`), com restaurar.
 - **Listas filhas** (habilitações, aulas do turno, aulas da turma) são atualizadas **por diferença**: as que vêm com `id` mantêm a identidade, as novas são criadas e as ausentes são removidas.
@@ -175,7 +178,7 @@ Fluxo usado em todas as entregas até agora:
    pnpm verify                                   # formatação, lint, tipos, arquitetura, unidade e componentes
    pnpm test:integration                         # PostgreSQL via Testcontainers (requer Docker)
    docker compose up -d --build --wait           # sobe a stack com a migração nova
-   pnpm test:e2e                                 # Playwright contra http://localhost:8080
+   pnpm test:e2e                                 # administrador fictício e setup: docs/operations/acesso-local.md; Playwright contra http://localhost:8080
    ```
    Confira também a tela nova a 375 px de largura e rode a verificação de nomes (regra 1).
 4. **Commit único por entrega**, com mensagem em português:

@@ -15,3 +15,6 @@ privado
 **/*.roz
 **/*.xlsx
 *.log
+
+.auth/
+**/.auth/

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAccess } from '../services/access-api.ts';
 import type { ClassGroupDto, ShiftDto } from '@classorganizer/contracts';
 import { computed, nextTick, ref } from 'vue';
 import { classGroupsApiKey } from '../services/class-groups-api.ts';
@@ -17,6 +18,7 @@ import { shiftsApiKey } from '../services/shifts-api.ts';
 import PeriodsEditor from './PeriodsEditor.vue';
 
 /** Um turno ativo: as aulas do dia e as turmas que usam cada aula. */
+const { canWrite } = useAccess();
 const props = defineProps<{
   shift: ShiftDto;
   /** Todas as turmas ativas, de qualquer turno. */
@@ -176,12 +178,12 @@ const periodTitle = (index: number) => {
     <div class="shift-header">
       <h2 :id="`${prefix}-title`" class="group-title">{{ shift.name }}</h2>
       <span class="muted">{{ summary }}</span>
-      <span v-if="!editing" class="item-actions">
+      <span v-if="!editing && canWrite" class="item-actions">
         <button
           type="button"
           class="small ghost"
           :aria-label="`Editar o turno ${shift.name}`"
-          :disabled="busy"
+          :disabled="busy || !canWrite"
           @click="startEdit"
         >
           Editar
@@ -190,7 +192,7 @@ const periodTitle = (index: number) => {
           type="button"
           class="small ghost"
           :aria-label="`Arquivar o turno ${shift.name}`"
-          :disabled="busy"
+          :disabled="busy || !canWrite"
           @click="archive"
         >
           Arquivar
@@ -203,7 +205,9 @@ const periodTitle = (index: number) => {
       <input :id="`${prefix}-name`" v-model="draftName" maxlength="40" autocomplete="off" />
       <PeriodsEditor v-model="draftPeriods" :id-prefix="`${prefix}-edit`" />
       <div class="form-actions">
-        <button type="submit" :disabled="busy">{{ busy ? 'Salvando…' : 'Salvar' }}</button>
+        <button type="submit" :disabled="busy || !canWrite">
+          {{ busy ? 'Salvando…' : 'Salvar' }}
+        </button>
         <button type="button" class="ghost" @click="editing = false">Cancelar</button>
       </div>
     </form>
@@ -249,7 +253,7 @@ const periodTitle = (index: number) => {
                 type="checkbox"
                 :checked="classGroup.periodIds.includes(period.id)"
                 :aria-label="`${classGroup.name}: ${periodTitle(index)}`"
-                :disabled="busy"
+                :disabled="busy || !canWrite"
                 @change="toggle(classGroup, period.id, $event)"
               />
             </td>
@@ -258,7 +262,7 @@ const periodTitle = (index: number) => {
                 type="button"
                 class="small ghost"
                 :aria-label="`Tirar ${classGroup.name} do turno`"
-                :disabled="busy"
+                :disabled="busy || !canWrite"
                 @click="schedule(classGroup, [])"
               >
                 Tirar do turno
@@ -270,7 +274,7 @@ const periodTitle = (index: number) => {
     </div>
 
     <form
-      v-if="candidates.length > 0"
+      v-if="candidates.length > 0 && canWrite"
       class="row add-class"
       novalidate
       @submit.prevent="addClassGroup"
@@ -282,7 +286,7 @@ const periodTitle = (index: number) => {
           {{ candidateLabel(classGroup) }}
         </option>
       </select>
-      <button type="submit" class="small" :disabled="busy">Adicionar</button>
+      <button type="submit" class="small" :disabled="busy || !canWrite">Adicionar</button>
     </form>
   </section>
 </template>

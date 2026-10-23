@@ -26,6 +26,7 @@ export async function apiRequest<T extends z.ZodType>(
       ...init,
       headers: {
         accept: 'application/json',
+        'x-entreaulas-client': 'web',
         // Sem corpo, o content-type JSON faria o servidor recusar a requisição (ex.: DELETE).
         ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
         ...init.headers,
@@ -38,6 +39,9 @@ export async function apiRequest<T extends z.ZodType>(
   const body: unknown = await response.json().catch(() => undefined);
 
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/auth/'))
+      window.dispatchEvent(new Event('session-expired'));
+
     const parsed = apiErrorSchema.safeParse(body);
     throw parsed.success
       ? new ApiRequestError(parsed.data.error.code, parsed.data.error.message, response.status)

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAccess } from '../services/access-api.ts';
 import type {
   AssignmentDto,
   ClassGroupDto,
@@ -15,6 +16,7 @@ import { compareNames } from '../services/names.ts';
 import { subjectsApiKey } from '../services/subjects-api.ts';
 import { teachersApiKey } from '../services/teachers-api.ts';
 
+const { canWrite } = useAccess();
 const assignmentsApi = injectRequired(assignmentsApiKey);
 const classGroupsApi = injectRequired(classGroupsApiKey);
 const subjectsApi = injectRequired(subjectsApiKey);
@@ -261,6 +263,7 @@ onMounted(load);
     </div>
     <template v-else>
       <form
+        v-if="canWrite"
         class="card"
         novalidate
         aria-labelledby="assignment-form-title"
@@ -270,7 +273,11 @@ onMounted(load);
         <div class="grid-form">
           <div>
             <label for="assignment-class-group">Turma</label>
-            <select id="assignment-class-group" v-model="form.classGroupId" :disabled="saving">
+            <select
+              id="assignment-class-group"
+              v-model="form.classGroupId"
+              :disabled="saving || !canWrite"
+            >
               <option value="">Escolha a turma</option>
               <option v-for="c in activeClassGroups" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
@@ -285,7 +292,7 @@ onMounted(load);
               min="1"
               :max="MAX_WEEKLY_LESSONS"
               step="1"
-              :disabled="saving"
+              :disabled="saving || !canWrite"
             />
           </div>
         </div>
@@ -294,12 +301,14 @@ onMounted(load);
           id-prefix="assignment"
           :subjects="subjects"
           :teachers="teachers"
-          :disabled="saving"
+          :disabled="saving || !canWrite"
         />
         <p v-if="activeClassGroups.length === 0" class="hint">
           Nenhuma turma cadastrada. <RouterLink to="/turmas">Cadastre as turmas</RouterLink>.
         </p>
-        <button type="submit" :disabled="saving">{{ saving ? 'Salvando…' : 'Atribuir' }}</button>
+        <button type="submit" :disabled="saving || !canWrite">
+          {{ saving ? 'Salvando…' : 'Atribuir' }}
+        </button>
         <p
           v-if="formFeedback"
           :class="formFeedback.kind === 'error' ? 'error' : 'success'"
@@ -353,7 +362,7 @@ onMounted(load);
                       :id-prefix="'edit-' + assignment.id"
                       :subjects="subjects"
                       :teachers="teachers"
-                      :disabled="busy"
+                      :disabled="busy || !canWrite"
                     />
                     <label :for="'edit-lessons-' + assignment.id"
                       >Aulas por semana do bloco {{ index + 1 }}</label
@@ -366,11 +375,16 @@ onMounted(load);
                       min="1"
                       :max="MAX_WEEKLY_LESSONS"
                       step="1"
-                      :disabled="busy"
+                      :disabled="busy || !canWrite"
                     />
                     <div class="form-actions">
-                      <button type="submit" :disabled="busy">Salvar</button
-                      ><button type="button" class="ghost" :disabled="busy" @click="editing = null">
+                      <button type="submit" :disabled="busy || !canWrite">Salvar</button
+                      ><button
+                        type="button"
+                        class="ghost"
+                        :disabled="busy || !canWrite"
+                        @click="editing = null"
+                      >
                         Cancelar
                       </button>
                     </div>
@@ -394,7 +408,7 @@ onMounted(load);
                       :aria-label="
                         'Confirmar remoção do bloco ' + (index + 1) + ' em ' + group.name
                       "
-                      :disabled="busy"
+                      :disabled="busy || !canWrite"
                       @click="remove(assignment)"
                     >
                       Sim, remover
@@ -402,7 +416,7 @@ onMounted(load);
                     <button
                       type="button"
                       class="small ghost"
-                      :disabled="busy"
+                      :disabled="busy || !canWrite"
                       @click="confirmingRemovalId = null"
                     >
                       Não
@@ -413,7 +427,7 @@ onMounted(load);
                       type="button"
                       class="small ghost"
                       :aria-label="'Editar bloco ' + (index + 1) + ' em ' + group.name"
-                      :disabled="busy"
+                      :disabled="busy || !canWrite"
                       @click="startEdit(assignment)"
                     >
                       Editar
@@ -422,7 +436,7 @@ onMounted(load);
                       type="button"
                       class="small ghost"
                       :aria-label="'Remover bloco ' + (index + 1) + ' em ' + group.name"
-                      :disabled="busy"
+                      :disabled="busy || !canWrite"
                       @click="
                         clearFeedback();
                         editing = null;

@@ -23,7 +23,8 @@
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:arch && pnpm test",
     "engine:solve": "node apps/worker/src/generation/cli.ts",
     "benchmark:engine": "node apps/worker/src/generation/benchmark.ts",
-    "engine:fixture": "node apps/worker/src/generation/synthetic-cli.ts"
+    "engine:fixture": "node apps/worker/src/generation/synthetic-cli.ts",
+    "admin:create": "node --env-file-if-exists=.env apps/api/src/bootstrap-admin.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

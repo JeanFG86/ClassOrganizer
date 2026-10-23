@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAccess } from '../services/access-api.ts';
 import type { ClassGroupDto, ShiftDto } from '@classorganizer/contracts';
 import { computed, onMounted, ref } from 'vue';
 import PeriodsEditor from '../components/PeriodsEditor.vue';
@@ -10,6 +11,7 @@ import { compareNames } from '../services/names.ts';
 import { nextPeriodDraft, periodInputs, type PeriodDraft } from '../services/periods.ts';
 import { shiftsApiKey } from '../services/shifts-api.ts';
 
+const { canWrite } = useAccess();
 const shiftsApi = injectRequired(shiftsApiKey);
 const classGroupsApi = injectRequired(classGroupsApiKey);
 
@@ -117,7 +119,7 @@ onMounted(load);
       turma tem: turmas do mesmo turno podem ter quantidades diferentes de aulas.
     </p>
 
-    <form class="card" novalidate @submit.prevent="submit">
+    <form v-if="canWrite" class="card" novalidate @submit.prevent="submit">
       <h2 class="form-title">Novo turno</h2>
       <label for="shift-name">Nome do turno</label>
       <input
@@ -130,7 +132,7 @@ onMounted(load);
         :aria-describedby="formFeedback?.kind === 'error' ? 'shift-form-error' : undefined"
       />
       <PeriodsEditor v-model="periods" id-prefix="new-shift" />
-      <button type="submit" :disabled="saving">
+      <button type="submit" :disabled="saving || !canWrite">
         {{ saving ? 'Salvando…' : 'Cadastrar turno' }}
       </button>
       <p v-if="formFeedback?.kind === 'error'" id="shift-form-error" class="error" role="alert">
@@ -187,7 +189,7 @@ onMounted(load);
                 type="button"
                 class="small ghost"
                 :aria-label="`Restaurar o turno ${shift.name}`"
-                :disabled="busy"
+                :disabled="busy || !canWrite"
                 @click="restore(shift)"
               >
                 Restaurar

@@ -38,6 +38,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
       if (tables.length > 0) {
         const list = tables.map((t) => `"${t.tablename}"`).join(', ');
         await db.$executeRawUnsafe(`TRUNCATE ${list} CASCADE`);
+        await db.appState.create({ data: { id: 1, catalogVersion: 1 } });
       }
     },
     async stop() {
