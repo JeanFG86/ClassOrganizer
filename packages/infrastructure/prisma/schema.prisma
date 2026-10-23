@@ -15,20 +15,35 @@ datasource db {
 }
 
 model Subject {
-  id             String   @id @db.Uuid
-  name           String   @db.VarChar(80)
-  normalizedName String   @unique(map: "subject_normalized_name_key") @map("normalized_name") @db.VarChar(80)
+  id             String    @id @db.Uuid
+  name           String    @db.VarChar(80)
+  normalizedName String    @unique(map: "subject_normalized_name_key") @map("normalized_name") @db.VarChar(80)
   createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
   version        Int       @default(1)
 
-  teachers TeacherSubject[]
+  teachers    TeacherSubject[]
+  assignments TeachingAssignment[]
 
   @@map("subject")
 }
 
+/// Turma. Turno e períodos obrigatórios entram após a E0.
+model ClassGroup {
+  id             String    @id @db.Uuid
+  name           String    @db.VarChar(40)
+  normalizedName String    @unique(map: "class_group_normalized_name_key") @map("normalized_name") @db.VarChar(40)
+  createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  version        Int       @default(1)
+
+  assignments TeachingAssignment[]
+
+  @@map("class_group")
+}
+
 model Teacher {
-  id        String   @id @db.Uuid
+  id         String    @id @db.Uuid
   name       String    @db.VarChar(120)
   createdAt  DateTime  @map("created_at") @db.Timestamptz(3)
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
@@ -46,10 +61,32 @@ model TeacherSubject {
   /// Preserva a ordem informada no cadastro.
   position  Int    @db.SmallInt
 
-  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacher     Teacher              @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject     Subject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  assignments TeachingAssignment[]
 
   @@id([teacherId, subjectId])
   @@index([subjectId])
   @@map("teacher_subject")
+}
+
+/// Atribuição de ensino: professor responsável pela disciplina na turma e carga semanal.
+model TeachingAssignment {
+  id            String   @id @db.Uuid
+  classGroupId  String   @map("class_group_id") @db.Uuid
+  subjectId     String   @map("subject_id") @db.Uuid
+  teacherId     String   @map("teacher_id") @db.Uuid
+  /// Unidades de aula por semana (1 a 40).
+  weeklyLessons Int      @map("weekly_lessons") @db.SmallInt
+  createdAt     DateTime @map("created_at") @db.Timestamptz(3)
+  version       Int      @default(1)
+
+  classGroup    ClassGroup     @relation(fields: [classGroupId], references: [id], onDelete: Restrict)
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  /// FK composta: o banco garante que o professor é habilitado na disciplina.
+  qualification TeacherSubject @relation(fields: [teacherId, subjectId], references: [teacherId, subjectId], onDelete: Restrict)
+
+  @@unique([classGroupId, subjectId], map: "teaching_assignment_class_group_subject_key")
+  @@index([teacherId, subjectId])
+  @@map("teaching_assignment")
 }

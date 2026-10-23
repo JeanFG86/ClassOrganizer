@@ -1,3 +1,4 @@
+import type { EntityStatus } from '../../../shared/archiving.ts';
 import { DomainError, NotFoundError } from '../../../shared/domain-error.ts';
 import { cleanName } from '../../../shared/names.ts';
 
@@ -43,7 +44,31 @@ export class TeacherNotFoundError extends NotFoundError {
   }
 }
 
-export type SubjectStatus = 'active' | 'archived';
+export class QualificationInUseError extends DomainError {
+  readonly code = 'teacher.qualification_in_use';
+  readonly kind = 'conflict';
+
+  constructor() {
+    super(
+      'Não é possível remover a habilitação: o professor tem aulas atribuídas nessa disciplina. ' +
+        'Transfira ou remova as atribuições antes.',
+    );
+  }
+}
+
+export class TeacherHasAssignmentsError extends DomainError {
+  readonly code = 'teacher.has_assignments';
+  readonly kind = 'conflict';
+
+  constructor() {
+    super(
+      'Não é possível arquivar: o professor tem aulas atribuídas. ' +
+        'Transfira ou remova as atribuições antes.',
+    );
+  }
+}
+
+export type SubjectStatus = EntityStatus;
 
 /**
  * Regras das habilitações: toda disciplina precisa existir; uma disciplina arquivada só

@@ -26,7 +26,8 @@ import {
 } from '@classorganizer/core';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildApp, type AppDeps } from './app.ts';
+import type { AppDeps } from './app.ts';
+import { buildTestApp } from './testing/stub-deps.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const archivedAt = new Date('2026-03-01T12:00:00.000Z');
@@ -36,23 +37,19 @@ const math = createSubject({ id: MATH_ID, name: 'Matemática', createdAt });
 const ana = createTeacher({ id: ANA_ID, name: 'Ana Souza', subjectIds: [MATH_ID], createdAt });
 
 function makeApp(overrides: Partial<AppDeps> = {}): FastifyInstance {
-  return buildApp(
-    {
-      registerSubject: vi.fn<RegisterSubject>(async () => math),
-      listSubjects: vi.fn<ListSubjects>(async () => [math]),
-      updateSubject: vi.fn<UpdateSubject>(async () => ({ ...math, version: 2 })),
-      archiveSubject: vi.fn<ArchiveSubject>(async () => ({ ...math, archivedAt, version: 2 })),
-      restoreSubject: vi.fn<RestoreSubject>(async () => ({ ...math, version: 3 })),
-      registerTeacher: vi.fn<RegisterTeacher>(async () => ana),
-      listTeachers: vi.fn<ListTeachers>(async () => [ana]),
-      updateTeacher: vi.fn<UpdateTeacher>(async () => ({ ...ana, version: 2 })),
-      archiveTeacher: vi.fn<ArchiveTeacher>(async () => ({ ...ana, archivedAt, version: 2 })),
-      restoreTeacher: vi.fn<RestoreTeacher>(async () => ({ ...ana, version: 3 })),
-      checkReadiness: async () => {},
-      ...overrides,
-    },
-    { logger: false },
-  );
+  return buildTestApp({
+    registerSubject: vi.fn<RegisterSubject>(async () => math),
+    listSubjects: vi.fn<ListSubjects>(async () => [math]),
+    updateSubject: vi.fn<UpdateSubject>(async () => ({ ...math, version: 2 })),
+    archiveSubject: vi.fn<ArchiveSubject>(async () => ({ ...math, archivedAt, version: 2 })),
+    restoreSubject: vi.fn<RestoreSubject>(async () => ({ ...math, version: 3 })),
+    registerTeacher: vi.fn<RegisterTeacher>(async () => ana),
+    listTeachers: vi.fn<ListTeachers>(async () => [ana]),
+    updateTeacher: vi.fn<UpdateTeacher>(async () => ({ ...ana, version: 2 })),
+    archiveTeacher: vi.fn<ArchiveTeacher>(async () => ({ ...ana, archivedAt, version: 2 })),
+    restoreTeacher: vi.fn<RestoreTeacher>(async () => ({ ...ana, version: 3 })),
+    ...overrides,
+  });
 }
 
 describe('API HTTP', () => {

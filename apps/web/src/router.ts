@@ -12,10 +12,22 @@ export const router = createRouter({
       meta: { title: 'Disciplinas' },
     },
     {
+      path: '/turmas',
+      name: 'class-groups',
+      component: () => import('./pages/ClassGroupsPage.vue'),
+      meta: { title: 'Turmas' },
+    },
+    {
       path: '/professores',
       name: 'teachers',
       component: () => import('./pages/TeachersPage.vue'),
       meta: { title: 'Professores' },
+    },
+    {
+      path: '/atribuicoes',
+      name: 'assignments',
+      component: () => import('./pages/AssignmentsPage.vue'),
+      meta: { title: 'Atribuições' },
     },
   ],
 });

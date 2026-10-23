@@ -1,6 +1,29 @@
 export { DomainError, NotFoundError, type DomainErrorKind } from './shared/domain-error.ts';
 export type { Clock, IdGenerator } from './shared/ports.ts';
 export { StaleVersionError, type VersionedRef } from './shared/versioning.ts';
+export { statusOf, type EntityStatus } from './shared/archiving.ts';
+
+export {
+  CLASS_GROUP_NAME_MAX_LENGTH,
+  ClassGroupNameAlreadyInUseError,
+  ClassGroupNotFoundError,
+  InvalidClassGroupNameError,
+  createClassGroup,
+  type ClassGroup,
+} from './modules/school-structure/domain/class-group.ts';
+export {
+  makeArchiveClassGroup,
+  makeListClassGroups,
+  makeRegisterClassGroup,
+  makeRestoreClassGroup,
+  makeUpdateClassGroup,
+  type ArchiveClassGroup,
+  type ClassGroupRepository,
+  type ListClassGroups,
+  type RegisterClassGroup,
+  type RestoreClassGroup,
+  type UpdateClassGroup,
+} from './modules/school-structure/application/class-groups.ts';
 
 export {
   InvalidSubjectNameError,
@@ -32,14 +55,41 @@ export {
 export {
   ArchivedSubjectError,
   InvalidTeacherNameError,
+  QualificationInUseError,
   TEACHER_NAME_MAX_LENGTH,
+  TeacherHasAssignmentsError,
   TeacherNotFoundError,
   UnknownSubjectError,
   createTeacher,
   type SubjectStatus,
   type Teacher,
 } from './modules/teaching/domain/teacher.ts';
-export type { SubjectLookup, TeacherRepository } from './modules/teaching/application/ports.ts';
+export type {
+  AssignmentRepository,
+  ClassGroupStatusLookup,
+  SubjectLookup,
+  TeacherRepository,
+} from './modules/teaching/application/ports.ts';
+export {
+  AssignmentAlreadyExistsError,
+  AssignmentNotFoundError,
+  InvalidAssignmentReferenceError,
+  InvalidWeeklyLessonsError,
+  MAX_WEEKLY_LESSONS,
+  TeacherNotQualifiedError,
+  createAssignment,
+  type TeachingAssignment,
+} from './modules/teaching/domain/assignment.ts';
+export {
+  makeAssignTeaching,
+  makeChangeAssignment,
+  makeListAssignments,
+  makeRemoveAssignment,
+  type AssignTeaching,
+  type ChangeAssignment,
+  type ListAssignments,
+  type RemoveAssignment,
+} from './modules/teaching/application/assignments.ts';
 export {
   makeRegisterTeacher,
   type RegisterTeacher,

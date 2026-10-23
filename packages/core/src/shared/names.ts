@@ -11,9 +11,9 @@ export function normalizeName(name: string): string {
     .toLocaleLowerCase('pt-BR');
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base' });
+const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
-/** Ordenação alfabética em português (acentos não alteram a posição). */
+/** Ordenação alfabética em português (acentos não alteram a posição; números em ordem natural). */
 export function compareNames(a: string, b: string): number {
   return collator.compare(a, b);
 }
