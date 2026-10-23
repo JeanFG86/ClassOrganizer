@@ -7,15 +7,23 @@ import {
   ClassGroupNotFoundError,
   createClassGroup,
   renameClassGroup,
+  scheduleClassGroup,
 } from '../domain/class-group.ts';
 import type { ClassGroup } from '../domain/class-group.ts';
+import { ShiftNotFoundError } from '../domain/shift.ts';
+import type { ShiftRepository } from './shift-repository.ts';
 
 export interface ClassGroupRepository {
   findById(id: string): Promise<ClassGroup | null>;
   findByNormalizedName(normalizedName: string): Promise<ClassGroup | null>;
+  /** Turmas (ativas e arquivadas) ligadas ao turno. */
+  findByShift(shiftId: string): Promise<ClassGroup[]>;
   /** Deve lançar `ClassGroupNameAlreadyInUseError` em caso de nome duplicado concorrente. */
   add(classGroup: ClassGroup): Promise<void>;
-  /** Grava condicionado à versão; lança `StaleVersionError` se outra alteração chegou antes. */
+  /**
+   * Grava nome, situação, turno e aulas condicionado à versão; lança `StaleVersionError`
+   * se outra alteração chegou antes.
+   */
   update(classGroup: ClassGroup): Promise<ClassGroup>;
   listAll(): Promise<ClassGroup[]>;
 }
@@ -95,7 +103,27 @@ export function makeRestoreClassGroup({ classGroups }: { classGroups: ClassGroup
   };
 }
 
+export function makeChangeClassGroupSchedule(deps: {
+  classGroups: ClassGroupRepository;
+  shifts: ShiftRepository;
+}) {
+  return async function changeSchedule(
+    input: VersionedRef & { shiftId: string | null; periodIds: readonly string[] },
+  ): Promise<ClassGroup> {
+    const current = await loadForChange(deps.classGroups, input);
+    let shift = null;
+    if (input.shiftId !== null) {
+      shift = await deps.shifts.findById(input.shiftId);
+      if (!shift) {
+        throw new ShiftNotFoundError();
+      }
+    }
+    return deps.classGroups.update(scheduleClassGroup(current, shift, input.periodIds));
+  };
+}
+
 export type RegisterClassGroup = ReturnType<typeof makeRegisterClassGroup>;
+export type ChangeClassGroupSchedule = ReturnType<typeof makeChangeClassGroupSchedule>;
 export type ListClassGroups = ReturnType<typeof makeListClassGroups>;
 export type UpdateClassGroup = ReturnType<typeof makeUpdateClassGroup>;
 export type ArchiveClassGroup = ReturnType<typeof makeArchiveClassGroup>;

@@ -1,27 +1,34 @@
 import {
   makeArchiveClassGroup,
+  makeArchiveShift,
   makeArchiveSubject,
   makeArchiveTeacher,
   makeAssignTeaching,
+  makeChangeClassGroupSchedule,
   makeChangeAssignment,
   makeListAssignments,
   makeListClassGroups,
+  makeListShifts,
   makeListSubjects,
   makeListTeachers,
   makeRegisterClassGroup,
+  makeRegisterShift,
   makeRegisterSubject,
   makeRegisterTeacher,
   makeRemoveAssignment,
   makeRestoreClassGroup,
+  makeRestoreShift,
   makeRestoreSubject,
   makeRestoreTeacher,
   makeUpdateClassGroup,
+  makeUpdateShift,
   makeUpdateSubject,
   makeUpdateTeacher,
 } from '@classorganizer/core';
 import {
   PrismaAssignmentRepository,
   PrismaClassGroupRepository,
+  PrismaShiftRepository,
   PrismaSubjectRepository,
   PrismaTeacherRepository,
   checkDatabase,
@@ -39,6 +46,7 @@ const db = createDatabase(config.DATABASE_URL);
 const subjects = new PrismaSubjectRepository(db);
 const teachers = new PrismaTeacherRepository(db);
 const classGroups = new PrismaClassGroupRepository(db);
+const shifts = new PrismaShiftRepository(db);
 const assignments = new PrismaAssignmentRepository(db);
 const clock = systemClock;
 const ids = uuidGenerator;
@@ -58,8 +66,14 @@ const app = buildApp(
     registerClassGroup: makeRegisterClassGroup({ classGroups, clock, ids }),
     listClassGroups: makeListClassGroups({ classGroups }),
     updateClassGroup: makeUpdateClassGroup({ classGroups }),
+    changeClassGroupSchedule: makeChangeClassGroupSchedule({ classGroups, shifts }),
     archiveClassGroup: makeArchiveClassGroup({ classGroups, clock }),
     restoreClassGroup: makeRestoreClassGroup({ classGroups }),
+    registerShift: makeRegisterShift({ shifts, clock, ids }),
+    listShifts: makeListShifts({ shifts }),
+    updateShift: makeUpdateShift({ shifts, classGroups, ids }),
+    archiveShift: makeArchiveShift({ shifts, classGroups, clock }),
+    restoreShift: makeRestoreShift({ shifts }),
     assignTeaching: makeAssignTeaching({
       assignments,
       teachers,

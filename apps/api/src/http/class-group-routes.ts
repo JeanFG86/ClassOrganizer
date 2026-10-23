@@ -1,4 +1,5 @@
 import {
+  changeClassGroupScheduleRequestSchema,
   registerClassGroupRequestSchema,
   updateClassGroupRequestSchema,
   versionRequestSchema,
@@ -6,6 +7,7 @@ import {
 import type { ClassGroupDto, ClassGroupListDto } from '@classorganizer/contracts';
 import type {
   ArchiveClassGroup,
+  ChangeClassGroupSchedule,
   ClassGroup,
   ListClassGroups,
   RegisterClassGroup,
@@ -19,6 +21,7 @@ export interface ClassGroupRoutesDeps {
   registerClassGroup: RegisterClassGroup;
   listClassGroups: ListClassGroups;
   updateClassGroup: UpdateClassGroup;
+  changeClassGroupSchedule: ChangeClassGroupSchedule;
   archiveClassGroup: ArchiveClassGroup;
   restoreClassGroup: RestoreClassGroup;
 }
@@ -27,6 +30,8 @@ function toDto(classGroup: ClassGroup): ClassGroupDto {
   return {
     id: classGroup.id,
     name: classGroup.name,
+    shiftId: classGroup.shiftId,
+    periodIds: [...classGroup.periodIds],
     createdAt: classGroup.createdAt.toISOString(),
     archivedAt: classGroup.archivedAt?.toISOString() ?? null,
     version: classGroup.version,
@@ -49,6 +54,12 @@ export function registerClassGroupRoutes(app: FastifyInstance, deps: ClassGroupR
     const { id } = parseRequest(idParamsSchema, request.params);
     const input = parseRequest(updateClassGroupRequestSchema, request.body);
     return toDto(await deps.updateClassGroup({ id, ...input }));
+  });
+
+  app.put('/api/v1/class-groups/:id/schedule', async (request): Promise<ClassGroupDto> => {
+    const { id } = parseRequest(idParamsSchema, request.params);
+    const input = parseRequest(changeClassGroupScheduleRequestSchema, request.body);
+    return toDto(await deps.changeClassGroupSchedule({ id, ...input }));
   });
 
   app.post('/api/v1/class-groups/:id/archive', async (request): Promise<ClassGroupDto> => {

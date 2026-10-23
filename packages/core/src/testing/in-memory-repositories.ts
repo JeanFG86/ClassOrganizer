@@ -1,7 +1,9 @@
 // Repositórios em memória para testes do core. Imitam o comportamento relevante dos
 // adaptadores reais (versão otimista e unicidade); não são usados em produção.
 import type { ClassGroupRepository } from '../modules/school-structure/application/class-groups.ts';
+import type { ShiftRepository } from '../modules/school-structure/application/shift-repository.ts';
 import type { ClassGroup } from '../modules/school-structure/domain/class-group.ts';
+import type { Shift } from '../modules/school-structure/domain/shift.ts';
 import type { AssignmentRepository } from '../modules/teaching/application/ports.ts';
 import {
   AssignmentAlreadyExistsError,
@@ -41,12 +43,40 @@ export class InMemoryClassGroupRepository implements ClassGroupRepository {
     return this.store.values().find((c) => c.normalizedName === normalizedName) ?? null;
   }
 
+  async findByShift(shiftId: string) {
+    return this.store.values().filter((c) => c.shiftId === shiftId);
+  }
+
   async add(classGroup: ClassGroup) {
     this.store.items.set(classGroup.id, classGroup);
   }
 
   async update(classGroup: ClassGroup) {
     return this.store.save(classGroup);
+  }
+
+  async listAll() {
+    return this.store.values();
+  }
+}
+
+export class InMemoryShiftRepository implements ShiftRepository {
+  readonly store = new VersionedStore<Shift>();
+
+  async findById(id: string) {
+    return this.store.get(id);
+  }
+
+  async findByNormalizedName(normalizedName: string) {
+    return this.store.values().find((s) => s.normalizedName === normalizedName) ?? null;
+  }
+
+  async add(shift: Shift) {
+    this.store.items.set(shift.id, shift);
+  }
+
+  async update(shift: Shift) {
+    return this.store.save(shift);
   }
 
   async listAll() {

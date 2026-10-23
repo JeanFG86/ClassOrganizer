@@ -14,9 +14,22 @@ export const updateClassGroupRequestSchema = z.object({
 
 export type UpdateClassGroupRequest = z.infer<typeof updateClassGroupRequestSchema>;
 
+/** Turno da turma (`null` tira a turma do turno) e as aulas desse turno que ela usa. */
+export const changeClassGroupScheduleRequestSchema = z.object({
+  shiftId: z.uuid().nullable(),
+  periodIds: z.array(z.uuid()),
+  version: versionSchema,
+});
+
+export type ChangeClassGroupScheduleRequest = z.infer<typeof changeClassGroupScheduleRequestSchema>;
+
 export const classGroupSchema = z.object({
   id: z.string(),
   name: z.string(),
+  /** Turno da turma; `null` enquanto não foi definido. */
+  shiftId: z.string().nullable(),
+  /** Aulas do turno que a turma usa, na ordem do turno. */
+  periodIds: z.array(z.string()),
   createdAt: z.iso.datetime(),
   /** Preenchido quando a turma está arquivada. */
   archivedAt: z.iso.datetime().nullable(),

@@ -12,6 +12,8 @@ export default tseslint.config(
       '**/generated/**',
       '**/playwright-report/**',
       '**/test-results/**',
+      // Dados e scripts locais de trabalho, fora do git.
+      'privado/**',
     ],
   },
   js.configs.recommended,

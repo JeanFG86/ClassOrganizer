@@ -28,18 +28,70 @@ model Subject {
   @@map("subject")
 }
 
-/// Turma. Turno e períodos obrigatórios entram após a E0.
+/// Turma, com o turno e as aulas do turno que ela usa.
 model ClassGroup {
   id             String    @id @db.Uuid
   name           String    @db.VarChar(40)
   normalizedName String    @unique(map: "class_group_normalized_name_key") @map("normalized_name") @db.VarChar(40)
+  shiftId        String?   @map("shift_id") @db.Uuid
   createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
   version        Int       @default(1)
 
+  shift       Shift?               @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  periods     ClassGroupPeriod[]
   assignments TeachingAssignment[]
 
+  /// Alvo da FK composta de class_group_period (a aula precisa ser do turno da turma).
+  @@unique([id, shiftId], map: "class_group_id_shift_id_key")
+  @@index([shiftId])
   @@map("class_group")
+}
+
+/// Turno (ex.: "Manhã"). Os intervalos são as lacunas entre as aulas.
+model Shift {
+  id             String    @id @db.Uuid
+  name           String    @db.VarChar(40)
+  normalizedName String    @unique(map: "shift_normalized_name_key") @map("normalized_name") @db.VarChar(40)
+  createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  version        Int       @default(1)
+
+  periods     ShiftPeriod[]
+  classGroups ClassGroup[]
+
+  @@map("shift")
+}
+
+/// Aula do turno, em minutos desde a meia-noite.
+model ShiftPeriod {
+  id          String @id @db.Uuid
+  shiftId     String @map("shift_id") @db.Uuid
+  startMinute Int    @map("start_minute") @db.SmallInt
+  endMinute   Int    @map("end_minute") @db.SmallInt
+
+  shift       Shift              @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  classGroups ClassGroupPeriod[]
+
+  /// Alvo da FK composta de class_group_period.
+  @@unique([id, shiftId], map: "shift_period_id_shift_id_key")
+  @@index([shiftId])
+  @@map("shift_period")
+}
+
+/// Aula do turno em que a turma tem aula. As duas FKs compostas repetem `shift_id`
+/// para o banco garantir que a aula pertence ao turno da turma.
+model ClassGroupPeriod {
+  classGroupId String @map("class_group_id") @db.Uuid
+  shiftId      String @map("shift_id") @db.Uuid
+  periodId     String @map("period_id") @db.Uuid
+
+  classGroup ClassGroup  @relation(fields: [classGroupId, shiftId], references: [id, shiftId], onDelete: Cascade)
+  period     ShiftPeriod @relation(fields: [periodId, shiftId], references: [id, shiftId], onDelete: Restrict)
+
+  @@id([classGroupId, periodId])
+  @@index([periodId, shiftId])
+  @@map("class_group_period")
 }
 
 model Teacher {
