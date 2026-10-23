@@ -150,3 +150,31 @@ export {
   type RestoreTeacher,
   type UpdateTeacher,
 } from './modules/teaching/application/change-teacher.ts';
+
+export type {
+  TimetablePeriod,
+  LessonPlacement,
+  PlanningPlacement,
+  TimetableProposal,
+  TimetableAssignment,
+  TimetableTeacher,
+  DailySubjectRule,
+  TimetableSnapshot,
+  TimetableIssue,
+} from './modules/timetable/domain/model.ts';
+export { validateTimetableModel } from './modules/timetable/domain/validate-model.ts';
+export {
+  validateTimetableProposal,
+  measureTeacherIdleMinutes,
+} from './modules/timetable/domain/validate-proposal.ts';
+export type {
+  GenerationOptions,
+  SearchStatus,
+  EngineSearchResult,
+  TimetableEngine,
+  GenerationResult,
+} from './modules/generation/application/engine.ts';
+export {
+  makeGenerateTimetable,
+  type GenerateTimetable,
+} from './modules/generation/application/generate-timetable.ts';

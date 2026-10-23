@@ -4,7 +4,7 @@ Aplicação web para a secretaria escolar distribuir cargas de professores e mon
 
 O plano completo está em [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md) e as decisões técnicas em [docs/adr](docs/adr).
 
-> **Estado atual:** fundação técnica (E1) concluída e cadastros principais da E3 implementados: disciplinas, turmas e professores com habilitações, turnos com horários e aulas de cada turma, carga máxima, hora-atividade e indisponibilidade. As atribuições são blocos com um ou mais professores e disciplinas no mesmo horário, com divisão de carga em blocos separados ([ADR 0009](docs/adr/0009-aulas-compartilhadas.md)). Todos os cadastros têm edição com controle de versão. Próximos passos: recursos especiais, se confirmados, e a prova técnica do motor de horários (E2).
+> **Estado atual:** E1 e os cadastros principais da E3 implementados, incluindo blocos de aulas compartilhadas. A E2 tem contrato de snapshot, validador independente e motor de referência TypeScript executado em thread, com fixações, geminadas, hora-atividade, cancelamento e benchmark ([prova técnica](docs/testing/motor-prova.md), [ADR 0010](docs/adr/0010-motor-de-referencia-e-validacao.md)). A homologação com políticas completas e metas pactuadas continua pendente antes da E6. Próximos passos: acesso e revisões (E4); recursos especiais, se confirmados.
 
 ## Usar localmente (Docker)
 
@@ -55,14 +55,17 @@ pnpm db:migrate:dev --name descricao_da_mudanca
 
 ### Scripts
 
-| Script                  | O que faz                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `pnpm verify`           | Formatação, lint, typecheck, fronteiras e testes unitários                                 |
-| `pnpm test`             | Testes unitários (core, API) e de componentes (web)                                        |
-| `pnpm test:integration` | Repositórios contra PostgreSQL real (Testcontainers)                                       |
-| `pnpm test:e2e`         | Playwright contra a aplicação em execução (`E2E_BASE_URL`, padrão `http://localhost:8080`) |
-| `pnpm check:arch`       | Regras de dependência entre camadas e pacotes                                              |
-| `pnpm build`            | Build da interface                                                                         |
+| Script                                                  | O que faz                                                                                  |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `pnpm verify`                                           | Formatação, lint, typecheck, fronteiras e testes unitários                                 |
+| `pnpm test`                                             | Testes unitários (core, API) e de componentes (web)                                        |
+| `pnpm test:integration`                                 | Repositórios contra PostgreSQL real (Testcontainers)                                       |
+| `pnpm test:e2e`                                         | Playwright contra a aplicação em execução (`E2E_BASE_URL`, padrão `http://localhost:8080`) |
+| `pnpm check:arch`                                       | Regras de dependência entre camadas e pacotes                                              |
+| `pnpm engine:solve <entrada.json>`                      | Executa a prova do motor sem banco nem alteração de grade                                  |
+| `pnpm engine:fixture <volume.json> <entrada.json>`      | Gera cenário fictício com testemunha validada, sem enviá-la ao motor                       |
+| `pnpm benchmark:engine <entrada.json> <relatorio.json>` | Mede três execuções em processos novos e registra correção, tempo e memória                |
+| `pnpm build`                                            | Build da interface                                                                         |
 
 Antes do primeiro E2E: `pnpm --filter @classorganizer/e2e exec playwright install chromium`.
 

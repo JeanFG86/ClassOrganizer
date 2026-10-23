@@ -20,7 +20,10 @@
     "test": "vitest run --project unit --project web",
     "test:integration": "vitest run --project integration",
     "test:e2e": "pnpm --filter @classorganizer/e2e test",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:arch && pnpm test"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:arch && pnpm test",
+    "engine:solve": "node apps/worker/src/generation/cli.ts",
+    "benchmark:engine": "node apps/worker/src/generation/benchmark.ts",
+    "engine:fixture": "node apps/worker/src/generation/synthetic-cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

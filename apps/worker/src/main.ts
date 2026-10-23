@@ -2,8 +2,8 @@ import { rm, writeFile } from 'node:fs/promises';
 import { checkDatabase, createDatabase, createLogger } from '@classorganizer/infrastructure';
 import { loadConfig } from './config.ts';
 
-// Raiz de composição do worker. Nesta fase ele apenas sobe, confere o banco e
-// sinaliza que está vivo; o consumo da fila de geração entra na E6 (ver ADR 0004).
+// O daemon mantém banco e heartbeat. A prova E2 roda pelo CLI em thread isolada
+// (ADR 0010); consumo da fila e aplicação de propostas entram na E6 (ADR 0004).
 const config = loadConfig();
 const logger = createLogger('worker', config.LOG_LEVEL);
 const db = createDatabase(config.DATABASE_URL);
