@@ -7,10 +7,14 @@
     "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
     "start": "node src/main.ts",
     "healthcheck": "node src/healthcheck.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "engine": "node src/generation/cli.ts",
+    "benchmark": "node src/generation/benchmark.ts"
   },
   "dependencies": {
     "@classorganizer/infrastructure": "workspace:*",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@classorganizer/core": "workspace:*",
+    "@classorganizer/contracts": "workspace:*"
   }
 }

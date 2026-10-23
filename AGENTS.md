@@ -6,7 +6,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 - **Produto:** organizador de aulas para a secretaria de uma escola. Distribui as cargas dos professores e monta a grade semanal.
 - **Plano completo:** [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md), com as entregas E0 a E9.
-- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0009).
+- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0010).
 - **Como rodar:** [README.md](README.md).
 
 ---
@@ -32,7 +32,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ## 2. Onde o projeto está
 
-### Já entregue (PRs #1 a #7, todos na `main`)
+### Já entregue (PRs #1 a #8, todos na `main`)
 
 | PR  | Branch                       | Entrega                                                                                                                                                                           |
 | --- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,12 +43,13 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 | #5  | `chore/ignorar-dados-locais` | `.gitignore` para `privado/`, `*.roz` e `*.xlsx`.                                                                                                                                 |
 | #6  | `e3/turnos-horarios`         | Turnos com horário de cada aula e as aulas que cada turma usa ([ADR 0007](docs/adr/0007-turnos-e-aulas.md)).                                                                      |
 | #7  | `e3/disponibilidade-ha`      | Carga máxima, hora-atividade e horários indisponíveis do professor ([ADR 0008](docs/adr/0008-carga-e-disponibilidade-do-professor.md)).                                           |
+| #8  | `e3/aulas-compartilhadas`    | Atribuições em blocos simultâneos com um ou mais professores e disciplinas; divisão de carga em blocos separados ([ADR 0009](docs/adr/0009-aulas-compartilhadas.md)).             |
 
 **Telas existentes:** Início, Disciplinas, Turmas, Turnos (`/turnos`), Professores, Disponibilidade (`/disponibilidade`) e Atribuições.
 
 ### Entrega em revisão
 
-- **Aulas compartilhadas:** atribuições em blocos simultâneos, com participações de um ou mais professores e disciplinas; blocos separados repartem a carga. Modelo e contagem de carga na [ADR 0009](docs/adr/0009-aulas-compartilhadas.md).
+- **E2 — prova do motor:** contrato autocontido, validador independente, busca TypeScript isolada em thread e CLI/benchmark. Veja a [ADR 0010](docs/adr/0010-motor-de-referencia-e-validacao.md) e a [prova técnica](docs/testing/motor-prova.md). Metas no hardware pretendido e homologação das políticas completas continuam pendentes antes da E6.
 
 ### Situação da E0 (levantamento)
 
@@ -74,17 +75,9 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 ## 3. O que falta fazer (ordem sugerida)
 
 1. **Recursos especiais, se forem confirmados** (quadra, laboratório): o item "configuração dos recursos especiais" da E3.
-2. **E2 — prova técnica do motor de encaixe** (plano, seções 5 e E2):
-   - contrato do motor;
-   - validador independente;
-   - implementação de referência no worker;
-   - benchmark com o volume de referência, usado só localmente;
-   - restrições entre turnos pelo **horário real** das aulas, já que turnos podem se sobrepor ([ADR 0007](docs/adr/0007-turnos-e-aulas.md));
-   - geminadas, indisponibilidade e hora-atividade.
+2. **E4 a E8** conforme o plano: login e papéis; revisões e auditoria; grade manual com validador; geração no worker; versões e saídas (PDF, XLSX, CSV); piloto, backup e operação local.
 
-   O OR-Tools não tem interface TypeScript oficial (plano, 5.1). Qualquer componente em outra linguagem exige uma ADR.
-
-3. **E4 a E8** conforme o plano: login e papéis; revisões e auditoria; grade manual com validador; geração no worker; versões e saídas (PDF, XLSX, CSV); piloto, backup e operação local.
+**Antes de E6:** pactuar metas e repetir a prova do motor com as políticas completas. Os relatórios de referência e crescimento ficam somente em `privado/e2/`; não publicar volumes nem resultados derivados da escola. O exemplo público é inteiramente fictício.
 
 **Pendências registradas nas ADRs:**
 

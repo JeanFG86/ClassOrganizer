@@ -96,6 +96,12 @@ importers:
 
   apps/worker:
     dependencies:
+      '@classorganizer/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@classorganizer/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@classorganizer/infrastructure':
         specifier: workspace:*
         version: link:../../packages/infrastructure
