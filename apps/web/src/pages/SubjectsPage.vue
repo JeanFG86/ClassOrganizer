@@ -24,6 +24,11 @@ function messageOf(error: unknown): string {
 
 async function load(): Promise<void> {
   loadState.value = 'loading';
+  await refresh();
+}
+
+/** Atualiza a lista sem voltar ao estado "carregando", preservando o que já está na tela. */
+async function refresh(): Promise<void> {
   try {
     subjects.value = await api.list();
     loadState.value = 'ready';
@@ -46,7 +51,7 @@ async function submit(): Promise<void> {
     const created = await api.register(name.value);
     savedMessage.value = `Disciplina "${created.name}" cadastrada.`;
     name.value = '';
-    await load();
+    await refresh();
   } catch (error) {
     formError.value = messageOf(error);
   } finally {

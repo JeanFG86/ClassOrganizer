@@ -50,9 +50,34 @@ describe('SubjectsPage', () => {
     await flushPromises();
 
     expect(api.register).toHaveBeenCalledWith('História');
-    expect(wrapper.get('[role="status"]').text()).toBe('Disciplina "História" cadastrada.');
+    expect(wrapper.findAll('[role="status"]').map((s) => s.text())).toEqual([
+      'Disciplina "História" cadastrada.',
+    ]);
     expect(wrapper.get('ul').text()).toContain('História');
     expect((wrapper.get('#subject-name').element as HTMLInputElement).value).toBe('');
+  });
+
+  it('não volta ao estado "carregando" enquanto atualiza a lista após salvar', async () => {
+    const api = fakeApi([math]);
+    let releaseList: () => void = () => {};
+    const wrapper = await mountPage(api);
+    api.list = vi.fn(
+      () =>
+        new Promise<SubjectDto[]>((resolve) => {
+          releaseList = () => resolve([...api.items]);
+        }),
+    );
+
+    await wrapper.get('#subject-name').setValue('História');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('Carregando disciplinas…');
+    expect(wrapper.get('ul').text()).toContain('Matemática');
+
+    releaseList();
+    await flushPromises();
+    expect(wrapper.get('ul').text()).toContain('História');
   });
 
   it('valida nome vazio sem chamar a API', async () => {

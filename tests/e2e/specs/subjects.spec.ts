@@ -25,7 +25,9 @@ test('cadastrar disciplina → ver na lista → recarregar e continuar lá', asy
   await page.getByLabel('Nome da disciplina').fill(name);
   await page.getByRole('button', { name: 'Cadastrar' }).click();
 
-  await expect(page.getByRole('status')).toHaveText(`Disciplina "${name}" cadastrada.`);
+  await expect(page.getByRole('status').filter({ hasText: name })).toHaveText(
+    `Disciplina "${name}" cadastrada.`,
+  );
   const list = page.getByRole('list', { name: 'Disciplinas cadastradas' });
   await expect(list.getByText(name, { exact: true })).toBeVisible();
 
@@ -39,7 +41,7 @@ test('nome duplicado mostra mensagem compreensível', async ({ page }) => {
 
   await page.getByLabel('Nome da disciplina').fill(name);
   await page.getByRole('button', { name: 'Cadastrar' }).click();
-  await expect(page.getByRole('status')).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
 
   await page.getByLabel('Nome da disciplina').fill(name.toUpperCase());
   await page.getByRole('button', { name: 'Cadastrar' }).click();
