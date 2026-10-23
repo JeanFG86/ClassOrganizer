@@ -8,7 +8,7 @@ import {
   changeAssignment,
   createAssignment,
 } from '../domain/assignment.ts';
-import type { TeachingAssignment } from '../domain/assignment.ts';
+import type { AssignmentParticipant, TeachingAssignment } from '../domain/assignment.ts';
 import type {
   AssignmentRepository,
   ClassGroupStatusLookup,
@@ -41,6 +41,25 @@ async function assertTeacherCanTeach(
   }
 }
 
+async function assertParticipants(
+  deps: Pick<AssignmentDeps, 'teachers' | 'subjects'>,
+  participants: readonly AssignmentParticipant[],
+): Promise<void> {
+  const statuses = await deps.subjects.subjectStatuses([
+    ...new Set(participants.map((p) => p.subjectId)),
+  ]);
+  for (const participant of participants) {
+    const subject = statuses.get(participant.subjectId);
+    if (subject === undefined) {
+      throw new InvalidAssignmentReferenceError('A disciplina selecionada não existe mais.');
+    }
+    if (subject === 'archived') {
+      throw new InvalidAssignmentReferenceError('A disciplina selecionada está arquivada.');
+    }
+    await assertTeacherCanTeach(deps.teachers, participant.teacherId, participant.subjectId);
+  }
+}
+
 async function loadForChange(
   assignments: AssignmentRepository,
   ref: VersionedRef,
@@ -56,8 +75,7 @@ async function loadForChange(
 export function makeAssignTeaching(deps: AssignmentDeps & { clock: Clock; ids: IdGenerator }) {
   return async function assignTeaching(input: {
     classGroupId: string;
-    subjectId: string;
-    teacherId: string;
+    participants: readonly AssignmentParticipant[];
     weeklyLessons: number;
   }): Promise<TeachingAssignment> {
     const assignment = createAssignment({
@@ -74,17 +92,7 @@ export function makeAssignTeaching(deps: AssignmentDeps & { clock: Clock; ids: I
       throw new InvalidAssignmentReferenceError('A turma selecionada está arquivada.');
     }
 
-    const subject = (await deps.subjects.subjectStatuses([assignment.subjectId])).get(
-      assignment.subjectId,
-    );
-    if (subject === undefined) {
-      throw new InvalidAssignmentReferenceError('A disciplina selecionada não existe mais.');
-    }
-    if (subject === 'archived') {
-      throw new InvalidAssignmentReferenceError('A disciplina selecionada está arquivada.');
-    }
-
-    await assertTeacherCanTeach(deps.teachers, assignment.teacherId, assignment.subjectId);
+    await assertParticipants(deps, assignment.participants);
 
     await deps.assignments.add(assignment);
     return assignment;
@@ -100,16 +108,22 @@ export function makeListAssignments({ assignments }: { assignments: AssignmentRe
 export function makeChangeAssignment(deps: {
   assignments: AssignmentRepository;
   teachers: TeacherRepository;
+  subjects: SubjectLookup;
 }) {
   return async function changeAssignmentUseCase(
-    input: VersionedRef & { teacherId: string; weeklyLessons: number },
+    input: VersionedRef & { participants: readonly AssignmentParticipant[]; weeklyLessons: number },
   ): Promise<TeachingAssignment> {
     const current = await loadForChange(deps.assignments, input);
     const changed = changeAssignment(current, input);
 
-    if (changed.teacherId !== current.teacherId) {
-      await assertTeacherCanTeach(deps.teachers, changed.teacherId, changed.subjectId);
-    }
+    // Participações mantidas podem referenciar disciplina arquivada, como antes.
+    const added = changed.participants.filter(
+      (p) =>
+        !current.participants.some(
+          (old) => old.teacherId === p.teacherId && old.subjectId === p.subjectId,
+        ),
+    );
+    await assertParticipants(deps, added);
 
     return deps.assignments.update(changed);
   };

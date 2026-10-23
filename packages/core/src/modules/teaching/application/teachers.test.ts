@@ -184,12 +184,18 @@ describe('professores', () => {
   describe('vínculo com atribuições', () => {
     async function assignAna(subjectId: string) {
       const ana = await registerTeacher({ name: 'Ana', subjectIds: ['math', 'history'] });
+      const accompanying = await registerTeacher({
+        name: 'Docente teste',
+        subjectIds: [subjectId],
+      });
       await assignments.add(
         createAssignment({
           id: 'a-1',
           classGroupId: '6A',
-          subjectId,
-          teacherId: ana.id,
+          participants: [
+            { subjectId, teacherId: accompanying.id },
+            { subjectId, teacherId: ana.id },
+          ],
           weeklyLessons: 5,
           createdAt: now,
         }),

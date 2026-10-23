@@ -2,15 +2,17 @@ import { DomainError, NotFoundError } from '../../../shared/domain-error.ts';
 
 export const MAX_WEEKLY_LESSONS = 40;
 
-/**
- * Atribuição de ensino: o professor responsável por uma disciplina numa turma e a
- * carga semanal exigida, em unidades de aula (plano, seções 1.2 e 4.1).
- */
+/** Cada professor participa uma vez do bloco, com a disciplina em que é habilitado. */
+export interface AssignmentParticipant {
+  readonly teacherId: string;
+  readonly subjectId: string;
+}
+
+/** Bloco de aulas simultâneas de uma turma. A carga vale para cada participante. */
 export interface TeachingAssignment {
   readonly id: string;
   readonly classGroupId: string;
-  readonly subjectId: string;
-  readonly teacherId: string;
+  readonly participants: readonly AssignmentParticipant[];
   readonly weeklyLessons: number;
   readonly createdAt: Date;
   readonly version: number;
@@ -39,12 +41,12 @@ export class TeacherNotQualifiedError extends DomainError {
   }
 }
 
-export class AssignmentAlreadyExistsError extends DomainError {
-  readonly code = 'assignment.already_exists';
-  readonly kind = 'conflict';
+export class InvalidAssignmentParticipantsError extends DomainError {
+  readonly code = 'assignment.invalid_participants';
+  readonly kind = 'validation';
 
   constructor() {
-    super('Esta disciplina já tem professor atribuído nesta turma. Edite a atribuição existente.');
+    super('Inclua pelo menos um professor e não repita o mesmo professor no bloco.');
   }
 }
 
@@ -61,25 +63,41 @@ function validWeeklyLessons(value: number): number {
   return value;
 }
 
+function validParticipants(
+  participants: readonly AssignmentParticipant[],
+): AssignmentParticipant[] {
+  if (
+    participants.length === 0 ||
+    new Set(participants.map((p) => p.teacherId)).size !== participants.length
+  ) {
+    throw new InvalidAssignmentParticipantsError();
+  }
+  return participants.map((p) => ({ ...p }));
+}
+
 export function createAssignment(input: {
   id: string;
   classGroupId: string;
-  subjectId: string;
-  teacherId: string;
+  participants: readonly AssignmentParticipant[];
   weeklyLessons: number;
   createdAt: Date;
 }): TeachingAssignment {
-  return { ...input, weeklyLessons: validWeeklyLessons(input.weeklyLessons), version: 1 };
+  return {
+    ...input,
+    participants: validParticipants(input.participants),
+    weeklyLessons: validWeeklyLessons(input.weeklyLessons),
+    version: 1,
+  };
 }
 
-/** Turma e disciplina definem a atribuição; mudam apenas o professor e a carga. */
+/** A turma permanece; participantes e carga são alterados juntos. */
 export function changeAssignment(
   assignment: TeachingAssignment,
-  input: { teacherId: string; weeklyLessons: number },
+  input: { participants: readonly AssignmentParticipant[]; weeklyLessons: number },
 ): TeachingAssignment {
   return {
     ...assignment,
-    teacherId: input.teacherId,
+    participants: validParticipants(input.participants),
     weeklyLessons: validWeeklyLessons(input.weeklyLessons),
   };
 }

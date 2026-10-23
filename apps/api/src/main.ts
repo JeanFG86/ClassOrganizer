@@ -85,7 +85,7 @@ const app = buildApp(
       ids,
     }),
     listAssignments: makeListAssignments({ assignments }),
-    changeAssignment: makeChangeAssignment({ assignments, teachers }),
+    changeAssignment: makeChangeAssignment({ assignments, teachers, subjects }),
     removeAssignment: makeRemoveAssignment({ assignments }),
     checkReadiness: () => checkDatabase(db),
   },

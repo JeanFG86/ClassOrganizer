@@ -1,5 +1,5 @@
 import {
-  AssignmentAlreadyExistsError,
+  InvalidAssignmentParticipantsError,
   InvalidAssignmentReferenceError,
   QualificationInUseError,
   StaleVersionError,
@@ -22,7 +22,7 @@ const HISTORY = '22222222-2222-4222-8222-222222222222';
 const C6A = '6a6a6a6a-6a6a-4a6a-8a6a-6a6a6a6a6a6a';
 const C6B = '6b6b6b6b-6b6b-4b6b-8b6b-6b6b6b6b6b6b';
 const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const BRUNO = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const SECOND_TEACHER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const A1 = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1';
 const A2 = 'a2a2a2a2-a2a2-4a2a-8a2a-a2a2a2a2a2a2';
 
@@ -35,8 +35,7 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
     createAssignment({
       id: A1,
       classGroupId: C6A,
-      subjectId: MATH,
-      teacherId: ANA,
+      participants: [{ subjectId: MATH, teacherId: ANA }],
       weeklyLessons: 5,
       createdAt,
     });
@@ -69,7 +68,7 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
       createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH, HISTORY], createdAt }),
     );
     await teachers.add(
-      createTeacher({ id: BRUNO, name: 'Bruno', subjectIds: [HISTORY], createdAt }),
+      createTeacher({ id: SECOND_TEACHER, name: 'Docente Beta', subjectIds: [HISTORY], createdAt }),
     );
   });
 
@@ -81,30 +80,63 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
     expect(await assignments.findById(A1)).toEqual(assignment);
     expect(await assignments.listAll()).toEqual([assignment]);
     expect(await assignments.subjectIdsAssignedTo(ANA)).toEqual(new Set([MATH]));
-    expect(await assignments.subjectIdsAssignedTo(BRUNO)).toEqual(new Set());
+    expect(await assignments.subjectIdsAssignedTo(SECOND_TEACHER)).toEqual(new Set());
   });
 
-  it('o banco garante um professor por disciplina em cada turma', async () => {
+  it('permite dividir a mesma disciplina em blocos separados', async () => {
     await assignments.add(mathFor6A());
+    await assignments.add({ ...mathFor6A(), id: A2, weeklyLessons: 2 });
+    expect(await assignments.listAll()).toHaveLength(2);
+  });
 
-    await expect(assignments.add({ ...mathFor6A(), id: A2 })).rejects.toThrow(
-      AssignmentAlreadyExistsError,
+  it('grava participantes da mesma disciplina e de disciplinas simultâneas', async () => {
+    const assignment = {
+      ...mathFor6A(),
+      participants: [
+        { teacherId: ANA, subjectId: HISTORY },
+        { teacherId: SECOND_TEACHER, subjectId: HISTORY },
+      ],
+    };
+    await assignments.add(assignment);
+    expect(await assignments.findById(A1)).toEqual(assignment);
+    expect(await assignments.subjectIdsAssignedTo(SECOND_TEACHER)).toEqual(new Set([HISTORY]));
+    // O segundo participante também protege a habilitação.
+    const current = await teachers.findById(SECOND_TEACHER);
+    if (!current) throw new Error('Professor de teste ausente.');
+    await expect(teachers.update({ ...current, subjectIds: [] })).rejects.toThrow(
+      QualificationInUseError,
     );
-    await expect(assignments.add({ ...mathFor6A(), id: A2, classGroupId: C6B })).resolves.toBe(
-      undefined,
-    );
+  });
+
+  it('o banco impede professor repetido no bloco', async () => {
+    await expect(
+      assignments.add({
+        ...mathFor6A(),
+        participants: [
+          { teacherId: ANA, subjectId: MATH },
+          { teacherId: ANA, subjectId: HISTORY },
+        ],
+      }),
+    ).rejects.toThrow(InvalidAssignmentParticipantsError);
+    expect(await assignments.listAll()).toEqual([]);
   });
 
   it('o banco recusa professor não habilitado (FK composta)', async () => {
-    await expect(assignments.add({ ...mathFor6A(), teacherId: BRUNO })).rejects.toThrow(
-      InvalidAssignmentReferenceError,
-    );
+    await expect(
+      assignments.add({
+        ...mathFor6A(),
+        participants: [
+          { teacherId: ANA, subjectId: MATH },
+          { teacherId: SECOND_TEACHER, subjectId: MATH },
+        ],
+      }),
+    ).rejects.toThrow(InvalidAssignmentReferenceError);
   });
 
   it('o banco recusa carga fora de 1..40', async () => {
-    await expect(
-      testDb.db.teachingAssignment.create({ data: { ...mathFor6A(), weeklyLessons: 41 } }),
-    ).rejects.toThrow(/teaching_assignment_weekly_lessons_range/);
+    await expect(assignments.add({ ...mathFor6A(), weeklyLessons: 41 })).rejects.toThrow(
+      /teaching_assignment_weekly_lessons_range/,
+    );
   });
 
   it('atualiza e remove respeitando a versão', async () => {
@@ -141,5 +173,93 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
 
     expect((await teachers.findById(ANA))?.subjectIds).toEqual([MATH]);
     expect(saved.version).toBe(2);
+  });
+
+  it('o banco impede bloco vazio e remoção direta do último participante', async () => {
+    await expect(assignments.add({ ...mathFor6A(), participants: [] })).rejects.toThrow();
+    expect(await assignments.listAll()).toEqual([]);
+    await assignments.add(mathFor6A());
+    await expect(
+      testDb.db.assignmentParticipant.deleteMany({ where: { assignmentId: A1 } }),
+    ).rejects.toThrow();
+    expect(await assignments.findById(A1)).toEqual(mathFor6A());
+    await expect(assignments.update({ ...mathFor6A(), participants: [] })).rejects.toThrow();
+    expect(await assignments.findById(A1)).toEqual(mathFor6A());
+  });
+
+  it('o banco recusa posição negativa sem alterar a participação', async () => {
+    await assignments.add(mathFor6A());
+    await expect(
+      testDb.db.assignmentParticipant.updateMany({
+        where: { assignmentId: A1 },
+        data: { position: -1 },
+      }),
+    ).rejects.toThrow(/assignment_participant_position_nonnegative/);
+    expect(await assignments.findById(A1)).toEqual(mathFor6A());
+  });
+
+  it('edição por diferença preserva participantes mantidos e a ordem', async () => {
+    const original = {
+      ...mathFor6A(),
+      participants: [
+        { teacherId: ANA, subjectId: MATH },
+        { teacherId: SECOND_TEACHER, subjectId: HISTORY },
+      ],
+    };
+    await assignments.add(original);
+    const saved = await assignments.update({
+      ...original,
+      participants: [
+        { teacherId: SECOND_TEACHER, subjectId: HISTORY },
+        { teacherId: ANA, subjectId: HISTORY },
+      ],
+      weeklyLessons: 3,
+    });
+    expect(await assignments.findById(A1)).toEqual(saved);
+    expect(await assignments.subjectIdsAssignedTo(ANA)).toEqual(new Set([HISTORY]));
+    const reduced = await assignments.update({
+      ...saved,
+      participants: [{ teacherId: SECOND_TEACHER, subjectId: HISTORY }],
+    });
+    expect(await assignments.findById(A1)).toEqual(reduced);
+    expect(await assignments.subjectIdsAssignedTo(ANA)).toEqual(new Set());
+    await assignments.remove(reduced);
+    expect(await testDb.db.assignmentParticipant.count()).toBe(0);
+  });
+
+  it('falha de habilitação reverte participantes, carga e versão juntos', async () => {
+    const original = mathFor6A();
+    await assignments.add(original);
+    await expect(
+      assignments.update({
+        ...original,
+        weeklyLessons: 2,
+        participants: [{ teacherId: SECOND_TEACHER, subjectId: MATH }],
+      }),
+    ).rejects.toThrow(InvalidAssignmentReferenceError);
+    expect(await assignments.findById(A1)).toEqual(original);
+  });
+
+  it('duas edições concorrentes não misturam os participantes', async () => {
+    const original = mathFor6A();
+    await assignments.add(original);
+    const attempts = await Promise.allSettled([
+      assignments.update({
+        ...original,
+        weeklyLessons: 2,
+        participants: [{ teacherId: ANA, subjectId: HISTORY }],
+      }),
+      assignments.update({
+        ...original,
+        weeklyLessons: 3,
+        participants: [{ teacherId: SECOND_TEACHER, subjectId: HISTORY }],
+      }),
+    ]);
+    const saved = attempts.find((r) => r.status === 'fulfilled');
+    const rejected = attempts.find((r) => r.status === 'rejected');
+    expect(rejected?.status === 'rejected' && rejected.reason).toBeInstanceOf(StaleVersionError);
+    expect(saved?.status === 'fulfilled' && (await assignments.findById(A1))).toEqual(
+      saved?.status === 'fulfilled' && saved.value,
+    );
   });
 });

@@ -112,7 +112,8 @@ export type {
   TeacherRepository,
 } from './modules/teaching/application/ports.ts';
 export {
-  AssignmentAlreadyExistsError,
+  InvalidAssignmentParticipantsError,
+  type AssignmentParticipant,
   AssignmentNotFoundError,
   InvalidAssignmentReferenceError,
   InvalidWeeklyLessonsError,

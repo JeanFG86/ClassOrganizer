@@ -55,7 +55,7 @@ const feedback = ref<Feedback | null>(null);
 
 const assignedLessons = computed(() =>
   assignments.value
-    .filter((a) => a.teacherId === teacherId.value)
+    .filter((a) => a.participants.some((p) => p.teacherId === teacherId.value))
     .reduce((sum, a) => sum + a.weeklyLessons, 0),
 );
 

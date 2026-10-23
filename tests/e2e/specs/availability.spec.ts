@@ -65,8 +65,7 @@ test('carga máxima, hora-atividade e disponibilidade do professor', async ({ pa
   const classGroup = await post<{ id: string }>(request, '/api/v1/class-groups', { name: turma });
   await post(request, '/api/v1/assignments', {
     classGroupId: classGroup.id,
-    subjectId: subject.id,
-    teacherId: created?.id,
+    participants: [{ subjectId: subject.id, teacherId: created?.id }],
     weeklyLessons: 3,
   });
   await page.goto('/atribuicoes');

@@ -1,6 +1,6 @@
 import { apiErrorSchema, assignmentSchema, classGroupListSchema } from '@classorganizer/contracts';
 import {
-  AssignmentAlreadyExistsError,
+  InvalidAssignmentParticipantsError,
   ClassGroupNameAlreadyInUseError,
   QualificationInUseError,
   StaleVersionError,
@@ -31,8 +31,7 @@ const turma = createClassGroup({ id: C6A, name: '6º ano A', createdAt });
 const assignment = createAssignment({
   id: A1,
   classGroupId: C6A,
-  subjectId: MATH,
-  teacherId: ANA,
+  participants: [{ subjectId: MATH, teacherId: ANA }],
   weeklyLessons: 5,
   createdAt,
 });
@@ -108,7 +107,11 @@ describe('API HTTP — turmas e atribuições', () => {
         assignTeaching,
         listAssignments: vi.fn<ListAssignments>(async () => [assignment]),
       });
-      const payload = { classGroupId: C6A, subjectId: MATH, teacherId: ANA, weeklyLessons: 5 };
+      const payload = {
+        classGroupId: C6A,
+        participants: [{ subjectId: MATH, teacherId: ANA }],
+        weeklyLessons: 5,
+      };
 
       const created = await app.inject({ method: 'POST', url: '/api/v1/assignments', payload });
       const list = await app.inject({ method: 'GET', url: '/api/v1/assignments' });
@@ -119,6 +122,55 @@ describe('API HTTP — turmas e atribuições', () => {
       expect(list.json().items).toHaveLength(1);
     });
 
+    it('preserva disciplinas e professores de todos os participantes no contrato', async () => {
+      const payload = {
+        classGroupId: C6A,
+        weeklyLessons: 2,
+        participants: [
+          { subjectId: MATH, teacherId: ANA },
+          {
+            subjectId: '22222222-2222-4222-8222-222222222222',
+            teacherId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          },
+        ],
+      };
+      const block = createAssignment({ id: A1, ...payload, createdAt });
+      const assignTeaching = vi.fn<AssignTeaching>(async () => block);
+      const changeAssignment = vi.fn<ChangeAssignment>(async () => ({ ...block, version: 2 }));
+      app = buildTestApp({ assignTeaching, changeAssignment });
+      const created = await app.inject({ method: 'POST', url: '/api/v1/assignments', payload });
+      expect(created.statusCode).toBe(201);
+      expect(assignmentSchema.parse(created.json()).participants).toEqual(payload.participants);
+      const changed = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/assignments/' + A1,
+        payload: { participants: payload.participants, weeklyLessons: 2, version: 1 },
+      });
+      expect(changed.statusCode).toBe(200);
+      expect(changeAssignment).toHaveBeenCalledWith({
+        id: A1,
+        participants: payload.participants,
+        weeklyLessons: 2,
+        version: 1,
+      });
+      expect(assignTeaching).toHaveBeenCalledWith(payload);
+    });
+
+    it.each([undefined, null, [{ teacherId: ANA }], [{ teacherId: 123, subjectId: MATH }]])(
+      'rejeita participantes ausentes ou malformados na fronteira (%j)',
+      async (participants) => {
+        const assignTeaching = vi.fn<AssignTeaching>();
+        app = buildTestApp({ assignTeaching });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/assignments',
+          payload: { classGroupId: C6A, weeklyLessons: 2, participants },
+        });
+        expect(response.statusCode).toBe(400);
+        expect(assignTeaching).not.toHaveBeenCalled();
+      },
+    );
+
     it('carga não numérica é rejeitada na fronteira', async () => {
       const assignTeaching = vi.fn<AssignTeaching>();
       app = buildTestApp({ assignTeaching });
@@ -126,7 +178,11 @@ describe('API HTTP — turmas e atribuições', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/assignments',
-        payload: { classGroupId: C6A, subjectId: MATH, teacherId: ANA, weeklyLessons: '5' },
+        payload: {
+          classGroupId: C6A,
+          participants: [{ subjectId: MATH, teacherId: ANA }],
+          weeklyLessons: '5',
+        },
       });
 
       expect(response.statusCode).toBe(400);
@@ -134,7 +190,7 @@ describe('API HTTP — turmas e atribuições', () => {
     });
 
     it.each([
-      [new AssignmentAlreadyExistsError(), 409, 'assignment.already_exists'],
+      [new InvalidAssignmentParticipantsError(), 400, 'assignment.invalid_participants'],
       [new TeacherNotQualifiedError(), 400, 'assignment.teacher_not_qualified'],
     ])('traduz %s', async (error, status, code) => {
       app = buildTestApp({
@@ -146,7 +202,11 @@ describe('API HTTP — turmas e atribuições', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/assignments',
-        payload: { classGroupId: C6A, subjectId: MATH, teacherId: ANA, weeklyLessons: 5 },
+        payload: {
+          classGroupId: C6A,
+          participants: [{ subjectId: MATH, teacherId: ANA }],
+          weeklyLessons: 5,
+        },
       });
 
       expect(response.statusCode).toBe(status);
@@ -160,13 +220,17 @@ describe('API HTTP — turmas e atribuições', () => {
       const response = await app.inject({
         method: 'PUT',
         url: `/api/v1/assignments/${A1}`,
-        payload: { teacherId: ANA, weeklyLessons: 4, version: 1 },
+        payload: {
+          participants: [{ subjectId: MATH, teacherId: ANA }],
+          weeklyLessons: 4,
+          version: 1,
+        },
       });
 
       expect(response.statusCode).toBe(200);
       expect(changeAssignment).toHaveBeenCalledWith({
         id: A1,
-        teacherId: ANA,
+        participants: [{ subjectId: MATH, teacherId: ANA }],
         weeklyLessons: 4,
         version: 1,
       });

@@ -3,11 +3,12 @@ import type { EntityStatus } from '../../../shared/archiving.ts';
 import { StaleVersionError } from '../../../shared/versioning.ts';
 import { InMemoryAssignmentRepository } from '../../../testing/in-memory-repositories.ts';
 import {
-  AssignmentAlreadyExistsError,
   AssignmentNotFoundError,
+  InvalidAssignmentParticipantsError,
   InvalidAssignmentReferenceError,
   InvalidWeeklyLessonsError,
   TeacherNotQualifiedError,
+  createAssignment,
 } from '../domain/assignment.ts';
 import { createTeacher, type Teacher } from '../domain/teacher.ts';
 import {
@@ -19,6 +20,10 @@ import {
 import type { TeacherRepository } from './ports.ts';
 
 const now = new Date('2026-02-01T12:00:00Z');
+const first = { teacherId: 'teacher-a', subjectId: 'math' };
+const second = { teacherId: 'teacher-b', subjectId: 'math' };
+const parallel = { teacherId: 'teacher-c', subjectId: 'history' };
+const valid = { classGroupId: '6A', participants: [first], weeklyLessons: 5 };
 
 function teacher(id: string, subjectIds: string[], archived = false): Teacher {
   return {
@@ -27,163 +32,171 @@ function teacher(id: string, subjectIds: string[], archived = false): Teacher {
   };
 }
 
-describe('atribuições de ensino', () => {
+describe('atribuições em blocos de aulas', () => {
   let assignments: InMemoryAssignmentRepository;
   let teachersById: Map<string, Teacher>;
   let subjectStatus: Map<string, EntityStatus>;
-  let classGroupStatus: Map<string, EntityStatus>;
   let assign: ReturnType<typeof makeAssignTeaching>;
   let change: ReturnType<typeof makeChangeAssignment>;
   let remove: ReturnType<typeof makeRemoveAssignment>;
-
-  const valid = { classGroupId: '6A', subjectId: 'math', teacherId: 'ana', weeklyLessons: 5 };
-
   beforeEach(() => {
     assignments = new InMemoryAssignmentRepository();
     teachersById = new Map([
-      ['ana', teacher('ana', ['math', 'physics'])],
-      ['bruno', teacher('bruno', ['math'])],
-      ['carla', teacher('carla', ['history'])],
-      ['davi', teacher('davi', ['math'], true)],
+      ['teacher-a', teacher('teacher-a', ['math', 'physics'])],
+      ['teacher-b', teacher('teacher-b', ['math'])],
+      ['teacher-c', teacher('teacher-c', ['history'])],
+      ['archived', teacher('archived', ['math'], true)],
     ]);
     subjectStatus = new Map([
       ['math', 'active'],
       ['physics', 'active'],
+      ['history', 'active'],
       ['latin', 'archived'],
     ]);
-    classGroupStatus = new Map([
+    const classGroups = new Map<string, EntityStatus>([
       ['6A', 'active'],
       ['6B', 'active'],
       ['5A', 'archived'],
     ]);
-    const teachers: Pick<TeacherRepository, 'findById'> = {
-      findById: async (id) => teachersById.get(id) ?? null,
-    };
+    const teachers = {
+      findById: async (id: string) => teachersById.get(id) ?? null,
+    } as TeacherRepository;
     const deps = {
       assignments,
-      teachers: teachers as TeacherRepository,
+      teachers,
       subjects: {
-        subjectStatuses: async (ids: readonly string[]) => {
-          const found = new Map<string, EntityStatus>();
-          for (const id of ids) {
-            const status = subjectStatus.get(id);
-            if (status) found.set(id, status);
-          }
-          return found;
-        },
+        subjectStatuses: async (ids: readonly string[]) =>
+          new Map([...subjectStatus].filter(([id]) => ids.includes(id))),
       },
-      classGroups: { classGroupStatus: async (id: string) => classGroupStatus.get(id) },
+      classGroups: { classGroupStatus: async (id: string) => classGroups.get(id) },
     };
     let sequence = 0;
     assign = makeAssignTeaching({
       ...deps,
       clock: { now: () => now },
-      ids: { next: () => `a-${++sequence}` },
+      ids: { next: () => 'a-' + ++sequence },
     });
     change = makeChangeAssignment(deps);
     remove = makeRemoveAssignment(deps);
   });
 
-  describe('atribuir', () => {
-    it('atribui professor habilitado com a carga semanal', async () => {
-      const assignment = await assign(valid);
-
-      expect(assignment).toEqual({ id: 'a-1', ...valid, createdAt: now, version: 1 });
-      expect(await makeListAssignments({ assignments })()).toEqual([assignment]);
-    });
-
-    it.each([0, -1, 2.5, 41, Number.NaN])('rejeita carga semanal inválida (%s)', async (n) => {
-      await expect(assign({ ...valid, weeklyLessons: n })).rejects.toThrow(
-        InvalidWeeklyLessonsError,
-      );
-    });
-
-    it('aceita carga nos limites 1 e 40', async () => {
-      await expect(assign({ ...valid, weeklyLessons: 1 })).resolves.toBeDefined();
-      await expect(
-        assign({ ...valid, classGroupId: '6B', weeklyLessons: 40 }),
-      ).resolves.toBeDefined();
-    });
-
-    it('exige professor habilitado na disciplina', async () => {
-      await expect(assign({ ...valid, teacherId: 'carla' })).rejects.toThrow(
-        TeacherNotQualifiedError,
-      );
-    });
-
-    it.each([
-      ['turma inexistente', { classGroupId: 'nada' }, 'A turma selecionada não existe mais.'],
-      ['turma arquivada', { classGroupId: '5A' }, 'A turma selecionada está arquivada.'],
-      [
-        'disciplina inexistente',
-        { subjectId: 'nada' },
-        'A disciplina selecionada não existe mais.',
-      ],
-      ['disciplina arquivada', { subjectId: 'latin' }, 'A disciplina selecionada está arquivada.'],
-      ['professor inexistente', { teacherId: 'nada' }, 'O professor selecionado não existe mais.'],
-      ['professor arquivado', { teacherId: 'davi' }, 'O professor selecionado está arquivado.'],
-    ])('rejeita %s', async (_label, override, message) => {
-      const attempt = assign({ ...valid, ...override });
-
-      await expect(attempt).rejects.toThrow(InvalidAssignmentReferenceError);
-      await expect(attempt).rejects.toThrow(message);
-      expect(assignments.store.items.size).toBe(0);
-    });
-
-    it('só um professor por disciplina em cada turma', async () => {
-      await assign(valid);
-
-      await expect(assign({ ...valid, teacherId: 'bruno' })).rejects.toThrow(
-        AssignmentAlreadyExistsError,
-      );
-      await expect(assign({ ...valid, classGroupId: '6B' })).resolves.toBeDefined();
-      await expect(assign({ ...valid, subjectId: 'physics' })).resolves.toBeDefined();
-    });
+  it('atribui um professor e lista o bloco', async () => {
+    const assignment = await assign(valid);
+    expect(assignment).toEqual({ id: 'a-1', ...valid, createdAt: now, version: 1 });
+    expect(await makeListAssignments({ assignments })()).toEqual([assignment]);
   });
-
-  describe('alterar', () => {
-    it('troca professor e carga incrementando a versão', async () => {
-      const assignment = await assign(valid);
-
-      const changed = await change({
+  it('aceita acompanhamento, divisão em blocos e disciplinas simultâneas', async () => {
+    const shared = await assign({
+      ...valid,
+      participants: [first, second, parallel],
+      weeklyLessons: 2,
+    });
+    const separate = await assign({ ...valid, participants: [second], weeklyLessons: 3 });
+    expect(shared.participants).toEqual([first, second, parallel]);
+    expect(separate.id).not.toBe(shared.id);
+    expect(await assignments.subjectIdsAssignedTo(second.teacherId)).toEqual(new Set(['math']));
+    expect(await assignments.subjectIdsAssignedTo(parallel.teacherId)).toEqual(
+      new Set(['history']),
+    );
+  });
+  it.each([0, -1, 2.5, 41, Number.NaN])('rejeita carga inválida (%s)', async (n) => {
+    await expect(assign({ ...valid, weeklyLessons: n })).rejects.toThrow(InvalidWeeklyLessonsError);
+  });
+  it.each([1, 40])('aceita carga no limite %s', async (weeklyLessons) => {
+    await expect(assign({ ...valid, weeklyLessons })).resolves.toBeDefined();
+  });
+  it.each(
+    [[], [first, first], [first, { ...first, subjectId: 'physics' }]].map((participants) => ({
+      participants,
+    })),
+  )('recusa bloco vazio ou professor repetido ($participants)', async ({ participants }) => {
+    await expect(assign({ ...valid, participants })).rejects.toThrow(
+      InvalidAssignmentParticipantsError,
+    );
+    expect(assignments.store.items.size).toBe(0);
+  });
+  it('valida a habilitação de todos, inclusive o segundo participante', async () => {
+    await expect(
+      assign({ ...valid, participants: [first, { ...parallel, subjectId: 'math' }] }),
+    ).rejects.toThrow(TeacherNotQualifiedError);
+  });
+  it.each([
+    ['teacher-a', 'missing', 'A disciplina selecionada não existe mais.'],
+    ['teacher-a', 'latin', 'A disciplina selecionada está arquivada.'],
+    ['missing', 'math', 'O professor selecionado não existe mais.'],
+    ['archived', 'math', 'O professor selecionado está arquivado.'],
+  ])('recusa referência inválida %s/%s', async (teacherId, subjectId, message) => {
+    const single = assign({ ...valid, participants: [{ teacherId, subjectId }] });
+    await expect(single).rejects.toThrow(message);
+    expect(assignments.store.items.size).toBe(0);
+  });
+  it.each(['missing', '5A'])('recusa turma ausente ou arquivada (%s)', async (classGroupId) => {
+    await expect(assign({ ...valid, classGroupId })).rejects.toThrow(
+      InvalidAssignmentReferenceError,
+    );
+  });
+  it('edita participantes e carga com versão e mantém a turma', async () => {
+    const assignment = await assign(valid);
+    const changed = await change({
+      id: assignment.id,
+      version: 1,
+      participants: [second, parallel],
+      weeklyLessons: 4,
+    });
+    expect(changed).toMatchObject({
+      classGroupId: '6A',
+      participants: [second, parallel],
+      weeklyLessons: 4,
+      version: 2,
+    });
+    await expect(
+      change({ id: assignment.id, version: 1, participants: [first], weeklyLessons: 3 }),
+    ).rejects.toThrow(StaleVersionError);
+  });
+  it('valida novas disciplinas e professores na edição sem alterar o bloco ao falhar', async () => {
+    const assignment = await assign(valid);
+    await expect(
+      change({
         id: assignment.id,
         version: 1,
-        teacherId: 'bruno',
-        weeklyLessons: 4,
-      });
-
-      expect(changed).toMatchObject({ teacherId: 'bruno', weeklyLessons: 4, version: 2 });
-    });
-
-    it('novo professor também precisa ser habilitado', async () => {
-      const assignment = await assign(valid);
-
-      await expect(
-        change({ id: assignment.id, version: 1, teacherId: 'carla', weeklyLessons: 5 }),
-      ).rejects.toThrow(TeacherNotQualifiedError);
-    });
-
-    it('respeita a versão', async () => {
-      const assignment = await assign(valid);
-      await change({ id: assignment.id, version: 1, teacherId: 'ana', weeklyLessons: 4 });
-
-      await expect(
-        change({ id: assignment.id, version: 1, teacherId: 'ana', weeklyLessons: 3 }),
-      ).rejects.toThrow(StaleVersionError);
-    });
+        participants: [first, { ...parallel, subjectId: 'math' }],
+        weeklyLessons: 5,
+      }),
+    ).rejects.toThrow(TeacherNotQualifiedError);
+    await expect(
+      change({ id: assignment.id, version: 1, participants: [], weeklyLessons: 5 }),
+    ).rejects.toThrow(InvalidAssignmentParticipantsError);
+    await expect(
+      change({
+        id: assignment.id,
+        version: 1,
+        participants: [{ ...first, subjectId: 'latin' }],
+        weeklyLessons: 5,
+      }),
+    ).rejects.toThrow(InvalidAssignmentReferenceError);
+    expect(await assignments.findById(assignment.id)).toEqual(assignment);
   });
-
-  describe('remover', () => {
-    it('remove com a versão atual', async () => {
-      const assignment = await assign(valid);
-
-      await expect(remove({ id: assignment.id, version: 2 })).rejects.toThrow(StaleVersionError);
-      await remove({ id: assignment.id, version: 1 });
-
-      expect(assignments.store.items.size).toBe(0);
-      await expect(remove({ id: assignment.id, version: 1 })).rejects.toThrow(
-        AssignmentNotFoundError,
-      );
-    });
+  it('permite manter participante de disciplina arquivada ao editar a carga', async () => {
+    const assignment = await assign(valid);
+    subjectStatus.set('math', 'archived');
+    await expect(
+      change({ id: assignment.id, version: 1, participants: [first], weeklyLessons: 4 }),
+    ).resolves.toMatchObject({ weeklyLessons: 4 });
+  });
+  it('não retém referências mutáveis da entrada', () => {
+    const participants = [{ ...first }];
+    const assignment = createAssignment({ ...valid, id: 'a1', participants, createdAt: now });
+    if (participants[0]) participants[0].teacherId = 'changed';
+    participants.push(second);
+    expect(assignment.participants).toEqual([first]);
+  });
+  it('remove somente com versão atual', async () => {
+    const assignment = await assign(valid);
+    await expect(remove({ id: assignment.id, version: 2 })).rejects.toThrow(StaleVersionError);
+    await remove({ id: assignment.id, version: 1 });
+    expect(assignments.store.items.size).toBe(0);
+    await expect(remove({ id: assignment.id, version: 1 })).rejects.toThrow(
+      AssignmentNotFoundError,
+    );
   });
 });

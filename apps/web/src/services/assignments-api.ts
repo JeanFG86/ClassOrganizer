@@ -1,21 +1,17 @@
 import { assignmentListSchema, assignmentSchema } from '@classorganizer/contracts';
-import type { AssignmentDto } from '@classorganizer/contracts';
+import type {
+  AssignmentDto,
+  CreateAssignmentRequest,
+  UpdateAssignmentRequest,
+} from '@classorganizer/contracts';
 import { z } from 'zod';
 import type { InjectionKey } from 'vue';
 import { apiRequest } from './api-client.ts';
 
 export interface AssignmentsApi {
   list(): Promise<AssignmentDto[]>;
-  create(input: {
-    classGroupId: string;
-    subjectId: string;
-    teacherId: string;
-    weeklyLessons: number;
-  }): Promise<AssignmentDto>;
-  update(
-    id: string,
-    input: { teacherId: string; weeklyLessons: number; version: number },
-  ): Promise<AssignmentDto>;
+  create(input: CreateAssignmentRequest): Promise<AssignmentDto>;
+  update(id: string, input: UpdateAssignmentRequest): Promise<AssignmentDto>;
   remove(id: string, version: number): Promise<void>;
 }
 

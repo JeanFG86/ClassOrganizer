@@ -5,10 +5,7 @@ import type { ShiftRepository } from '../modules/school-structure/application/sh
 import type { ClassGroup } from '../modules/school-structure/domain/class-group.ts';
 import type { Shift } from '../modules/school-structure/domain/shift.ts';
 import type { AssignmentRepository } from '../modules/teaching/application/ports.ts';
-import {
-  AssignmentAlreadyExistsError,
-  type TeachingAssignment,
-} from '../modules/teaching/domain/assignment.ts';
+import { type TeachingAssignment } from '../modules/teaching/domain/assignment.ts';
 import { StaleVersionError } from '../shared/versioning.ts';
 
 class VersionedStore<T extends { id: string; version: number }> {
@@ -92,14 +89,6 @@ export class InMemoryAssignmentRepository implements AssignmentRepository {
   }
 
   async add(assignment: TeachingAssignment) {
-    const duplicate = this.store
-      .values()
-      .some(
-        (a) => a.classGroupId === assignment.classGroupId && a.subjectId === assignment.subjectId,
-      );
-    if (duplicate) {
-      throw new AssignmentAlreadyExistsError();
-    }
     this.store.items.set(assignment.id, assignment);
   }
 
@@ -122,8 +111,9 @@ export class InMemoryAssignmentRepository implements AssignmentRepository {
     return new Set(
       this.store
         .values()
-        .filter((a) => a.teacherId === teacherId)
-        .map((a) => a.subjectId),
+        .flatMap((a) => a.participants)
+        .filter((p) => p.teacherId === teacherId)
+        .map((p) => p.subjectId),
     );
   }
 }
