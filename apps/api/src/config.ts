@@ -5,6 +5,13 @@ const configSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL é obrigatória'),
   API_HOST: z.string().min(1).default('127.0.0.1'),
   API_PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
+  APP_ORIGIN: z
+    .url()
+    .refine(
+      (value) => /^https?:\/\//.test(value) && new URL(value).origin === value,
+      'Informe apenas a origem HTTP(S), sem caminho.',
+    )
+    .default('http://localhost:8080'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
 });
 

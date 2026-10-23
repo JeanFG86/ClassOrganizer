@@ -4,7 +4,7 @@ Aplicação web para a secretaria escolar distribuir cargas de professores e mon
 
 O plano completo está em [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md) e as decisões técnicas em [docs/adr](docs/adr).
 
-> **Estado atual:** E1 e os cadastros principais da E3 implementados, incluindo blocos de aulas compartilhadas. A E2 tem contrato de snapshot, validador independente e motor de referência TypeScript executado em thread, com fixações, geminadas, hora-atividade, cancelamento e benchmark ([prova técnica](docs/testing/motor-prova.md), [ADR 0010](docs/adr/0010-motor-de-referencia-e-validacao.md)). A homologação com políticas completas e metas pactuadas continua pendente antes da E6. Próximos passos: acesso e revisões (E4); recursos especiais, se confirmados.
+> **Estado atual:** E1 e os cadastros principais da E3 implementados, incluindo blocos de aulas compartilhadas. A E2 tem contrato de snapshot, validador independente e motor de referência TypeScript executado em thread, com fixações, geminadas, hora-atividade, cancelamento e benchmark ([prova técnica](docs/testing/motor-prova.md), [ADR 0010](docs/adr/0010-motor-de-referencia-e-validacao.md)). A homologação com políticas completas e metas pactuadas continua pendente antes da E6. A E4 acrescenta login, papéis, sessões persistidas, auditoria e planejamentos com revisões, cópia e conferência (ADRs [0011](docs/adr/0011-acesso-e-sessoes.md) e [0012](docs/adr/0012-planejamentos-e-revisoes.md)). Próximo passo: grade manual e validador integrado (E5); recursos especiais, se confirmados.
 
 ## Usar localmente (Docker)
 
@@ -14,6 +14,8 @@ Requisitos: Docker Desktop com WSL2 (Windows) ou Docker Engine + Compose v2 (Lin
 cp .env.example .env        # ajuste POSTGRES_PASSWORD
 docker compose up -d --build --wait
 ```
+
+Antes de entrar, crie o primeiro administrador pelo [procedimento de acesso local](docs/operations/acesso-local.md). Não há usuário ou senha padrão. A migração preserva os cadastros existentes.
 
 Abra <http://localhost:8080>. Serviços:
 
@@ -44,7 +46,7 @@ pnpm install
 cp .env.example .env
 pnpm db:up            # PostgreSQL em 127.0.0.1:5432 (compose.dev.yaml)
 pnpm db:migrate       # aplica as migrações
-pnpm dev              # API :3000, worker e Vite :5173 (com proxy de /api)
+pnpm dev              # configure APP_ORIGIN=http://localhost:5173 no .env; API :3000, worker e Vite :5173 (com proxy de /api)
 ```
 
 Para criar uma migração depois de alterar `packages/infrastructure/prisma/schema.prisma`:
@@ -66,6 +68,8 @@ pnpm db:migrate:dev --name descricao_da_mudanca
 | `pnpm engine:fixture <volume.json> <entrada.json>`      | Gera cenário fictício com testemunha validada, sem enviá-la ao motor                       |
 | `pnpm benchmark:engine <entrada.json> <relatorio.json>` | Mede três execuções em processos novos e registra correção, tempo e memória                |
 | `pnpm build`                                            | Build da interface                                                                         |
+
+Crie o administrador fictício no banco de teste conforme o [guia de acesso](docs/operations/acesso-local.md#e2e). O setup da suíte faz login, sem desabilitar a autenticação.
 
 Antes do primeiro E2E: `pnpm --filter @classorganizer/e2e exec playwright install chromium`.
 

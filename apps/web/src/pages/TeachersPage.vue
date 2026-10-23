@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAccess } from '../services/access-api.ts';
 import type { SubjectDto, TeacherDto } from '@classorganizer/contracts';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { errorMessage, isOutdatedError, type Feedback } from '../services/feedback.ts';
@@ -6,6 +7,7 @@ import { injectRequired } from '../services/inject-required.ts';
 import { subjectsApiKey } from '../services/subjects-api.ts';
 import { teachersApiKey } from '../services/teachers-api.ts';
 
+const { canWrite } = useAccess();
 const subjectsApi = injectRequired(subjectsApiKey);
 const teachersApi = injectRequired(teachersApiKey);
 
@@ -209,6 +211,7 @@ onMounted(load);
 
     <template v-else>
       <form
+        v-if="canWrite"
         class="card"
         novalidate
         aria-labelledby="teacher-form-title"
@@ -272,7 +275,7 @@ onMounted(load);
         </div>
 
         <div class="form-actions">
-          <button type="submit" :disabled="saving">
+          <button type="submit" :disabled="saving || !canWrite">
             {{ saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Cadastrar professor' }}
           </button>
           <button v-if="editing" type="button" class="ghost" @click="cancelEdit">
@@ -316,7 +319,7 @@ onMounted(load);
               type="button"
               class="small ghost"
               :aria-label="`Editar ${teacher.name}`"
-              :disabled="busy || saving"
+              :disabled="busy || saving || !canWrite"
               @click="startEdit(teacher)"
             >
               Editar
@@ -325,7 +328,7 @@ onMounted(load);
               type="button"
               class="small ghost"
               :aria-label="`Arquivar ${teacher.name}`"
-              :disabled="busy || saving"
+              :disabled="busy || saving || !canWrite"
               @click="archive(teacher)"
             >
               Arquivar
@@ -344,7 +347,7 @@ onMounted(load);
                 type="button"
                 class="small ghost"
                 :aria-label="`Restaurar ${teacher.name}`"
-                :disabled="busy || saving"
+                :disabled="busy || saving || !canWrite"
                 @click="restore(teacher)"
               >
                 Restaurar

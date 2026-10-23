@@ -11,7 +11,7 @@ import type {
   EntityStatus,
 } from '@classorganizer/core';
 import type { Prisma } from '../generated/prisma/client.ts';
-import type { Database } from './database.ts';
+import { inTransaction, type PersistenceClient } from './database.ts';
 import { PrismaErrorCode, translatePrismaError } from './prisma-errors.ts';
 import { isUuid } from './uuid.ts';
 
@@ -43,9 +43,9 @@ function outdatedSchedule(): InvalidClassScheduleError {
 
 /** Também atende a porta `ClassGroupStatusLookup` do módulo de ensino. */
 export class PrismaClassGroupRepository implements ClassGroupRepository, ClassGroupStatusLookup {
-  readonly #db: Database;
+  readonly #db: PersistenceClient;
 
-  constructor(db: Database) {
+  constructor(db: PersistenceClient) {
     this.#db = db;
   }
 
@@ -97,7 +97,7 @@ export class PrismaClassGroupRepository implements ClassGroupRepository, ClassGr
 
   async update(classGroup: ClassGroup): Promise<ClassGroup> {
     const { id, shiftId, periodIds } = classGroup;
-    await this.#db.$transaction(async (tx) => {
+    await inTransaction(this.#db, async (tx) => {
       // As aulas que deixam de valer saem antes: a FK composta não deixa a turma mudar de
       // turno enquanto ainda tiver aulas do turno anterior.
       await tx.classGroupPeriod.deleteMany({

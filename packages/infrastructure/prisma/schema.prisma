@@ -176,3 +176,77 @@ model AssignmentParticipant {
   @@index([subjectId])
   @@map("assignment_participant")
 }
+
+model AppUser {
+  id String @id @db.Uuid
+  username String @unique @db.VarChar(40)
+  passwordHash String @map("password_hash") @db.VarChar(256)
+  role String @db.VarChar(10)
+  disabled Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  sessions LoginSession[]
+  audits AuditEvent[]
+  revisions PlanningRevision[]
+  @@map("app_user")
+}
+model LoginSession {
+  tokenHash String @id @map("token_hash") @db.Char(64)
+  userId String @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("login_session")
+}
+model LoginAttempt {
+  key String @id @db.Char(64)
+  attempts Int
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  @@index([expiresAt])
+  @@map("login_attempt")
+}
+model AppState {
+  id Int @id
+  catalogVersion Int @default(1) @map("catalog_version")
+  @@map("app_state")
+}
+model AuditEvent {
+  id String @id @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  action String @db.VarChar(80)
+  entityId String? @map("entity_id") @db.Uuid
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  actor AppUser @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([occurredAt])
+  @@index([entityId, occurredAt])
+  @@map("audit_event")
+}
+model Planning {
+  id String @id @db.Uuid
+  name String @db.VarChar(100)
+  year Int
+  version Int @default(1)
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  copiedFromId String? @map("copied_from_id") @db.Uuid
+  copiedFrom Planning? @relation("planning_copy", fields: [copiedFromId], references: [id], onDelete: Restrict)
+  copies Planning[] @relation("planning_copy")
+  revisions PlanningRevision[]
+  @@map("planning")
+}
+model PlanningRevision {
+  id String @id @db.Uuid
+  planningId String @map("planning_id") @db.Uuid
+  number Int
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  snapshot Json
+  rulesReviewed Boolean @default(false) @map("rules_reviewed")
+  availabilityReviewed Boolean @default(false) @map("availability_reviewed")
+  sealedAt DateTime? @map("sealed_at") @db.Timestamptz(3)
+  planning Planning @relation(fields: [planningId], references: [id], onDelete: Restrict)
+  creator AppUser @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  @@unique([planningId, number])
+  @@map("planning_revision")
+}

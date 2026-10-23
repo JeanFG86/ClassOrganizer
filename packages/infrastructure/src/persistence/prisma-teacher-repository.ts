@@ -6,7 +6,7 @@ import {
 } from '@classorganizer/core';
 import type { Teacher, TeacherRepository, Weekday } from '@classorganizer/core';
 import type { Prisma } from '../generated/prisma/client.ts';
-import type { Database } from './database.ts';
+import { inTransaction, type PersistenceClient } from './database.ts';
 import { PrismaErrorCode, translatePrismaError } from './prisma-errors.ts';
 import { isUuid } from './uuid.ts';
 
@@ -52,9 +52,9 @@ function translateUnknownSubject<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 export class PrismaTeacherRepository implements TeacherRepository {
-  readonly #db: Database;
+  readonly #db: PersistenceClient;
 
-  constructor(db: Database) {
+  constructor(db: PersistenceClient) {
     this.#db = db;
   }
 
@@ -86,7 +86,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
   }
 
   async update(teacher: Teacher): Promise<Teacher> {
-    await this.#db.$transaction(async (tx) => {
+    await inTransaction(this.#db, async (tx) => {
       // A condição na versão garante que nenhuma alteração concorrente seja sobrescrita;
       // a linha fica bloqueada até o fim da transação.
       const { count } = await tx.teacher.updateMany({

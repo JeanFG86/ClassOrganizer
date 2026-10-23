@@ -51,6 +51,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: *database-url
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       migrate: { condition: service_completed_successfully }

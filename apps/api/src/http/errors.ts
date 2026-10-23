@@ -8,6 +8,9 @@ const STATUS_BY_KIND: Record<DomainErrorKind, number> = {
   validation: 400,
   conflict: 409,
   not_found: 404,
+  unauthorized: 401,
+  forbidden: 403,
+  rate_limit: 429,
 };
 
 /** Entrada HTTP que não respeita o contrato publicado. */

@@ -536,3 +536,27 @@ a.button.ghost {
     padding: 0.75rem 0.4rem;
   }
 }
+
+.stack-form {
+  display: grid;
+  gap: 0.65rem;
+}
+.stack-form input,
+.stack-form select {
+  width: 100%;
+  max-width: 100%;
+  flex: initial;
+}
+.stack-form input[type='checkbox'] {
+  width: auto;
+}
+.session-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.revision-card {
+  overflow-wrap: anywhere;
+}

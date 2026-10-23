@@ -6,12 +6,15 @@ const baseURL = process.env['E2E_BASE_URL'] ?? 'http://localhost:8080';
 
 export default defineConfig({
   testDir: './specs',
+  globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: Boolean(process.env['CI']),
   retries: 0,
   reporter: process.env['CI'] ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
+    storageState: '.auth/state.json',
+    extraHTTPHeaders: { 'x-entreaulas-client': 'web' },
     locale: 'pt-BR',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

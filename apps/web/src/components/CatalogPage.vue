@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="T extends CatalogItem">
+import { useAccess } from '../services/access-api.ts';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import type { CatalogApi, CatalogItem } from '../services/catalog-api.ts';
 import { errorMessage, isOutdatedError, type Feedback } from '../services/feedback.ts';
@@ -21,6 +22,7 @@ export interface CatalogTexts {
   archivedHint: string;
 }
 
+const { canWrite } = useAccess();
 const props = defineProps<{
   api: CatalogApi<T>;
   texts: CatalogTexts;
@@ -159,7 +161,7 @@ onMounted(load);
   <section :aria-labelledby="`${texts.idPrefix}-page-title`">
     <h1 :id="`${texts.idPrefix}-page-title`">{{ texts.title }}</h1>
 
-    <form class="card" novalidate @submit.prevent="submit">
+    <form v-if="canWrite" class="card" novalidate @submit.prevent="submit">
       <label :for="ids.name">{{ texts.fieldLabel }}</label>
       <div class="row">
         <input
@@ -171,7 +173,7 @@ onMounted(load);
           :aria-invalid="formFeedback?.kind === 'error'"
           :aria-describedby="formFeedback?.kind === 'error' ? ids.formError : undefined"
         />
-        <button type="submit" :disabled="saving">
+        <button type="submit" :disabled="saving || !canWrite">
           {{ saving ? 'Salvando…' : 'Cadastrar' }}
         </button>
       </div>
@@ -214,18 +216,18 @@ onMounted(load);
               :maxlength="texts.maxLength"
               autocomplete="off"
             />
-            <button type="submit" class="small" :disabled="busy">Salvar</button>
+            <button type="submit" class="small" :disabled="busy || !canWrite">Salvar</button>
             <button type="button" class="small ghost" @click="cancelEdit">Cancelar</button>
           </form>
           <template v-else>
             <span class="item-name">{{ item.name }}</span>
             <span v-if="detail?.(item)" class="item-detail muted">{{ detail(item) }}</span>
-            <span class="item-actions">
+            <span v-if="canWrite" class="item-actions">
               <button
                 type="button"
                 class="small ghost"
                 :aria-label="`Editar ${item.name}`"
-                :disabled="busy"
+                :disabled="busy || !canWrite"
                 @click="startEdit(item)"
               >
                 Editar
@@ -234,7 +236,7 @@ onMounted(load);
                 type="button"
                 class="small ghost"
                 :aria-label="`Arquivar ${item.name}`"
-                :disabled="busy"
+                :disabled="busy || !canWrite"
                 @click="archive(item)"
               >
                 Arquivar
@@ -255,7 +257,7 @@ onMounted(load);
                 type="button"
                 class="small ghost"
                 :aria-label="`Restaurar ${item.name}`"
-                :disabled="busy"
+                :disabled="busy || !canWrite"
                 @click="restore(item)"
               >
                 Restaurar

@@ -5,7 +5,7 @@ import {
 } from '@classorganizer/core';
 import type { AssignmentRepository, TeachingAssignment } from '@classorganizer/core';
 import type { Prisma } from '../generated/prisma/client.ts';
-import type { Database } from './database.ts';
+import { inTransaction, type PersistenceClient } from './database.ts';
 import { PrismaErrorCode, isPrismaError } from './prisma-errors.ts';
 import { isUuid } from './uuid.ts';
 
@@ -47,9 +47,9 @@ async function translateErrors<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 export class PrismaAssignmentRepository implements AssignmentRepository {
-  readonly #db: Database;
+  readonly #db: PersistenceClient;
 
-  constructor(db: Database) {
+  constructor(db: PersistenceClient) {
     this.#db = db;
   }
 
@@ -76,7 +76,7 @@ export class PrismaAssignmentRepository implements AssignmentRepository {
 
   async update(assignment: TeachingAssignment): Promise<TeachingAssignment> {
     await translateErrors(() =>
-      this.#db.$transaction(async (tx) => {
+      inTransaction(this.#db, async (tx) => {
         // Bloqueia o agregado pela versão antes de alterar qualquer participação.
         const { count } = await tx.teachingAssignment.updateMany({
           where: { id: assignment.id, version: assignment.version },
