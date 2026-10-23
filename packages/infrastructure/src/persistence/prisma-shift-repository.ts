@@ -3,7 +3,7 @@ import {
   ShiftNameAlreadyInUseError,
   StaleVersionError,
 } from '@classorganizer/core';
-import type { Shift, ShiftRepository } from '@classorganizer/core';
+import type { PeriodLookup, Shift, ShiftRepository } from '@classorganizer/core';
 import type { Prisma } from '../generated/prisma/client.ts';
 import type { Database } from './database.ts';
 import { PrismaErrorCode, translatePrismaError } from './prisma-errors.ts';
@@ -30,7 +30,8 @@ function toDomain(record: ShiftRecord): Shift {
   };
 }
 
-export class PrismaShiftRepository implements ShiftRepository {
+/** Também atende a porta `PeriodLookup` do módulo de ensino. */
+export class PrismaShiftRepository implements ShiftRepository, PeriodLookup {
   readonly #db: Database;
 
   constructor(db: Database) {
@@ -116,6 +117,18 @@ export class PrismaShiftRepository implements ShiftRepository {
       }
     });
     return { ...shift, version: shift.version + 1 };
+  }
+
+  async existingPeriodIds(ids: readonly string[]): Promise<Set<string>> {
+    const valid = ids.filter(isUuid);
+    if (valid.length === 0) {
+      return new Set();
+    }
+    const records = await this.#db.shiftPeriod.findMany({
+      where: { id: { in: valid } },
+      select: { id: true },
+    });
+    return new Set(records.map((r) => r.id));
   }
 
   async listAll(): Promise<Shift[]> {

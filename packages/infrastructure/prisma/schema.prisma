@@ -70,8 +70,9 @@ model ShiftPeriod {
   startMinute Int    @map("start_minute") @db.SmallInt
   endMinute   Int    @map("end_minute") @db.SmallInt
 
-  shift       Shift              @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  shift       Shift                   @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   classGroups ClassGroupPeriod[]
+  unavailable TeacherUnavailability[]
 
   /// Alvo da FK composta de class_group_period.
   @@unique([id, shiftId], map: "shift_period_id_shift_id_key")
@@ -95,15 +96,36 @@ model ClassGroupPeriod {
 }
 
 model Teacher {
-  id         String    @id @db.Uuid
-  name       String    @db.VarChar(120)
-  createdAt  DateTime  @map("created_at") @db.Timestamptz(3)
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
-  version    Int       @default(1)
+  id               String    @id @db.Uuid
+  name             String    @db.VarChar(120)
+  /// Máximo de aulas atribuídas por semana; nulo quando não há limite.
+  maxWeeklyLessons Int?      @map("max_weekly_lessons") @db.SmallInt
+  /// Hora-atividade: aulas por semana reservadas para planejamento.
+  planningPeriods  Int       @default(0) @map("planning_periods") @db.SmallInt
+  createdAt        DateTime  @map("created_at") @db.Timestamptz(3)
+  archivedAt       DateTime? @map("archived_at") @db.Timestamptz(3)
+  version          Int       @default(1)
 
-  subjects TeacherSubject[]
+  subjects    TeacherSubject[]
+  unavailable TeacherUnavailability[]
 
   @@map("teacher")
+}
+
+/// Horário (dia da semana + aula de um turno) em que o professor não pode dar aula.
+/// Se a aula sai do turno, o horário indisponível deixa de existir junto.
+model TeacherUnavailability {
+  teacherId String @map("teacher_id") @db.Uuid
+  /// 1 = segunda … 5 = sexta.
+  weekday   Int    @db.SmallInt
+  periodId  String @map("period_id") @db.Uuid
+
+  teacher Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  period  ShiftPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, weekday, periodId])
+  @@index([periodId])
+  @@map("teacher_unavailability")
 }
 
 /// Habilitação: disciplina que o professor pode lecionar.

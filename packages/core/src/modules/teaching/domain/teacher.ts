@@ -1,14 +1,34 @@
 import type { EntityStatus } from '../../../shared/archiving.ts';
 import { DomainError, NotFoundError } from '../../../shared/domain-error.ts';
 import { cleanName } from '../../../shared/names.ts';
+import { isWeekday, type Weekday } from '../../../shared/weekdays.ts';
 
 export const TEACHER_NAME_MAX_LENGTH = 120;
+/** Limite aceito para a carga máxima informada, em aulas por semana. */
+export const MAX_WEEKLY_LESSONS_LIMIT = 60;
+/** Limite aceito para a hora-atividade informada, em aulas por semana. */
+export const MAX_PLANNING_PERIODS = 40;
+
+/** Horário (dia da semana + aula de um turno) em que o professor não pode dar aula. */
+export interface UnavailableSlot {
+  readonly weekday: Weekday;
+  readonly periodId: string;
+}
 
 export interface Teacher {
   readonly id: string;
   readonly name: string;
   /** Disciplinas que o professor está habilitado a lecionar, sem repetições. */
   readonly subjectIds: readonly string[];
+  /** Máximo de aulas atribuídas por semana; `null` quando não há limite informado. */
+  readonly maxWeeklyLessons: number | null;
+  /**
+   * Hora-atividade: quantas aulas por semana ficam reservadas para planejamento, sem
+   * turma. Entram na grade do professor, não na das turmas.
+   */
+  readonly planningPeriods: number;
+  /** Horários indisponíveis, ordenados por dia; nos demais o professor está disponível. */
+  readonly unavailable: readonly UnavailableSlot[];
   readonly createdAt: Date;
   readonly archivedAt: Date | null;
   /** Versão para controle otimista de concorrência; começa em 1. */
@@ -18,6 +38,20 @@ export interface Teacher {
 export class InvalidTeacherNameError extends DomainError {
   readonly code = 'teacher.invalid_name';
   readonly kind = 'validation';
+}
+
+export class InvalidWorkloadError extends DomainError {
+  readonly code = 'teacher.invalid_workload';
+  readonly kind = 'validation';
+}
+
+export class InvalidAvailabilityError extends DomainError {
+  readonly code = 'teacher.invalid_availability';
+  readonly kind = 'validation';
+
+  constructor() {
+    super('Um dos horários marcados não existe mais. Recarregue a página e tente novamente.');
+  }
 }
 
 export class UnknownSubjectError extends DomainError {
@@ -104,30 +138,93 @@ function validData(input: { name: string; subjectIds: readonly string[] }) {
   return { name, subjectIds: [...new Set(input.subjectIds)] };
 }
 
+/** Carga máxima e hora-atividade informadas pela secretaria. */
+export interface WorkloadInput {
+  readonly maxWeeklyLessons?: number | null | undefined;
+  readonly planningPeriods?: number | undefined;
+}
+
+function validWorkload(
+  input: WorkloadInput,
+  current: Pick<Teacher, 'maxWeeklyLessons' | 'planningPeriods'>,
+): Pick<Teacher, 'maxWeeklyLessons' | 'planningPeriods'> {
+  const maxWeeklyLessons =
+    input.maxWeeklyLessons === undefined ? current.maxWeeklyLessons : input.maxWeeklyLessons;
+  const planningPeriods = input.planningPeriods ?? current.planningPeriods;
+
+  if (
+    maxWeeklyLessons !== null &&
+    (!Number.isInteger(maxWeeklyLessons) ||
+      maxWeeklyLessons < 1 ||
+      maxWeeklyLessons > MAX_WEEKLY_LESSONS_LIMIT)
+  ) {
+    throw new InvalidWorkloadError(
+      `A carga máxima deve ser um número inteiro de 1 a ${MAX_WEEKLY_LESSONS_LIMIT} aulas por semana.`,
+    );
+  }
+  if (
+    !Number.isInteger(planningPeriods) ||
+    planningPeriods < 0 ||
+    planningPeriods > MAX_PLANNING_PERIODS
+  ) {
+    throw new InvalidWorkloadError(
+      `A hora-atividade deve ser um número inteiro de 0 a ${MAX_PLANNING_PERIODS} por semana.`,
+    );
+  }
+  return { maxWeeklyLessons, planningPeriods };
+}
+
 /**
  * Cria o professor. Nomes repetidos são permitidos (duas pessoas podem ter o mesmo
  * nome); a regra pode mudar após o levantamento da E0.
  */
-export function createTeacher(input: {
-  id: string;
-  name: string;
-  subjectIds: readonly string[];
-  createdAt: Date;
-}): Teacher {
+export function createTeacher(
+  input: {
+    id: string;
+    name: string;
+    subjectIds: readonly string[];
+    createdAt: Date;
+  } & WorkloadInput,
+): Teacher {
   return {
     id: input.id,
     ...validData(input),
+    ...validWorkload(input, { maxWeeklyLessons: null, planningPeriods: 0 }),
+    unavailable: [],
     createdAt: input.createdAt,
     archivedAt: null,
     version: 1,
   };
 }
 
+/** Campos de carga omitidos mantêm o valor atual. */
 export function changeTeacher(
   teacher: Teacher,
-  input: { name: string; subjectIds: readonly string[] },
+  input: { name: string; subjectIds: readonly string[] } & WorkloadInput,
 ): Teacher {
-  return { ...teacher, ...validData(input) };
+  return { ...teacher, ...validData(input), ...validWorkload(input, teacher) };
+}
+
+/**
+ * Substitui os horários indisponíveis. Cada aula precisa existir (`knownPeriodIds`);
+ * repetições são ignoradas.
+ */
+export function setUnavailability(
+  teacher: Teacher,
+  slots: readonly { weekday: number; periodId: string }[],
+  knownPeriodIds: ReadonlySet<string>,
+): Teacher {
+  const unique = new Map<string, UnavailableSlot>();
+  for (const { weekday, periodId } of slots) {
+    if (!isWeekday(weekday) || !knownPeriodIds.has(periodId)) {
+      throw new InvalidAvailabilityError();
+    }
+    unique.set(`${weekday}|${periodId}`, { weekday, periodId });
+  }
+  const unavailable = [...unique.values()].toSorted(
+    (a, b) => a.weekday - b.weekday || (a.periodId < b.periodId ? -1 : 1),
+  );
+  return { ...teacher, unavailable };
 }
 
 export function archiveTeacher(teacher: Teacher, at: Date): Teacher {

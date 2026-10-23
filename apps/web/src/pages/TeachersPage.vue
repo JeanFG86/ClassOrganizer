@@ -24,6 +24,9 @@ const subjectById = computed(() => new Map(subjects.value.map((s) => [s.id, s]))
 const editing = ref<TeacherDto | null>(null);
 const name = ref('');
 const selectedSubjectIds = ref<string[]>([]);
+/** Campos numéricos como texto: vazio na carga máxima significa "sem limite". */
+const maxWeeklyLessons = ref('');
+const planningPeriods = ref('');
 const saving = ref(false);
 const formFeedback = ref<Feedback | null>(null);
 const listFeedback = ref<Feedback | null>(null);
@@ -46,6 +49,27 @@ function subjectNames(teacher: TeacherDto): string {
     return subject.archivedAt ? `${subject.name} (arquivada)` : subject.name;
   });
   return names.length > 0 ? names.join(', ') : 'Sem habilitações';
+}
+
+function workloadText(teacher: TeacherDto): string {
+  const parts = [];
+  if (teacher.maxWeeklyLessons !== null) {
+    parts.push(`até ${teacher.maxWeeklyLessons} aulas`);
+  }
+  if (teacher.planningPeriods > 0) {
+    parts.push(`${teacher.planningPeriods} de hora-atividade`);
+  }
+  return parts.join(' · ');
+}
+
+/** Converte os campos de carga; texto inválido vira NaN e o servidor explica a regra. */
+function workloadInput(): { maxWeeklyLessons: number | null; planningPeriods: number } {
+  const max = String(maxWeeklyLessons.value).trim();
+  const planning = String(planningPeriods.value).trim();
+  return {
+    maxWeeklyLessons: max === '' ? null : Number(max),
+    planningPeriods: planning === '' ? 0 : Number(planning),
+  };
 }
 
 async function load(): Promise<void> {
@@ -75,6 +99,8 @@ function resetForm(): void {
   editing.value = null;
   name.value = '';
   selectedSubjectIds.value = [];
+  maxWeeklyLessons.value = '';
+  planningPeriods.value = '';
 }
 
 async function startEdit(teacher: TeacherDto): Promise<void> {
@@ -82,6 +108,9 @@ async function startEdit(teacher: TeacherDto): Promise<void> {
   editing.value = teacher;
   name.value = teacher.name;
   selectedSubjectIds.value = [...teacher.subjectIds];
+  maxWeeklyLessons.value =
+    teacher.maxWeeklyLessons === null ? '' : String(teacher.maxWeeklyLessons);
+  planningPeriods.value = teacher.planningPeriods === 0 ? '' : String(teacher.planningPeriods);
   await nextTick();
   const input = document.getElementById('teacher-name');
   input?.scrollIntoView?.({ block: 'center' });
@@ -101,7 +130,7 @@ async function submit(): Promise<void> {
   }
 
   saving.value = true;
-  const input = { name: name.value, subjectIds: selectedSubjectIds.value };
+  const input = { name: name.value, subjectIds: selectedSubjectIds.value, ...workloadInput() };
   try {
     if (editing.value) {
       const updated = await teachersApi.update(editing.value.id, {
@@ -213,6 +242,35 @@ onMounted(load);
           </label>
         </fieldset>
 
+        <div class="grid-form">
+          <div>
+            <label for="teacher-max-lessons">Carga máxima (aulas por semana)</label>
+            <input
+              id="teacher-max-lessons"
+              v-model="maxWeeklyLessons"
+              type="number"
+              min="1"
+              max="60"
+              inputmode="numeric"
+              aria-describedby="teacher-max-lessons-hint"
+            />
+            <p id="teacher-max-lessons-hint" class="hint">Em branco: sem limite.</p>
+          </div>
+          <div>
+            <label for="teacher-planning">Hora-atividade (aulas por semana)</label>
+            <input
+              id="teacher-planning"
+              v-model="planningPeriods"
+              type="number"
+              min="0"
+              max="40"
+              inputmode="numeric"
+              aria-describedby="teacher-planning-hint"
+            />
+            <p id="teacher-planning-hint" class="hint">Tempo de planejamento, sem turma.</p>
+          </div>
+        </div>
+
         <div class="form-actions">
           <button type="submit" :disabled="saving">
             {{ saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Cadastrar professor' }}
@@ -242,8 +300,18 @@ onMounted(load);
           <span class="item-name">
             <strong>{{ teacher.name }}</strong>
             <span class="muted"> — {{ subjectNames(teacher) }}</span>
+            <span v-if="workloadText(teacher)" class="item-detail muted">
+              · {{ workloadText(teacher) }}
+            </span>
           </span>
           <span class="item-actions">
+            <RouterLink
+              class="button small ghost"
+              :to="{ path: '/disponibilidade', query: { professor: teacher.id } }"
+              :aria-label="`Disponibilidade de ${teacher.name}`"
+            >
+              Disponibilidade
+            </RouterLink>
             <button
               type="button"
               class="small ghost"

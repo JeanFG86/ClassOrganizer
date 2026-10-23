@@ -9,9 +9,15 @@ import {
   assertQualificationsAllowed,
   changeTeacher,
   restoreTeacher,
+  setUnavailability,
 } from '../domain/teacher.ts';
-import type { Teacher } from '../domain/teacher.ts';
-import type { AssignmentRepository, SubjectLookup, TeacherRepository } from './ports.ts';
+import type { Teacher, WorkloadInput } from '../domain/teacher.ts';
+import type {
+  AssignmentRepository,
+  PeriodLookup,
+  SubjectLookup,
+  TeacherRepository,
+} from './ports.ts';
 
 async function loadForChange(teachers: TeacherRepository, ref: VersionedRef): Promise<Teacher> {
   const teacher = await teachers.findById(ref.id);
@@ -32,7 +38,7 @@ export function makeUpdateTeacher({
   assignments: AssignmentRepository;
 }) {
   return async function updateTeacher(
-    input: VersionedRef & { name: string; subjectIds: readonly string[] },
+    input: VersionedRef & { name: string; subjectIds: readonly string[] } & WorkloadInput,
   ): Promise<Teacher> {
     const current = await loadForChange(teachers, input);
     const changed = changeTeacher(current, input);
@@ -84,6 +90,24 @@ export function makeRestoreTeacher({ teachers }: { teachers: TeacherRepository }
   };
 }
 
+/** Substitui os horários em que o professor não pode dar aula. */
+export function makeChangeTeacherAvailability({
+  teachers,
+  periods,
+}: {
+  teachers: TeacherRepository;
+  periods: PeriodLookup;
+}) {
+  return async function changeAvailability(
+    input: VersionedRef & { unavailable: readonly { weekday: number; periodId: string }[] },
+  ): Promise<Teacher> {
+    const current = await loadForChange(teachers, input);
+    const known = await periods.existingPeriodIds(input.unavailable.map((s) => s.periodId));
+    return teachers.update(setUnavailability(current, input.unavailable, known));
+  };
+}
+
 export type UpdateTeacher = ReturnType<typeof makeUpdateTeacher>;
+export type ChangeTeacherAvailability = ReturnType<typeof makeChangeTeacherAvailability>;
 export type ArchiveTeacher = ReturnType<typeof makeArchiveTeacher>;
 export type RestoreTeacher = ReturnType<typeof makeRestoreTeacher>;
