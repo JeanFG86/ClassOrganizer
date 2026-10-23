@@ -1,0 +1,24 @@
+// Modelos de persistência. Não são entidades de domínio: os repositórios
+// traduzem entre estes registros e os tipos de @classorganizer/core.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Subject {
+  id             String   @id @db.Uuid
+  name           String   @db.VarChar(80)
+  normalizedName String   @unique(map: "subject_normalized_name_key") @map("normalized_name") @db.VarChar(80)
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@map("subject")
+}

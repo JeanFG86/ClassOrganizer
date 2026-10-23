@@ -1,0 +1,8 @@
+# Perfil de desenvolvimento: apenas o PostgreSQL, exposto em localhost para
+# `pnpm dev` e `prisma migrate dev`. Use junto com o compose.yaml:
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d postgres
+
+services:
+  postgres:
+    ports:
+      - '127.0.0.1:${POSTGRES_DEV_PORT:-5432}:5432'

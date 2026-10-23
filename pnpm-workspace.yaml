@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+  - tests/e2e
+
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - esbuild
+  - prisma
+
+# Dependências opcionais do Testcontainers; não são necessárias para os testes.
+ignoredBuiltDependencies:
+  - cpu-features
+  - protobufjs
+  - ssh2
