@@ -22,8 +22,8 @@ model Subject {
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
   version        Int       @default(1)
 
-  teachers    TeacherSubject[]
-  assignments TeachingAssignment[]
+  teachers     TeacherSubject[]
+  participants AssignmentParticipant[]
 
   @@map("subject")
 }
@@ -135,32 +135,44 @@ model TeacherSubject {
   /// Preserva a ordem informada no cadastro.
   position  Int    @db.SmallInt
 
-  teacher     Teacher              @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subject     Subject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  assignments TeachingAssignment[]
+  teacher      Teacher                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject      Subject                 @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  participants AssignmentParticipant[]
 
   @@id([teacherId, subjectId])
   @@index([subjectId])
   @@map("teacher_subject")
 }
 
-/// Atribuição de ensino: professor responsável pela disciplina na turma e carga semanal.
+/// Bloco de aulas simultâneas de uma turma. A carga vale para cada participante.
 model TeachingAssignment {
   id            String   @id @db.Uuid
   classGroupId  String   @map("class_group_id") @db.Uuid
-  subjectId     String   @map("subject_id") @db.Uuid
-  teacherId     String   @map("teacher_id") @db.Uuid
-  /// Unidades de aula por semana (1 a 40).
   weeklyLessons Int      @map("weekly_lessons") @db.SmallInt
   createdAt     DateTime @map("created_at") @db.Timestamptz(3)
   version       Int      @default(1)
 
-  classGroup    ClassGroup     @relation(fields: [classGroupId], references: [id], onDelete: Restrict)
-  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  /// FK composta: o banco garante que o professor é habilitado na disciplina.
-  qualification TeacherSubject @relation(fields: [teacherId, subjectId], references: [teacherId, subjectId], onDelete: Restrict)
+  classGroup   ClassGroup              @relation(fields: [classGroupId], references: [id], onDelete: Restrict)
+  participants AssignmentParticipant[]
 
-  @@unique([classGroupId, subjectId], map: "teaching_assignment_class_group_subject_key")
-  @@index([teacherId, subjectId])
+  @@index([classGroupId])
   @@map("teaching_assignment")
+}
+
+/// Chave natural preservada ao editar; cada professor ocupa uma única participação no bloco.
+model AssignmentParticipant {
+  assignmentId String @map("assignment_id") @db.Uuid
+  teacherId    String @map("teacher_id") @db.Uuid
+  subjectId    String @map("subject_id") @db.Uuid
+  position     Int    @db.SmallInt
+
+  assignment    TeachingAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  subject       Subject            @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  /// Mantém a garantia de habilitação para todos os participantes.
+  qualification TeacherSubject     @relation(fields: [teacherId, subjectId], references: [teacherId, subjectId], onDelete: Restrict)
+
+  @@id([assignmentId, teacherId])
+  @@index([teacherId, subjectId])
+  @@index([subjectId])
+  @@map("assignment_participant")
 }

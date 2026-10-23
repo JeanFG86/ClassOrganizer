@@ -5,7 +5,8 @@ import type {
   SubjectDto,
   TeacherDto,
 } from '@classorganizer/contracts';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import AssignmentParticipantsEditor from '../components/AssignmentParticipantsEditor.vue';
 import { assignmentsApiKey } from '../services/assignments-api.ts';
 import { classGroupsApiKey } from '../services/class-groups-api.ts';
 import { errorMessage, isOutdatedError, type Feedback } from '../services/feedback.ts';
@@ -36,7 +37,6 @@ const subjectById = computed(() => byId(subjects.value));
 const teacherById = computed(() => byId(teachers.value));
 
 const activeClassGroups = computed(() => classGroups.value.filter((c) => !c.archivedAt));
-const activeSubjects = computed(() => subjects.value.filter((s) => !s.archivedAt));
 const activeTeachers = computed(() => teachers.value.filter((t) => !t.archivedAt));
 
 function classGroupName(id: string): string {
@@ -53,11 +53,6 @@ function subjectName(id: string): string {
 
 function teacherName(id: string): string {
   return teacherById.value.get(id)?.name ?? '(removido)';
-}
-
-/** Professores ativos habilitados na disciplina. */
-function qualifiedTeachers(subjectId: string): TeacherDto[] {
-  return activeTeachers.value.filter((t) => t.subjectIds.includes(subjectId));
 }
 
 function lessonsLabel(count: number): string {
@@ -78,8 +73,8 @@ const groups = computed(() => {
       classGroupId,
       name: classGroupName(classGroupId),
       total: items.reduce((sum, a) => sum + a.weeklyLessons, 0),
-      items: items.toSorted((a, b) =>
-        compareNames(subjectName(a.subjectId), subjectName(b.subjectId)),
+      items: items.toSorted(
+        (a, b) => compareNames(blockSubjects(a), blockSubjects(b)) || a.id.localeCompare(b.id),
       ),
     }))
     .toSorted((a, b) => compareNames(a.name, b.name));
@@ -92,7 +87,9 @@ const classGroupsWithoutAssignments = computed(() =>
 const teacherLoads = computed(() =>
   activeTeachers.value
     .map((teacher) => {
-      const own = assignments.value.filter((a) => a.teacherId === teacher.id);
+      const own = assignments.value.filter((a) =>
+        a.participants.some((p) => p.teacherId === teacher.id),
+      );
       const total = own.reduce((sum, a) => sum + a.weeklyLessons, 0);
       return {
         id: teacher.id,
@@ -137,79 +134,57 @@ async function refresh(): Promise<void> {
   }
 }
 
-// ---------- Nova atribuição ----------
-
-const form = ref({ classGroupId: '', subjectId: '', teacherId: '', weeklyLessons: '' });
+type Participant = AssignmentDto['participants'][number];
+const emptyParticipants = (): Participant[] => [{ subjectId: '', teacherId: '' }];
+const form = ref({ classGroupId: '', weeklyLessons: '', participants: emptyParticipants() });
 const saving = ref(false);
+const busy = ref(false);
 const formFeedback = ref<Feedback | null>(null);
 const listFeedback = ref<Feedback | null>(null);
+const editing = ref<{
+  id: string;
+  participants: Participant[];
+  weeklyLessons: string | number;
+} | null>(null);
+const confirmingRemovalId = ref<string | null>(null);
 
-/** Disciplinas que já têm professor na turma escolhida. */
-const takenSubjectIds = computed(
-  () =>
-    new Set(
-      assignments.value
-        .filter((a) => a.classGroupId === form.value.classGroupId)
-        .map((a) => a.subjectId),
-    ),
-);
-const formTeachers = computed(() =>
-  form.value.subjectId ? qualifiedTeachers(form.value.subjectId) : [],
-);
-
-// Trocar a disciplina invalida o professor escolhido se ele não for habilitado nela.
-watch(
-  () => form.value.subjectId,
-  () => {
-    if (!formTeachers.value.some((t) => t.id === form.value.teacherId)) {
-      form.value.teacherId =
-        formTeachers.value.length === 1 ? (formTeachers.value[0]?.id ?? '') : '';
-    }
-  },
-);
-
+function blockSubjects(assignment: AssignmentDto): string {
+  return [...new Set(assignment.participants.map((p) => subjectName(p.subjectId)))].join(' / ');
+}
 function clearFeedback(): void {
   formFeedback.value = null;
   listFeedback.value = null;
 }
-
-function parseLessons(raw: string | number): number | null {
+function validationMessage(participants: Participant[], raw: string | number): string | null {
+  if (!participants.length || participants.some((p) => !p.subjectId || !p.teacherId))
+    return 'Escolha a disciplina e o professor de cada participante.';
+  if (new Set(participants.map((p) => p.teacherId)).size !== participants.length)
+    return 'Não repita o mesmo professor no bloco.';
   const value = Number(raw);
-  return Number.isInteger(value) && value >= 1 && value <= MAX_WEEKLY_LESSONS ? value : null;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_WEEKLY_LESSONS)
+    return 'Informe um número inteiro de aulas por semana entre 1 e 40.';
+  return null;
 }
-
 async function submit(): Promise<void> {
   clearFeedback();
-  const { classGroupId, subjectId, teacherId } = form.value;
-  const weeklyLessons = parseLessons(form.value.weeklyLessons);
-  const missing = [
-    !classGroupId && 'a turma',
-    !subjectId && 'a disciplina',
-    !teacherId && 'o professor',
-  ].filter(Boolean);
-  if (missing.length > 0) {
-    formFeedback.value = { kind: 'error', text: `Escolha ${missing.join(', ')}.` };
+  const { classGroupId, participants, weeklyLessons } = form.value;
+  const error = !classGroupId ? 'Escolha a turma.' : validationMessage(participants, weeklyLessons);
+  if (error) {
+    formFeedback.value = { kind: 'error', text: error };
     return;
   }
-  if (weeklyLessons === null) {
-    formFeedback.value = {
-      kind: 'error',
-      text: `Informe um número inteiro de aulas por semana entre 1 e ${MAX_WEEKLY_LESSONS}.`,
-    };
-    return;
-  }
-
   saving.value = true;
   try {
-    await assignmentsApi.create({ classGroupId, subjectId, teacherId, weeklyLessons });
+    await assignmentsApi.create({
+      classGroupId,
+      participants: participants.map((p) => ({ ...p })),
+      weeklyLessons: Number(weeklyLessons),
+    });
     formFeedback.value = {
       kind: 'success',
-      text:
-        `${subjectName(subjectId)} em ${classGroupName(classGroupId)} atribuída a ` +
-        `${teacherName(teacherId)} (${lessonsLabel(weeklyLessons)} por semana).`,
+      text: 'Bloco de aulas em ' + classGroupName(classGroupId) + ' criado.',
     };
-    // Mantém a turma escolhida para agilizar o lançamento das demais disciplinas.
-    form.value = { classGroupId, subjectId: '', teacherId: '', weeklyLessons: '' };
+    form.value = { classGroupId, weeklyLessons: '', participants: emptyParticipants() };
     await refresh();
   } catch (error) {
     formFeedback.value = { kind: 'error', text: errorMessage(error) };
@@ -218,29 +193,15 @@ async function submit(): Promise<void> {
     saving.value = false;
   }
 }
-
-// ---------- Edição e remoção na lista ----------
-
-const busy = ref(false);
-const editing = ref<{ id: string; teacherId: string; weeklyLessons: string | number } | null>(null);
-const confirmingRemovalId = ref<string | null>(null);
-
-function editTeachers(assignment: AssignmentDto): TeacherDto[] {
-  const qualified = qualifiedTeachers(assignment.subjectId);
-  const current = teacherById.value.get(assignment.teacherId);
-  return current && !qualified.includes(current) ? [current, ...qualified] : qualified;
-}
-
 function startEdit(assignment: AssignmentDto): void {
   clearFeedback();
   confirmingRemovalId.value = null;
   editing.value = {
     id: assignment.id,
-    teacherId: assignment.teacherId,
+    participants: assignment.participants.map((p) => ({ ...p })),
     weeklyLessons: assignment.weeklyLessons,
   };
 }
-
 async function runListAction(action: () => Promise<string>): Promise<void> {
   clearFeedback();
   busy.value = true;
@@ -260,35 +221,30 @@ async function runListAction(action: () => Promise<string>): Promise<void> {
     busy.value = false;
   }
 }
-
 function saveEdit(assignment: AssignmentDto): Promise<void> {
   const draft = editing.value;
-  const weeklyLessons = draft ? parseLessons(draft.weeklyLessons) : null;
-  if (!draft || weeklyLessons === null) {
+  if (!draft) return Promise.resolve();
+  const error = validationMessage(draft.participants, draft.weeklyLessons);
+  if (error) {
     clearFeedback();
-    listFeedback.value = {
-      kind: 'error',
-      text: `Informe um número inteiro de aulas por semana entre 1 e ${MAX_WEEKLY_LESSONS}.`,
-    };
+    listFeedback.value = { kind: 'error', text: error };
     return Promise.resolve();
   }
   return runListAction(async () => {
     await assignmentsApi.update(assignment.id, {
-      teacherId: draft.teacherId,
-      weeklyLessons,
+      participants: draft.participants.map((p) => ({ ...p })),
+      weeklyLessons: Number(draft.weeklyLessons),
       version: assignment.version,
     });
-    return `Atribuição de ${subjectName(assignment.subjectId)} em ${classGroupName(assignment.classGroupId)} atualizada.`;
+    return 'Bloco de aulas atualizado.';
   });
 }
-
 function remove(assignment: AssignmentDto): Promise<void> {
   return runListAction(async () => {
     await assignmentsApi.remove(assignment.id, assignment.version);
-    return `Atribuição de ${subjectName(assignment.subjectId)} em ${classGroupName(assignment.classGroupId)} removida.`;
+    return 'Bloco de aulas removido.';
   });
 }
-
 onMounted(load);
 </script>
 
@@ -296,15 +252,13 @@ onMounted(load);
   <section aria-labelledby="assignments-title">
     <h1 id="assignments-title">Atribuições</h1>
     <p class="muted">
-      Defina qual professor dá cada disciplina em cada turma e quantas aulas por semana.
+      Organize a carga da turma em blocos de aulas, com um ou mais professores no mesmo horário.
     </p>
-
     <p v-if="loadState === 'loading'" role="status">Carregando atribuições…</p>
     <div v-else-if="loadState === 'error'" role="alert">
       <p class="error">{{ loadError }}</p>
       <button type="button" @click="load">Tentar novamente</button>
     </div>
-
     <template v-else>
       <form
         class="card"
@@ -312,50 +266,14 @@ onMounted(load);
         aria-labelledby="assignment-form-title"
         @submit.prevent="submit"
       >
-        <h2 id="assignment-form-title" class="form-title">Nova atribuição</h2>
+        <h2 id="assignment-form-title" class="form-title">Novo bloco de aulas</h2>
         <div class="grid-form">
           <div>
             <label for="assignment-class-group">Turma</label>
-            <select id="assignment-class-group" v-model="form.classGroupId">
+            <select id="assignment-class-group" v-model="form.classGroupId" :disabled="saving">
               <option value="">Escolha a turma</option>
               <option v-for="c in activeClassGroups" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
-          </div>
-          <div>
-            <label for="assignment-subject">Disciplina</label>
-            <select id="assignment-subject" v-model="form.subjectId">
-              <option value="">Escolha a disciplina</option>
-              <option
-                v-for="s in activeSubjects"
-                :key="s.id"
-                :value="s.id"
-                :disabled="takenSubjectIds.has(s.id)"
-              >
-                {{ takenSubjectIds.has(s.id) ? `${s.name} (já atribuída nesta turma)` : s.name }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label for="assignment-teacher">Professor</label>
-            <select
-              id="assignment-teacher"
-              v-model="form.teacherId"
-              :disabled="!form.subjectId"
-              aria-describedby="assignment-teacher-hint"
-            >
-              <option value="">
-                {{ form.subjectId ? 'Escolha o professor' : 'Escolha antes a disciplina' }}
-              </option>
-              <option v-for="t in formTeachers" :key="t.id" :value="t.id">{{ t.name }}</option>
-            </select>
-            <p
-              v-if="form.subjectId && formTeachers.length === 0"
-              id="assignment-teacher-hint"
-              class="hint"
-            >
-              Nenhum professor habilitado nesta disciplina.
-              <RouterLink to="/professores">Habilite em Professores</RouterLink>.
-            </p>
           </div>
           <div>
             <label for="assignment-lessons">Aulas por semana</label>
@@ -367,110 +285,126 @@ onMounted(load);
               min="1"
               :max="MAX_WEEKLY_LESSONS"
               step="1"
+              :disabled="saving"
             />
           </div>
         </div>
+        <AssignmentParticipantsEditor
+          v-model="form.participants"
+          id-prefix="assignment"
+          :subjects="subjects"
+          :teachers="teachers"
+          :disabled="saving"
+        />
         <p v-if="activeClassGroups.length === 0" class="hint">
           Nenhuma turma cadastrada. <RouterLink to="/turmas">Cadastre as turmas</RouterLink>.
         </p>
-        <div class="form-actions">
-          <button type="submit" :disabled="saving">{{ saving ? 'Salvando…' : 'Atribuir' }}</button>
-        </div>
-        <p v-if="formFeedback?.kind === 'error'" class="error" role="alert">
-          {{ formFeedback.text }}
-        </p>
-        <p v-if="formFeedback?.kind === 'success'" class="success" role="status">
+        <button type="submit" :disabled="saving">{{ saving ? 'Salvando…' : 'Atribuir' }}</button>
+        <p
+          v-if="formFeedback"
+          :class="formFeedback.kind === 'error' ? 'error' : 'success'"
+          :role="formFeedback.kind === 'error' ? 'alert' : 'status'"
+        >
           {{ formFeedback.text }}
         </p>
       </form>
-
       <h2>Por turma</h2>
-      <p v-if="listFeedback?.kind === 'error'" class="error" role="alert">
-        {{ listFeedback.text }}
-      </p>
-      <p v-if="listFeedback?.kind === 'success'" class="success" role="status">
+      <p
+        v-if="listFeedback"
+        :class="listFeedback.kind === 'error' ? 'error' : 'success'"
+        :role="listFeedback.kind === 'error' ? 'alert' : 'status'"
+      >
         {{ listFeedback.text }}
       </p>
       <p v-if="groups.length === 0">Nenhuma atribuição feita ainda.</p>
-
       <section
         v-for="group in groups"
         :key="group.classGroupId"
         class="card group"
-        :aria-label="`Turma ${group.name}`"
+        :aria-label="'Turma ' + group.name"
       >
         <h3 class="group-title">
-          {{ group.name }}
-          <span class="muted">— {{ lessonsLabel(group.total) }} por semana</span>
+          {{ group.name }} <span class="muted">— {{ lessonsLabel(group.total) }} por semana</span>
         </h3>
+        <p class="hint">
+          A carga da turma conta cada bloco uma vez; cada professor recebe a carga inteira do bloco
+          em que participa.
+        </p>
         <table class="table">
           <thead>
             <tr>
-              <th scope="col">Disciplina</th>
-              <th scope="col">Professor</th>
+              <th scope="col">Bloco</th>
+              <th scope="col">Disciplina e professor</th>
               <th scope="col" class="num">Aulas/semana</th>
               <th scope="col"><span class="visually-hidden">Ações</span></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="assignment in group.items" :key="assignment.id">
-              <th scope="row">{{ subjectName(assignment.subjectId) }}</th>
-              <template v-if="editing?.id === assignment.id">
-                <td>
-                  <label :for="`edit-teacher-${assignment.id}`" class="visually-hidden">
-                    Professor de {{ subjectName(assignment.subjectId) }}
-                  </label>
-                  <select :id="`edit-teacher-${assignment.id}`" v-model="editing.teacherId">
-                    <option v-for="t in editTeachers(assignment)" :key="t.id" :value="t.id">
-                      {{ t.archivedAt ? `${t.name} (arquivado)` : t.name }}
-                    </option>
-                  </select>
-                </td>
-                <td class="num">
-                  <label :for="`edit-lessons-${assignment.id}`" class="visually-hidden">
-                    Aulas por semana de {{ subjectName(assignment.subjectId) }}
-                  </label>
-                  <input
-                    :id="`edit-lessons-${assignment.id}`"
-                    v-model="editing.weeklyLessons"
-                    class="lessons-input"
-                    type="number"
-                    min="1"
-                    :max="MAX_WEEKLY_LESSONS"
-                    step="1"
-                    @keydown.esc="editing = null"
-                  />
-                </td>
-                <td class="actions">
-                  <button
-                    type="button"
-                    class="small"
-                    :disabled="busy"
-                    @click="saveEdit(assignment)"
+            <template v-for="(assignment, index) in group.items" :key="assignment.id">
+              <tr v-if="editing?.id === assignment.id">
+                <td colspan="4">
+                  <form
+                    novalidate
+                    :aria-label="'Editar bloco ' + (index + 1) + ' em ' + group.name"
+                    @submit.prevent="saveEdit(assignment)"
                   >
-                    Salvar
-                  </button>
-                  <button type="button" class="small ghost" @click="editing = null">
-                    Cancelar
-                  </button>
+                    <AssignmentParticipantsEditor
+                      v-model="editing.participants"
+                      :id-prefix="'edit-' + assignment.id"
+                      :subjects="subjects"
+                      :teachers="teachers"
+                      :disabled="busy"
+                    />
+                    <label :for="'edit-lessons-' + assignment.id"
+                      >Aulas por semana do bloco {{ index + 1 }}</label
+                    >
+                    <input
+                      :id="'edit-lessons-' + assignment.id"
+                      v-model="editing.weeklyLessons"
+                      class="lessons-input"
+                      type="number"
+                      min="1"
+                      :max="MAX_WEEKLY_LESSONS"
+                      step="1"
+                      :disabled="busy"
+                    />
+                    <div class="form-actions">
+                      <button type="submit" :disabled="busy">Salvar</button
+                      ><button type="button" class="ghost" :disabled="busy" @click="editing = null">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
                 </td>
-              </template>
-              <template v-else>
-                <td>{{ teacherName(assignment.teacherId) }}</td>
+              </tr>
+              <tr v-else>
+                <th scope="row">{{ index + 1 }}</th>
+                <td>
+                  <div v-for="p in assignment.participants" :key="p.teacherId">
+                    {{ subjectName(p.subjectId) }} — {{ teacherName(p.teacherId) }}
+                  </div>
+                </td>
                 <td class="num">{{ assignment.weeklyLessons }}</td>
                 <td class="actions">
                   <template v-if="confirmingRemovalId === assignment.id">
-                    <span class="confirm-text">Remover?</span>
+                    <span>Remover bloco {{ index + 1 }}?</span>
                     <button
                       type="button"
                       class="small danger"
-                      :aria-label="`Confirmar remoção de ${subjectName(assignment.subjectId)} em ${group.name}`"
+                      :aria-label="
+                        'Confirmar remoção do bloco ' + (index + 1) + ' em ' + group.name
+                      "
                       :disabled="busy"
                       @click="remove(assignment)"
                     >
                       Sim, remover
                     </button>
-                    <button type="button" class="small ghost" @click="confirmingRemovalId = null">
+                    <button
+                      type="button"
+                      class="small ghost"
+                      :disabled="busy"
+                      @click="confirmingRemovalId = null"
+                    >
                       Não
                     </button>
                   </template>
@@ -478,7 +412,7 @@ onMounted(load);
                     <button
                       type="button"
                       class="small ghost"
-                      :aria-label="`Editar ${subjectName(assignment.subjectId)} em ${group.name}`"
+                      :aria-label="'Editar bloco ' + (index + 1) + ' em ' + group.name"
                       :disabled="busy"
                       @click="startEdit(assignment)"
                     >
@@ -487,7 +421,7 @@ onMounted(load);
                     <button
                       type="button"
                       class="small ghost"
-                      :aria-label="`Remover ${subjectName(assignment.subjectId)} em ${group.name}`"
+                      :aria-label="'Remover bloco ' + (index + 1) + ' em ' + group.name"
                       :disabled="busy"
                       @click="
                         clearFeedback();
@@ -499,46 +433,45 @@ onMounted(load);
                     </button>
                   </template>
                 </td>
-              </template>
-            </tr>
+              </tr>
+            </template>
           </tbody>
         </table>
       </section>
-
       <p v-if="classGroupsWithoutAssignments.length > 0" class="muted">
-        Turmas sem atribuições:
-        {{ classGroupsWithoutAssignments.map((c) => c.name).join(', ') }}.
+        Turmas sem atribuições: {{ classGroupsWithoutAssignments.map((c) => c.name).join(', ') }}.
       </p>
-
       <h2>Carga por professor</h2>
       <p v-if="overloaded.length > 0" class="error">
         Acima da carga máxima:
-        {{ overloaded.map((t) => `${t.name} (${t.total} de ${t.max})`).join(', ') }}.
+        {{ overloaded.map((t) => t.name + ' (' + t.total + ' de ' + t.max + ')').join(', ') }}.
       </p>
       <p v-if="teacherLoads.length === 0">Nenhum professor cadastrado ainda.</p>
-      <table v-else class="table card" aria-label="Carga semanal por professor">
-        <thead>
-          <tr>
-            <th scope="col">Professor</th>
-            <th scope="col" class="num">Aulas/semana</th>
-            <th scope="col" class="num">Máximo</th>
-            <th scope="col" class="num">Hora-atividade</th>
-            <th scope="col" class="num">Turmas</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="teacherLoad in teacherLoads" :key="teacherLoad.id">
-            <th scope="row">{{ teacherLoad.name }}</th>
-            <td class="num" :class="{ error: teacherLoad.over }">
-              {{ teacherLoad.total }}
-              <span v-if="teacherLoad.over" class="visually-hidden">(acima do máximo)</span>
-            </td>
-            <td class="num">{{ teacherLoad.max ?? '—' }}</td>
-            <td class="num">{{ teacherLoad.planning }}</td>
-            <td class="num">{{ teacherLoad.classGroups }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else class="card group">
+        <table class="table" aria-label="Carga semanal por professor">
+          <thead>
+            <tr>
+              <th scope="col">Professor</th>
+              <th scope="col" class="num">Aulas/semana</th>
+              <th scope="col" class="num">Máximo</th>
+              <th scope="col" class="num">Hora-atividade</th>
+              <th scope="col" class="num">Turmas</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="teacherLoad in teacherLoads" :key="teacherLoad.id">
+              <th scope="row">{{ teacherLoad.name }}</th>
+              <td class="num" :class="{ error: teacherLoad.over }">
+                {{ teacherLoad.total }}
+                <span v-if="teacherLoad.over" class="visually-hidden">(acima do máximo)</span>
+              </td>
+              <td class="num">{{ teacherLoad.max ?? '—' }}</td>
+              <td class="num">{{ teacherLoad.planning }}</td>
+              <td class="num">{{ teacherLoad.classGroups }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </template>
   </section>
 </template>

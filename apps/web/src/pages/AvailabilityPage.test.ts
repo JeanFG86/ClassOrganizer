@@ -71,8 +71,10 @@ async function mountPage(teachersApi: TeachersApi, query: Record<string, string>
   const assignment = (id: string, weeklyLessons: number): AssignmentDto => ({
     id,
     classGroupId: 'c1',
-    subjectId: `s${id}`,
-    teacherId: 'ana',
+    participants: [
+      { subjectId: `s${id}`, teacherId: 'ana' },
+      { subjectId: 'other', teacherId: 'second' },
+    ],
     weeklyLessons,
     createdAt,
     version: 1,

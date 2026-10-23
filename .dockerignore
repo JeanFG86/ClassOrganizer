@@ -11,4 +11,7 @@
 !.env.example
 docs
 backups
+privado
+**/*.roz
+**/*.xlsx
 *.log

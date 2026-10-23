@@ -21,7 +21,7 @@ export interface TeacherRepository {
 
 export interface AssignmentRepository {
   findById(id: string): Promise<TeachingAssignment | null>;
-  /** Lança `AssignmentAlreadyExistsError` se a turma já tem professor nessa disciplina. */
+  /** Grava o bloco e seus participantes de forma atômica. */
   add(assignment: TeachingAssignment): Promise<void>;
   /** Grava condicionado à versão; lança `StaleVersionError` se outra alteração chegou antes. */
   update(assignment: TeachingAssignment): Promise<TeachingAssignment>;

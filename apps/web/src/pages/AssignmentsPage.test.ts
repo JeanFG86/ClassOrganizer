@@ -25,21 +25,21 @@ const history: SubjectDto = { id: 'hist', name: 'História', ...base };
 const noLimits = { maxWeeklyLessons: null, planningPeriods: 0, unavailable: [] };
 const ana: TeacherDto = {
   id: 'ana',
-  name: 'Ana',
+  name: 'Docente Alfa',
   subjectIds: ['math', 'hist'],
   ...noLimits,
   ...base,
 };
-const bruno: TeacherDto = {
-  id: 'bruno',
-  name: 'Bruno',
+const secondTeacher: TeacherDto = {
+  id: 'secondTeacher',
+  name: 'Docente Beta',
   subjectIds: ['math'],
   ...noLimits,
   ...base,
 };
 const carla: TeacherDto = {
   id: 'carla',
-  name: 'Carla',
+  name: 'Docente Gama',
   subjectIds: ['hist'],
   ...noLimits,
   ...base,
@@ -69,10 +69,10 @@ function fakeAssignmentsApi(
       items.push(created);
       return created;
     }),
-    update: vi.fn(async (id, { teacherId, weeklyLessons }) => {
+    update: vi.fn(async (id, { participants, weeklyLessons }) => {
       const index = items.findIndex((a) => a.id === id);
       const current = items[index] as AssignmentDto;
-      const next = { ...current, teacherId, weeklyLessons, version: current.version + 1 };
+      const next = { ...current, participants, weeklyLessons, version: current.version + 1 };
       items[index] = next;
       return next;
     }),
@@ -92,7 +92,14 @@ function assignment(
   teacherId: string,
   weeklyLessons: number,
 ): AssignmentDto {
-  return { id, classGroupId, subjectId, teacherId, weeklyLessons, createdAt, version: 1 };
+  return {
+    id,
+    classGroupId,
+    participants: [{ subjectId, teacherId }],
+    weeklyLessons,
+    createdAt,
+    version: 1,
+  };
 }
 
 async function mountPage(
@@ -100,7 +107,7 @@ async function mountPage(
   options: { teachers?: TeacherDto[]; classGroups?: ClassGroupDto[] } = {},
 ) {
   const teachersApi: TeachersApi = {
-    list: vi.fn(async () => options.teachers ?? [ana, bruno, carla]),
+    list: vi.fn(async () => options.teachers ?? [ana, secondTeacher, carla]),
     register: vi.fn(),
     update: vi.fn(),
     archive: vi.fn(),
@@ -146,8 +153,8 @@ describe('AssignmentsPage', () => {
           .map((c) => c.text()),
       ),
     ).toEqual([
-      ['História', 'Carla', '3'],
-      ['Matemática', 'Ana', '5'],
+      ['1', 'História — Docente Gama', '3'],
+      ['2', 'Matemática — Docente Alfa', '5'],
     ]);
     expect(wrapper.text()).toContain('Turmas sem atribuições: 6º ano B.');
 
@@ -156,32 +163,32 @@ describe('AssignmentsPage', () => {
       .findAll('tbody tr')
       .map((r) => r.findAll('th, td').map((c) => c.text()));
     expect(loads).toEqual([
-      ['Ana', '5', '—', '0', '1'],
-      ['Bruno', '0', '—', '0', '0'],
-      ['Carla', '3', '—', '0', '1'],
+      ['Docente Alfa', '5', '—', '0', '1'],
+      ['Docente Beta', '0', '—', '0', '0'],
+      ['Docente Gama', '3', '—', '0', '1'],
     ]);
   });
 
   it('só oferece professores habilitados na disciplina escolhida', async () => {
     const wrapper = await mountPage(fakeAssignmentsApi());
-    const teacherSelect = wrapper.get('#assignment-teacher');
+    const teacherSelect = wrapper.get('#assignment-teacher-0');
 
     expect(teacherSelect.attributes('disabled')).toBeDefined();
 
-    await wrapper.get('#assignment-subject').setValue('math');
+    await wrapper.get('#assignment-subject-0').setValue('math');
     expect(teacherSelect.attributes('disabled')).toBeUndefined();
-    expect(optionTexts(wrapper, '#assignment-teacher')).toEqual([
+    expect(optionTexts(wrapper, '#assignment-teacher-0')).toEqual([
       'Escolha o professor',
-      'Ana',
-      'Bruno',
+      'Docente Alfa',
+      'Docente Beta',
     ]);
 
-    await wrapper.get('#assignment-teacher').setValue('bruno');
-    await wrapper.get('#assignment-subject').setValue('hist');
-    expect(optionTexts(wrapper, '#assignment-teacher')).toEqual([
+    await wrapper.get('#assignment-teacher-0').setValue('secondTeacher');
+    await wrapper.get('#assignment-subject-0').setValue('hist');
+    expect(optionTexts(wrapper, '#assignment-teacher-0')).toEqual([
       'Escolha o professor',
-      'Ana',
-      'Carla',
+      'Docente Alfa',
+      'Docente Gama',
     ]);
     expect((teacherSelect.element as HTMLSelectElement).value).toBe('');
   });
@@ -189,25 +196,25 @@ describe('AssignmentsPage', () => {
   it('seleciona sozinho o único professor habilitado', async () => {
     const wrapper = await mountPage(fakeAssignmentsApi(), { teachers: [ana, carla] });
 
-    await wrapper.get('#assignment-subject').setValue('math');
+    await wrapper.get('#assignment-subject-0').setValue('math');
 
-    expect((wrapper.get('#assignment-teacher').element as HTMLSelectElement).value).toBe('ana');
+    expect((wrapper.get('#assignment-teacher-0').element as HTMLSelectElement).value).toBe('ana');
   });
 
-  it('desabilita disciplina que já tem professor na turma escolhida', async () => {
+  it('permite a mesma disciplina em blocos separados', async () => {
     const wrapper = await mountPage(
       fakeAssignmentsApi([assignment('a1', 'c6a', 'math', 'ana', 5)]),
     );
 
     await wrapper.get('#assignment-class-group').setValue('c6a');
 
-    const mathOption = wrapper.get('#assignment-subject option[value="math"]');
-    expect(mathOption.attributes('disabled')).toBeDefined();
-    expect(mathOption.text()).toBe('Matemática (já atribuída nesta turma)');
+    const mathOption = wrapper.get('#assignment-subject-0 option[value="math"]');
+    expect(mathOption.attributes('disabled')).toBeUndefined();
+    expect(mathOption.text()).toBe('Matemática');
 
     await wrapper.get('#assignment-class-group').setValue('c6b');
     expect(
-      wrapper.get('#assignment-subject option[value="math"]').attributes('disabled'),
+      wrapper.get('#assignment-subject-0 option[value="math"]').attributes('disabled'),
     ).toBeUndefined();
   });
 
@@ -216,13 +223,11 @@ describe('AssignmentsPage', () => {
     const wrapper = await mountPage(api);
 
     await wrapper.get('form').trigger('submit');
-    expect(wrapper.get('[role="alert"]').text()).toBe(
-      'Escolha a turma, a disciplina, o professor.',
-    );
+    expect(wrapper.get('[role="alert"]').text()).toBe('Escolha a turma.');
 
     await wrapper.get('#assignment-class-group').setValue('c6a');
-    await wrapper.get('#assignment-subject').setValue('math');
-    await wrapper.get('#assignment-teacher').setValue('ana');
+    await wrapper.get('#assignment-subject-0').setValue('math');
+    await wrapper.get('#assignment-teacher-0').setValue('ana');
     await wrapper.get('#assignment-lessons').setValue('41');
     await wrapper.get('form').trigger('submit');
     expect(wrapper.get('[role="alert"]').text()).toContain('entre 1 e 40');
@@ -235,23 +240,20 @@ describe('AssignmentsPage', () => {
     const wrapper = await mountPage(api);
 
     await wrapper.get('#assignment-class-group').setValue('c6a');
-    await wrapper.get('#assignment-subject').setValue('math');
-    await wrapper.get('#assignment-teacher').setValue('ana');
+    await wrapper.get('#assignment-subject-0').setValue('math');
+    await wrapper.get('#assignment-teacher-0').setValue('ana');
     await wrapper.get('#assignment-lessons').setValue('5');
     await wrapper.get('form').trigger('submit');
     await flushPromises();
 
     expect(api.create).toHaveBeenCalledWith({
       classGroupId: 'c6a',
-      subjectId: 'math',
-      teacherId: 'ana',
+      participants: [{ subjectId: 'math', teacherId: 'ana' }],
       weeklyLessons: 5,
     });
-    expect(wrapper.get('[role="status"]').text()).toBe(
-      'Matemática em 6º ano A atribuída a Ana (5 aulas por semana).',
-    );
+    expect(wrapper.get('[role="status"]').text()).toBe('Bloco de aulas em 6º ano A criado.');
     expect((wrapper.get('#assignment-class-group').element as HTMLSelectElement).value).toBe('c6a');
-    expect((wrapper.get('#assignment-subject').element as HTMLSelectElement).value).toBe('');
+    expect((wrapper.get('#assignment-subject-0').element as HTMLSelectElement).value).toBe('');
     expect(wrapper.get('section[aria-label="Turma 6º ano A"]').text()).toContain('Matemática');
   });
 
@@ -259,59 +261,63 @@ describe('AssignmentsPage', () => {
     const api = fakeAssignmentsApi([assignment('a1', 'c6a', 'math', 'ana', 5)]);
     const wrapper = await mountPage(api);
 
-    await wrapper.get('button[aria-label="Editar Matemática em 6º ano A"]').trigger('click');
-    expect(optionTexts(wrapper, '#edit-teacher-a1')).toEqual(['Ana', 'Bruno']);
-    await wrapper.get('#edit-teacher-a1').setValue('bruno');
+    await wrapper.get('button[aria-label="Editar bloco 1 em 6º ano A"]').trigger('click');
+    expect(optionTexts(wrapper, '#edit-a1-teacher-0')).toEqual([
+      'Escolha o professor',
+      'Docente Alfa',
+      'Docente Beta',
+    ]);
+    await wrapper.get('#edit-a1-teacher-0').setValue('secondTeacher');
     await wrapper.get('#edit-lessons-a1').setValue('4');
-    await wrapper.get('td.actions button.small:not(.ghost)').trigger('click');
+    await wrapper.get('td form').trigger('submit');
     await flushPromises();
 
     expect(api.update).toHaveBeenCalledWith('a1', {
-      teacherId: 'bruno',
+      participants: [{ subjectId: 'math', teacherId: 'secondTeacher' }],
       weeklyLessons: 4,
       version: 1,
     });
-    expect(wrapper.get('[role="status"]').text()).toBe(
-      'Atribuição de Matemática em 6º ano A atualizada.',
+    expect(wrapper.get('[role="status"]').text()).toBe('Bloco de aulas atualizado.');
+    expect(wrapper.get('section[aria-label="Turma 6º ano A"] tbody').text()).toContain(
+      'Docente Beta',
     );
-    expect(wrapper.get('section[aria-label="Turma 6º ano A"] tbody').text()).toContain('Bruno');
   });
 
   it('remove só depois de confirmar', async () => {
     const api = fakeAssignmentsApi([assignment('a1', 'c6a', 'math', 'ana', 5)]);
     const wrapper = await mountPage(api);
 
-    await wrapper.get('button[aria-label="Remover Matemática em 6º ano A"]').trigger('click');
+    await wrapper.get('button[aria-label="Remover bloco 1 em 6º ano A"]').trigger('click');
     expect(api.remove).not.toHaveBeenCalled();
 
     await wrapper
-      .get('button[aria-label="Confirmar remoção de Matemática em 6º ano A"]')
+      .get('button[aria-label="Confirmar remoção do bloco 1 em 6º ano A"]')
       .trigger('click');
     await flushPromises();
 
     expect(api.remove).toHaveBeenCalledWith('a1', 1);
-    expect(wrapper.get('[role="status"]').text()).toBe(
-      'Atribuição de Matemática em 6º ano A removida.',
-    );
+    expect(wrapper.get('[role="status"]').text()).toBe('Bloco de aulas removido.');
     expect(wrapper.text()).toContain('Nenhuma atribuição feita ainda.');
   });
 
   it('dado desatualizado mostra o aviso e recarrega', async () => {
     const api = fakeAssignmentsApi([assignment('a1', 'c6a', 'math', 'ana', 5)]);
     const wrapper = await mountPage(api);
-    api.items[0] = { ...assignment('a1', 'c6a', 'math', 'bruno', 2), version: 2 };
+    api.items[0] = { ...assignment('a1', 'c6a', 'math', 'secondTeacher', 2), version: 2 };
     api.remove = vi.fn(async () => {
       throw new ApiRequestError('concurrency.stale', 'Este cadastro foi alterado...', 409);
     });
 
-    await wrapper.get('button[aria-label="Remover Matemática em 6º ano A"]').trigger('click');
+    await wrapper.get('button[aria-label="Remover bloco 1 em 6º ano A"]').trigger('click');
     await wrapper
-      .get('button[aria-label="Confirmar remoção de Matemática em 6º ano A"]')
+      .get('button[aria-label="Confirmar remoção do bloco 1 em 6º ano A"]')
       .trigger('click');
     await flushPromises();
 
     expect(wrapper.get('[role="alert"]').text()).toBe('Este cadastro foi alterado...');
-    expect(wrapper.get('section[aria-label="Turma 6º ano A"] tbody').text()).toContain('Bruno');
+    expect(wrapper.get('section[aria-label="Turma 6º ano A"] tbody').text()).toContain(
+      'Docente Beta',
+    );
   });
 
   it('orienta a cadastrar turmas quando não há nenhuma', async () => {
@@ -329,20 +335,128 @@ describe('AssignmentsPage', () => {
       {
         teachers: [
           { ...ana, maxWeeklyLessons: 8, planningPeriods: 4 },
-          { ...bruno, maxWeeklyLessons: 20 },
+          { ...secondTeacher, maxWeeklyLessons: 20 },
           carla,
         ],
       },
     );
 
-    expect(wrapper.get('p.error').text()).toBe('Acima da carga máxima: Ana (10 de 8).');
+    expect(wrapper.get('p.error').text()).toBe('Acima da carga máxima: Docente Alfa (10 de 8).');
     const ana10 = wrapper.get('table[aria-label="Carga semanal por professor"] tbody tr');
     expect(ana10.findAll('th, td').map((c) => c.text())).toEqual([
-      'Ana',
+      'Docente Alfa',
       '10 (acima do máximo)',
       '8',
       '4',
       '2',
     ]);
+  });
+
+  it('conta o bloco uma vez na turma e para todos os participantes, somando blocos separados', async () => {
+    const shared = {
+      ...assignment('a1', 'c6a', 'math', 'ana', 2),
+      participants: [
+        { subjectId: 'math', teacherId: 'ana' },
+        { subjectId: 'math', teacherId: 'secondTeacher' },
+        { subjectId: 'hist', teacherId: 'carla' },
+      ],
+    };
+    const wrapper = await mountPage(
+      fakeAssignmentsApi([shared, assignment('a2', 'c6a', 'math', 'secondTeacher', 3)]),
+    );
+    expect(wrapper.get('section[aria-label="Turma 6º ano A"] h3').text()).toBe(
+      '6º ano A — 5 aulas por semana',
+    );
+    const rows = wrapper.get('table[aria-label="Carga semanal por professor"]').findAll('tbody tr');
+    expect(rows.map((r) => r.findAll('th, td').map((c) => c.text()))).toEqual([
+      ['Docente Alfa', '2', '—', '0', '1'],
+      ['Docente Beta', '5', '—', '0', '1'],
+      ['Docente Gama', '2', '—', '0', '1'],
+    ]);
+  });
+
+  it('adiciona e remove participantes e salva professores da mesma disciplina e de outra', async () => {
+    const api = fakeAssignmentsApi();
+    const wrapper = await mountPage(api);
+    const add = () => wrapper.findAll('button').find((b) => b.text() === 'Adicionar professor');
+    await wrapper.get('#assignment-class-group').setValue('c6a');
+    await wrapper.get('#assignment-subject-0').setValue('math');
+    await wrapper.get('#assignment-teacher-0').setValue('ana');
+    await add()?.trigger('click');
+    await wrapper.get('#assignment-subject-1').setValue('math');
+    expect(
+      wrapper.get('#assignment-teacher-1 option[value="ana"]').attributes('disabled'),
+    ).toBeDefined();
+    await wrapper.get('#assignment-teacher-1').setValue('secondTeacher');
+    await add()?.trigger('click');
+    await wrapper.get('#assignment-subject-2').setValue('hist');
+    await wrapper.get('#assignment-teacher-2').setValue('carla');
+    await add()?.trigger('click');
+    await wrapper.get('button[aria-label="Remover participante 4"]').trigger('click');
+    await wrapper.get('#assignment-lessons').setValue('2');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    expect(api.create).toHaveBeenCalledWith({
+      classGroupId: 'c6a',
+      weeklyLessons: 2,
+      participants: [
+        { subjectId: 'math', teacherId: 'ana' },
+        { subjectId: 'math', teacherId: 'secondTeacher' },
+        { subjectId: 'hist', teacherId: 'carla' },
+      ],
+    });
+  });
+
+  it('edita o conjunto de participantes sem alterar a lista antes de salvar e permite cancelar', async () => {
+    const api = fakeAssignmentsApi([assignment('a1', 'c6a', 'math', 'ana', 5)]);
+    const wrapper = await mountPage(api);
+    const edit = () =>
+      wrapper.get('button[aria-label="Editar bloco 1 em 6º ano A"]').trigger('click');
+    await edit();
+    await wrapper.get('#edit-a1-teacher-0').setValue('secondTeacher');
+    expect(api.items[0]?.participants[0]?.teacherId).toBe('ana');
+    await wrapper
+      .findAll('td form button')
+      .find((b) => b.text() === 'Cancelar')
+      ?.trigger('click');
+    expect(api.update).not.toHaveBeenCalled();
+    await edit();
+    await wrapper
+      .findAll('td form button')
+      .find((b) => b.text() === 'Adicionar professor')
+      ?.trigger('click');
+    await wrapper.get('#edit-a1-subject-1').setValue('hist');
+    await wrapper.get('#edit-a1-teacher-1').setValue('carla');
+    await wrapper.get('td form').trigger('submit');
+    await flushPromises();
+    expect(api.update).toHaveBeenCalledWith('a1', {
+      weeklyLessons: 5,
+      version: 1,
+      participants: [
+        { subjectId: 'math', teacherId: 'ana' },
+        { subjectId: 'hist', teacherId: 'carla' },
+      ],
+    });
+  });
+
+  it('exibe carregamento e permite tentar novamente após erro', async () => {
+    const api = fakeAssignmentsApi();
+    let finish: (items: AssignmentDto[]) => void = () => {};
+    api.list = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Falha de teste'))
+      .mockImplementationOnce(
+        () =>
+          new Promise<AssignmentDto[]>((resolve) => {
+            finish = resolve;
+          }),
+      );
+    const wrapper = await mountPage(api);
+    expect(wrapper.get('[role="alert"]').text()).toContain('Ocorreu um erro inesperado.');
+    await wrapper.get('button').trigger('click');
+    expect(wrapper.get('[role="status"]').text()).toContain('Carregando');
+    finish([]);
+    await flushPromises();
+    expect(wrapper.text()).toContain('Nenhuma atribuição feita ainda.');
   });
 });
