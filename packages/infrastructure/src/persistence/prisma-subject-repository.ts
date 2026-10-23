@@ -5,12 +5,10 @@ import type {
   SubjectRepository,
   SubjectStatus,
 } from '@classorganizer/core';
-import { Prisma } from '../generated/prisma/client.ts';
 import type { Subject as SubjectRecord } from '../generated/prisma/client.ts';
 import type { Database } from './database.ts';
+import { PrismaErrorCode, isPrismaError } from './prisma-errors.ts';
 import { isUuid } from './uuid.ts';
-
-const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 function toDomain(record: SubjectRecord): Subject {
   return {
@@ -24,10 +22,7 @@ function toDomain(record: SubjectRecord): Subject {
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === UNIQUE_CONSTRAINT_VIOLATION
-  );
+  return isPrismaError(error, PrismaErrorCode.uniqueViolation);
 }
 
 /** Também atende a porta `SubjectLookup` do módulo de ensino. */

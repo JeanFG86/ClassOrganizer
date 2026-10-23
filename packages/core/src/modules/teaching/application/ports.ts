@@ -1,3 +1,5 @@
+import type { EntityStatus } from '../../../shared/archiving.ts';
+import type { TeachingAssignment } from '../domain/assignment.ts';
 import type { SubjectStatus, Teacher } from '../domain/teacher.ts';
 
 export interface TeacherRepository {
@@ -10,10 +12,24 @@ export interface TeacherRepository {
   /**
    * Substitui dados e habilitações de forma atômica, somente se a versão persistida
    * ainda for `teacher.version`; devolve o professor com a nova versão. Lança
-   * `StaleVersionError` se outra alteração chegou antes.
+   * `StaleVersionError` se outra alteração chegou antes e `QualificationInUseError` se
+   * uma habilitação removida estiver em uso por uma atribuição.
    */
   update(teacher: Teacher): Promise<Teacher>;
   listAll(): Promise<Teacher[]>;
+}
+
+export interface AssignmentRepository {
+  findById(id: string): Promise<TeachingAssignment | null>;
+  /** Lança `AssignmentAlreadyExistsError` se a turma já tem professor nessa disciplina. */
+  add(assignment: TeachingAssignment): Promise<void>;
+  /** Grava condicionado à versão; lança `StaleVersionError` se outra alteração chegou antes. */
+  update(assignment: TeachingAssignment): Promise<TeachingAssignment>;
+  /** Remove condicionado à versão; lança `StaleVersionError` se outra alteração chegou antes. */
+  remove(assignment: TeachingAssignment): Promise<void>;
+  listAll(): Promise<TeachingAssignment[]>;
+  /** Disciplinas em que o professor tem aulas atribuídas. */
+  subjectIdsAssignedTo(teacherId: string): Promise<Set<string>>;
 }
 
 /**
@@ -23,4 +39,10 @@ export interface TeacherRepository {
 export interface SubjectLookup {
   /** Situação de cada disciplina existente dentre os ids informados; ids ausentes não existem. */
   subjectStatuses(ids: readonly string[]): Promise<Map<string, SubjectStatus>>;
+}
+
+/** O que o módulo de ensino precisa saber sobre turmas (módulo school-structure). */
+export interface ClassGroupStatusLookup {
+  /** `undefined` quando a turma não existe. */
+  classGroupStatus(id: string): Promise<EntityStatus | undefined>;
 }

@@ -24,7 +24,12 @@ export async function apiRequest<T extends z.ZodType>(
   try {
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: { accept: 'application/json', 'content-type': 'application/json', ...init.headers },
+      headers: {
+        accept: 'application/json',
+        // Sem corpo, o content-type JSON faria o servidor recusar a requisição (ex.: DELETE).
+        ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...init.headers,
+      },
     });
   } catch {
     throw new ApiRequestError('network', 'Não foi possível conectar ao servidor.');

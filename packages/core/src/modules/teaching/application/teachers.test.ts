@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { StaleVersionError } from '../../../shared/versioning.ts';
+import { InMemoryAssignmentRepository } from '../../../testing/in-memory-repositories.ts';
+import { createAssignment } from '../domain/assignment.ts';
 import {
+  QualificationInUseError,
+  TeacherHasAssignmentsError,
   ArchivedSubjectError,
   InvalidTeacherNameError,
   TeacherNotFoundError,
@@ -46,10 +50,12 @@ describe('professores', () => {
   let registerTeacher: ReturnType<typeof makeRegisterTeacher>;
   let updateTeacher: ReturnType<typeof makeUpdateTeacher>;
   let archive: ReturnType<typeof makeArchiveTeacher>;
+  let assignments: InMemoryAssignmentRepository;
   let restore: ReturnType<typeof makeRestoreTeacher>;
 
   beforeEach(() => {
     teachers = new InMemoryTeacherRepository();
+    assignments = new InMemoryAssignmentRepository();
     subjectStatus = new Map([
       ['math', 'active'],
       ['history', 'active'],
@@ -73,8 +79,8 @@ describe('professores', () => {
       clock,
       ids: { next: () => `t-${++sequence}` },
     });
-    updateTeacher = makeUpdateTeacher({ teachers, subjects });
-    archive = makeArchiveTeacher({ teachers, clock });
+    updateTeacher = makeUpdateTeacher({ teachers, subjects, assignments });
+    archive = makeArchiveTeacher({ teachers, assignments, clock });
     restore = makeRestoreTeacher({ teachers });
   });
 
@@ -169,6 +175,45 @@ describe('professores', () => {
       await expect(
         updateTeacher({ id: 'nada', version: 1, name: 'X', subjectIds: [] }),
       ).rejects.toThrow(TeacherNotFoundError);
+    });
+  });
+
+  describe('vínculo com atribuições', () => {
+    async function assignAna(subjectId: string) {
+      const ana = await registerTeacher({ name: 'Ana', subjectIds: ['math', 'history'] });
+      await assignments.add(
+        createAssignment({
+          id: 'a-1',
+          classGroupId: '6A',
+          subjectId,
+          teacherId: ana.id,
+          weeklyLessons: 5,
+          createdAt: now,
+        }),
+      );
+      return ana;
+    }
+
+    it('não remove habilitação usada em atribuição', async () => {
+      const ana = await assignAna('math');
+
+      await expect(
+        updateTeacher({ id: ana.id, version: 1, name: 'Ana', subjectIds: ['history'] }),
+      ).rejects.toThrow(QualificationInUseError);
+    });
+
+    it('remove habilitação sem atribuição normalmente', async () => {
+      const ana = await assignAna('math');
+
+      await expect(
+        updateTeacher({ id: ana.id, version: 1, name: 'Ana', subjectIds: ['math'] }),
+      ).resolves.toMatchObject({ subjectIds: ['math'] });
+    });
+
+    it('não arquiva professor com aulas atribuídas', async () => {
+      const ana = await assignAna('math');
+
+      await expect(archive({ id: ana.id, version: 1 })).rejects.toThrow(TeacherHasAssignmentsError);
     });
   });
 

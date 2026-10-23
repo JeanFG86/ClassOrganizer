@@ -1,10 +1,13 @@
-import { StaleVersionError, UnknownSubjectError } from '@classorganizer/core';
+import {
+  QualificationInUseError,
+  StaleVersionError,
+  UnknownSubjectError,
+} from '@classorganizer/core';
 import type { Teacher, TeacherRepository } from '@classorganizer/core';
-import { Prisma } from '../generated/prisma/client.ts';
+import type { Prisma } from '../generated/prisma/client.ts';
 import type { Database } from './database.ts';
+import { PrismaErrorCode, translatePrismaError } from './prisma-errors.ts';
 import { isUuid } from './uuid.ts';
-
-const FOREIGN_KEY_VIOLATION = 'P2003';
 
 const withSubjects = {
   subjects: { select: { subjectId: true }, orderBy: { position: 'asc' } },
@@ -27,18 +30,13 @@ function qualifications(teacher: Teacher) {
   return teacher.subjectIds.map((subjectId, position) => ({ subjectId, position }));
 }
 
-async function translateForeignKeyError<T>(operation: () => Promise<T>): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === FOREIGN_KEY_VIOLATION
-    ) {
-      throw new UnknownSubjectError();
-    }
-    throw error;
-  }
+/** Disciplina inexistente numa habilitação nova viola a FK para `subject`. */
+function translateUnknownSubject<T>(operation: () => Promise<T>): Promise<T> {
+  return translatePrismaError(
+    operation,
+    PrismaErrorCode.foreignKeyViolation,
+    () => new UnknownSubjectError(),
+  );
 }
 
 export class PrismaTeacherRepository implements TeacherRepository {
@@ -57,7 +55,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
   }
 
   async add(teacher: Teacher): Promise<void> {
-    await translateForeignKeyError(() =>
+    await translateUnknownSubject(() =>
       // Criação aninhada: professor e habilitações na mesma instrução, de forma atômica.
       this.#db.teacher.create({
         data: {
@@ -73,27 +71,38 @@ export class PrismaTeacherRepository implements TeacherRepository {
   }
 
   async update(teacher: Teacher): Promise<Teacher> {
-    await translateForeignKeyError(() =>
-      this.#db.$transaction(async (tx) => {
-        // A condição na versão garante que nenhuma alteração concorrente seja sobrescrita;
-        // a linha fica bloqueada até o fim da transação.
-        const { count } = await tx.teacher.updateMany({
-          where: { id: teacher.id, version: teacher.version },
-          data: {
-            name: teacher.name,
-            archivedAt: teacher.archivedAt,
-            version: { increment: 1 },
-          },
-        });
-        if (count === 0) {
-          throw new StaleVersionError();
-        }
-        await tx.teacherSubject.deleteMany({ where: { teacherId: teacher.id } });
-        await tx.teacherSubject.createMany({
-          data: qualifications(teacher).map((q) => ({ ...q, teacherId: teacher.id })),
-        });
-      }),
-    );
+    await this.#db.$transaction(async (tx) => {
+      // A condição na versão garante que nenhuma alteração concorrente seja sobrescrita;
+      // a linha fica bloqueada até o fim da transação.
+      const { count } = await tx.teacher.updateMany({
+        where: { id: teacher.id, version: teacher.version },
+        data: { name: teacher.name, archivedAt: teacher.archivedAt, version: { increment: 1 } },
+      });
+      if (count === 0) {
+        throw new StaleVersionError();
+      }
+
+      // Remove só as habilitações desmarcadas: se alguma tiver atribuição, a FK composta
+      // de teaching_assignment impede a remoção.
+      await translatePrismaError(
+        () =>
+          tx.teacherSubject.deleteMany({
+            where: { teacherId: teacher.id, subjectId: { notIn: [...teacher.subjectIds] } },
+          }),
+        PrismaErrorCode.foreignKeyViolation,
+        () => new QualificationInUseError(),
+      );
+
+      for (const { subjectId, position } of qualifications(teacher)) {
+        await translateUnknownSubject(() =>
+          tx.teacherSubject.upsert({
+            where: { teacherId_subjectId: { teacherId: teacher.id, subjectId } },
+            create: { teacherId: teacher.id, subjectId, position },
+            update: { position },
+          }),
+        );
+      }
+    });
     return { ...teacher, version: teacher.version + 1 };
   }
 
