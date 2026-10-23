@@ -18,6 +18,12 @@ export const router = createRouter({
       meta: { title: 'Turmas' },
     },
     {
+      path: '/turnos',
+      name: 'shifts',
+      component: () => import('./pages/ShiftsPage.vue'),
+      meta: { title: 'Turnos e horários' },
+    },
+    {
       path: '/professores',
       name: 'teachers',
       component: () => import('./pages/TeachersPage.vue'),

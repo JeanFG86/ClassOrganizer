@@ -8,22 +8,54 @@ export {
   ClassGroupNameAlreadyInUseError,
   ClassGroupNotFoundError,
   InvalidClassGroupNameError,
+  InvalidClassScheduleError,
   createClassGroup,
+  scheduleClassGroup,
   type ClassGroup,
 } from './modules/school-structure/domain/class-group.ts';
 export {
   makeArchiveClassGroup,
+  makeChangeClassGroupSchedule,
   makeListClassGroups,
   makeRegisterClassGroup,
   makeRestoreClassGroup,
   makeUpdateClassGroup,
   type ArchiveClassGroup,
+  type ChangeClassGroupSchedule,
   type ClassGroupRepository,
   type ListClassGroups,
   type RegisterClassGroup,
   type RestoreClassGroup,
   type UpdateClassGroup,
 } from './modules/school-structure/application/class-groups.ts';
+
+export {
+  InvalidPeriodsError,
+  InvalidShiftNameError,
+  MAX_PERIODS_PER_SHIFT,
+  PeriodInUseError,
+  SHIFT_NAME_MAX_LENGTH,
+  ShiftInUseError,
+  ShiftNameAlreadyInUseError,
+  ShiftNotFoundError,
+  createShift,
+  type Period,
+  type PeriodInput,
+  type Shift,
+} from './modules/school-structure/domain/shift.ts';
+export type { ShiftRepository } from './modules/school-structure/application/shift-repository.ts';
+export {
+  makeArchiveShift,
+  makeListShifts,
+  makeRegisterShift,
+  makeRestoreShift,
+  makeUpdateShift,
+  type ArchiveShift,
+  type ListShifts,
+  type RegisterShift,
+  type RestoreShift,
+  type UpdateShift,
+} from './modules/school-structure/application/shifts.ts';
 
 export {
   InvalidSubjectNameError,

@@ -8,6 +8,10 @@
         <RouterLink to="/turmas">turmas</RouterLink> da escola;
       </li>
       <li>
+        <RouterLink to="/turnos">Turnos e horários</RouterLink>: o horário de cada aula e as aulas
+        que cada turma tem;
+      </li>
+      <li>
         <RouterLink to="/professores">Professores</RouterLink>, com as disciplinas que cada um pode
         lecionar;
       </li>

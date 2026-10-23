@@ -21,7 +21,12 @@ export interface CatalogTexts {
   archivedHint: string;
 }
 
-const props = defineProps<{ api: CatalogApi<T>; texts: CatalogTexts }>();
+const props = defineProps<{
+  api: CatalogApi<T>;
+  texts: CatalogTexts;
+  /** Informação complementar exibida ao lado do nome de cada item ativo. */
+  detail?: (item: T) => string | undefined;
+}>();
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -214,6 +219,7 @@ onMounted(load);
           </form>
           <template v-else>
             <span class="item-name">{{ item.name }}</span>
+            <span v-if="detail?.(item)" class="item-detail muted">{{ detail(item) }}</span>
             <span class="item-actions">
               <button
                 type="button"

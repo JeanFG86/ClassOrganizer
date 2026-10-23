@@ -17,8 +17,9 @@ import AssignmentsPage from './AssignmentsPage.vue';
 const createdAt = '2026-02-01T12:00:00.000Z';
 const base = { createdAt, archivedAt: null, version: 1 };
 
-const c6a: ClassGroupDto = { id: 'c6a', name: '6º ano A', ...base };
-const c6b: ClassGroupDto = { id: 'c6b', name: '6º ano B', ...base };
+const noShift = { shiftId: null, periodIds: [] };
+const c6a: ClassGroupDto = { id: 'c6a', name: '6º ano A', ...noShift, ...base };
+const c6b: ClassGroupDto = { id: 'c6b', name: '6º ano B', ...noShift, ...base };
 const math: SubjectDto = { id: 'math', name: 'Matemática', ...base };
 const history: SubjectDto = { id: 'hist', name: 'História', ...base };
 const ana: TeacherDto = { id: 'ana', name: 'Ana', subjectIds: ['math', 'hist'], ...base };

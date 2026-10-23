@@ -54,6 +54,8 @@ describe('API HTTP — turmas e atribuições', () => {
         {
           id: C6A,
           name: '6º ano A',
+          shiftId: null,
+          periodIds: [],
           createdAt: '2026-02-01T12:00:00.000Z',
           archivedAt: null,
           version: 1,

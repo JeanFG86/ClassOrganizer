@@ -44,6 +44,8 @@ describe('turmas', () => {
       id: 'c-1',
       name: '6º ano A',
       normalizedName: '6º ano a',
+      shiftId: null,
+      periodIds: [],
       createdAt: now,
       archivedAt: null,
       version: 1,
