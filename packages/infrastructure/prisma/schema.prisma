@@ -20,5 +20,32 @@ model Subject {
   normalizedName String   @unique(map: "subject_normalized_name_key") @map("normalized_name") @db.VarChar(80)
   createdAt      DateTime @map("created_at") @db.Timestamptz(3)
 
+  teachers TeacherSubject[]
+
   @@map("subject")
+}
+
+model Teacher {
+  id        String   @id @db.Uuid
+  name      String   @db.VarChar(120)
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  subjects TeacherSubject[]
+
+  @@map("teacher")
+}
+
+/// Habilitação: disciplina que o professor pode lecionar.
+model TeacherSubject {
+  teacherId String @map("teacher_id") @db.Uuid
+  subjectId String @map("subject_id") @db.Uuid
+  /// Preserva a ordem informada no cadastro.
+  position  Int    @db.SmallInt
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  @@id([teacherId, subjectId])
+  @@index([subjectId])
+  @@map("teacher_subject")
 }

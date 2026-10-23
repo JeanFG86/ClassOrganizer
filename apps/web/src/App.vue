@@ -5,6 +5,7 @@
     <nav aria-label="Principal">
       <RouterLink to="/">Início</RouterLink>
       <RouterLink to="/disciplinas">Disciplinas</RouterLink>
+      <RouterLink to="/professores">Professores</RouterLink>
     </nav>
   </header>
   <main id="main" tabindex="-1">
