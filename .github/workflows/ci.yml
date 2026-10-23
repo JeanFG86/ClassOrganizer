@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Qualidade e testes unitários
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm check:arch
+      - run: pnpm test
+      - run: pnpm build
+
+  integration:
+    name: Integração (PostgreSQL real)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration
+
+  e2e:
+    name: E2E (Compose completo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Subir aplicação
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait
+      - run: pnpm install --frozen-lockfile --filter @classorganizer/e2e
+      - run: pnpm --filter @classorganizer/e2e install-browsers
+      - run: pnpm test:e2e
+      - name: Logs dos containers
+        if: failure()
+        run: docker compose logs --no-color > compose-logs.txt
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-diagnostico
+          path: |
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+            compose-logs.txt
+          retention-days: 7
+      - if: always()
+        run: docker compose down -v

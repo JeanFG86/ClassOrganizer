@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @classorganizer/api --filter @classorganizer/worker --filter @classorganizer/web dev",
     "build": "pnpm --filter @classorganizer/web build",
+    "db:up": "docker compose -f compose.yaml -f compose.dev.yaml up -d --wait postgres",
     "db:migrate": "pnpm --filter @classorganizer/infrastructure db:migrate",
     "db:migrate:dev": "pnpm --filter @classorganizer/infrastructure db:migrate:dev",
     "format": "prettier --write .",
