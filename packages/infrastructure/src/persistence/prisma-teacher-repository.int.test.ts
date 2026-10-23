@@ -1,4 +1,9 @@
-import { UnknownSubjectError, createSubject, createTeacher } from '@classorganizer/core';
+import {
+  StaleVersionError,
+  UnknownSubjectError,
+  createSubject,
+  createTeacher,
+} from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startTestDatabase } from '../testing/postgres-container.ts';
 import type { TestDatabase } from '../testing/postgres-container.ts';
@@ -9,6 +14,7 @@ const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const MATH = '11111111-1111-4111-8111-111111111111';
 const HISTORY = '22222222-2222-4222-8222-222222222222';
 const MISSING = '99999999-9999-4999-8999-999999999999';
+const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 describe('PrismaTeacherRepository (PostgreSQL)', () => {
   let testDb: TestDatabase;
@@ -32,59 +38,77 @@ describe('PrismaTeacherRepository (PostgreSQL)', () => {
   });
 
   it('grava e recupera o professor com as habilitações na ordem informada', async () => {
-    const teacher = createTeacher({
-      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      name: 'Ana Souza',
-      subjectIds: [HISTORY, MATH],
-      createdAt,
-    });
+    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [HISTORY, MATH], createdAt });
 
     await teachers.add(teacher);
 
     expect(await teachers.listAll()).toEqual([teacher]);
-  });
-
-  it('grava professor sem habilitações', async () => {
-    const teacher = createTeacher({
-      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-      name: 'Bruno',
-      subjectIds: [],
-      createdAt,
-    });
-
-    await teachers.add(teacher);
-
-    expect(await teachers.listAll()).toEqual([teacher]);
+    expect(await teachers.findById(ANA)).toEqual(teacher);
+    expect(await teachers.findById('não-é-uuid')).toBeNull();
   });
 
   it('não grava nada quando uma disciplina não existe (atomicidade)', async () => {
-    const teacher = createTeacher({
-      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      name: 'Carla',
-      subjectIds: [MATH, MISSING],
-      createdAt,
-    });
+    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH, MISSING], createdAt });
 
     await expect(teachers.add(teacher)).rejects.toThrow(UnknownSubjectError);
     expect(await teachers.listAll()).toEqual([]);
   });
 
-  it('o banco impede excluir disciplina usada em habilitação', async () => {
-    await teachers.add(
-      createTeacher({
-        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-        name: 'Davi',
-        subjectIds: [MATH],
-        createdAt,
-      }),
-    );
+  it('substitui dados e habilitações incrementando a versão', async () => {
+    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    await teachers.add(teacher);
 
-    await expect(testDb.db.subject.delete({ where: { id: MATH } })).rejects.toThrow();
+    const saved = await teachers.update({
+      ...teacher,
+      name: 'Ana Souza',
+      subjectIds: [HISTORY],
+      archivedAt: createdAt,
+    });
+
+    expect(saved.version).toBe(2);
+    expect(await teachers.findById(ANA)).toEqual(saved);
   });
 
-  it('SubjectLookup devolve apenas ids existentes, tolerando ids inválidos', async () => {
-    const found = await subjects.existingSubjectIds([MATH, MISSING, 'não-é-uuid']);
+  it('rejeita versão antiga sem tocar nas habilitações', async () => {
+    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    await teachers.add(teacher);
+    await teachers.update({ ...teacher, subjectIds: [HISTORY] });
 
-    expect(found).toEqual(new Set([MATH]));
+    await expect(teachers.update({ ...teacher, subjectIds: [] })).rejects.toThrow(
+      StaleVersionError,
+    );
+    expect((await teachers.findById(ANA))?.subjectIds).toEqual([HISTORY]);
+  });
+
+  it('desfaz a atualização inteira se uma habilitação for inválida', async () => {
+    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    await teachers.add(teacher);
+
+    await expect(
+      teachers.update({ ...teacher, name: 'Outro nome', subjectIds: [MATH, MISSING] }),
+    ).rejects.toThrow(UnknownSubjectError);
+    expect(await teachers.findById(ANA)).toEqual(teacher);
+  });
+
+  it('em gravações simultâneas da mesma versão, só uma vence', async () => {
+    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    await teachers.add(teacher);
+
+    const results = await Promise.allSettled([
+      teachers.update({ ...teacher, subjectIds: [HISTORY] }),
+      teachers.update({ ...teacher, subjectIds: [MATH, HISTORY] }),
+    ]);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const saved = await teachers.findById(ANA);
+    expect(saved?.version).toBe(2);
+    const winner = results.find((r) => r.status === 'fulfilled');
+    expect(saved?.subjectIds).toEqual(winner?.value.subjectIds);
+  });
+
+  it('o banco impede excluir disciplina usada em habilitação', async () => {
+    await teachers.add(createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt }));
+
+    await expect(testDb.db.subject.delete({ where: { id: MATH } })).rejects.toThrow();
   });
 });

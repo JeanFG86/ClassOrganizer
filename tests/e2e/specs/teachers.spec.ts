@@ -34,7 +34,7 @@ test('cadastrar professor habilitado em disciplinas → recarregar e continuar l
   );
 
   const list = page.getByRole('list', { name: 'Professores cadastrados' });
-  const entry = list.getByRole('listitem').filter({ hasText: teacher });
+  const entry = list.getByRole('listitem').filter({ hasText: teacher }).locator('.item-name');
   await expect(entry).toHaveText(`${teacher} — ${math}, ${physics}`);
 
   await page.reload();

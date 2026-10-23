@@ -215,6 +215,71 @@ button:disabled {
   color: var(--muted);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+button.small {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+button.ghost {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+button.ghost:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.list .item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.item-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.item-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.inline-edit {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.inline-edit input {
+  flex: 1 1 12rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.form-title {
+  font-size: 1.1rem;
+  margin: 0 0 0.75rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .error {
   color: var(--error);
 }

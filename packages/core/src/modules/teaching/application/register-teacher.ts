@@ -1,5 +1,5 @@
 import type { Clock, IdGenerator } from '../../../shared/ports.ts';
-import { UnknownSubjectError, createTeacher } from '../domain/teacher.ts';
+import { assertQualificationsAllowed, createTeacher } from '../domain/teacher.ts';
 import type { Teacher } from '../domain/teacher.ts';
 import type { SubjectLookup, TeacherRepository } from './ports.ts';
 
@@ -22,10 +22,8 @@ export function makeRegisterTeacher({ teachers, subjects, clock, ids }: Register
       createdAt: clock.now(),
     });
 
-    const existing = await subjects.existingSubjectIds(teacher.subjectIds);
-    if (teacher.subjectIds.some((id) => !existing.has(id))) {
-      throw new UnknownSubjectError();
-    }
+    const statuses = await subjects.subjectStatuses(teacher.subjectIds);
+    assertQualificationsAllowed(teacher.subjectIds, [], statuses);
 
     await teachers.add(teacher);
     return teacher;

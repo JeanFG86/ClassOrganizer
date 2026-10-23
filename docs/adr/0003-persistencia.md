@@ -16,5 +16,5 @@
 ## Pendências
 
 - Porta de transação (unit of work) para casos de uso que gravam em mais de um agregado: criar na primeira necessidade real (E3/E4), sem expor o cliente Prisma ao core.
-- Revisão otimista (`revision`) e auditoria: E4.
+- Revisão otimista por cadastro implementada (ADR 0005). Revisão do planejamento inteiro e auditoria: E4.
 - A imagem de runtime ainda inclui o CLI do Prisma, instalado como _peer dependency_ do `@prisma/client`. Reduzir o tamanho da imagem quando a operação local for tratada (E8).

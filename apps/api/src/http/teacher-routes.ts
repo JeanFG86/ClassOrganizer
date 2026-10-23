@@ -1,12 +1,26 @@
-import { registerTeacherRequestSchema } from '@classorganizer/contracts';
+import {
+  registerTeacherRequestSchema,
+  updateTeacherRequestSchema,
+  versionRequestSchema,
+} from '@classorganizer/contracts';
 import type { TeacherDto, TeacherListDto } from '@classorganizer/contracts';
-import type { ListTeachers, RegisterTeacher, Teacher } from '@classorganizer/core';
+import type {
+  ArchiveTeacher,
+  ListTeachers,
+  RegisterTeacher,
+  RestoreTeacher,
+  Teacher,
+  UpdateTeacher,
+} from '@classorganizer/core';
 import type { FastifyInstance } from 'fastify';
-import { parseRequest } from './errors.ts';
+import { idParamsSchema, parseRequest } from './errors.ts';
 
 export interface TeacherRoutesDeps {
   registerTeacher: RegisterTeacher;
   listTeachers: ListTeachers;
+  updateTeacher: UpdateTeacher;
+  archiveTeacher: ArchiveTeacher;
+  restoreTeacher: RestoreTeacher;
 }
 
 function toDto(teacher: Teacher): TeacherDto {
@@ -15,21 +29,38 @@ function toDto(teacher: Teacher): TeacherDto {
     name: teacher.name,
     subjectIds: [...teacher.subjectIds],
     createdAt: teacher.createdAt.toISOString(),
+    archivedAt: teacher.archivedAt?.toISOString() ?? null,
+    version: teacher.version,
   };
 }
 
-export function registerTeacherRoutes(
-  app: FastifyInstance,
-  { registerTeacher, listTeachers }: TeacherRoutesDeps,
-): void {
+export function registerTeacherRoutes(app: FastifyInstance, deps: TeacherRoutesDeps): void {
   app.get('/api/v1/teachers', async (): Promise<TeacherListDto> => {
-    const teachers = await listTeachers();
+    const teachers = await deps.listTeachers();
     return { items: teachers.map(toDto) };
   });
 
   app.post('/api/v1/teachers', async (request, reply) => {
     const input = parseRequest(registerTeacherRequestSchema, request.body);
-    const teacher = await registerTeacher(input);
+    const teacher = await deps.registerTeacher(input);
     return reply.status(201).send(toDto(teacher));
+  });
+
+  app.put('/api/v1/teachers/:id', async (request): Promise<TeacherDto> => {
+    const { id } = parseRequest(idParamsSchema, request.params);
+    const input = parseRequest(updateTeacherRequestSchema, request.body);
+    return toDto(await deps.updateTeacher({ id, ...input }));
+  });
+
+  app.post('/api/v1/teachers/:id/archive', async (request): Promise<TeacherDto> => {
+    const { id } = parseRequest(idParamsSchema, request.params);
+    const { version } = parseRequest(versionRequestSchema, request.body);
+    return toDto(await deps.archiveTeacher({ id, version }));
+  });
+
+  app.post('/api/v1/teachers/:id/restore', async (request): Promise<TeacherDto> => {
+    const { id } = parseRequest(idParamsSchema, request.params);
+    const { version } = parseRequest(versionRequestSchema, request.body);
+    return toDto(await deps.restoreTeacher({ id, version }));
   });
 }

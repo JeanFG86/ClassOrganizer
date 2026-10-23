@@ -13,8 +13,9 @@ export function makeRegisterSubject({ subjects, clock, ids }: RegisterSubjectDep
   return async function registerSubject(input: { name: string }): Promise<Subject> {
     const subject = createSubject({ id: ids.next(), name: input.name, createdAt: clock.now() });
 
-    if (await subjects.existsWithNormalizedName(subject.normalizedName)) {
-      throw new SubjectNameAlreadyInUseError(subject.name);
+    const existing = await subjects.findByNormalizedName(subject.normalizedName);
+    if (existing) {
+      throw new SubjectNameAlreadyInUseError(existing);
     }
 
     await subjects.add(subject);

@@ -4,7 +4,7 @@ Aplicação web para a secretaria escolar distribuir cargas de professores e mon
 
 O plano completo está em [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md) e as decisões técnicas em [docs/adr](docs/adr).
 
-> **Estado atual:** fundação técnica (E1) concluída e início dos cadastros (E3): disciplinas e professores com as disciplinas que podem lecionar. Carga, disponibilidade, turmas e geração de horários ainda não existem; dependem do levantamento da E0.
+> **Estado atual:** fundação técnica (E1) concluída e início dos cadastros (E3): disciplinas e professores com as disciplinas que podem lecionar, com edição, arquivamento e proteção contra edição simultânea. Carga, disponibilidade, turmas e geração de horários ainda não existem; dependem do levantamento da E0.
 
 ## Usar localmente (Docker)
 

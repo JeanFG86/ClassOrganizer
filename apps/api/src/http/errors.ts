@@ -20,6 +20,9 @@ export class RequestValidationError extends Error {
   }
 }
 
+/** Parâmetro `:id` das rotas de um cadastro específico. */
+export const idParamsSchema = z.object({ id: z.uuid() });
+
 export function parseRequest<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
   const result = schema.safeParse(data);
   if (!result.success) {

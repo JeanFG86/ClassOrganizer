@@ -18,7 +18,9 @@ model Subject {
   id             String   @id @db.Uuid
   name           String   @db.VarChar(80)
   normalizedName String   @unique(map: "subject_normalized_name_key") @map("normalized_name") @db.VarChar(80)
-  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+  createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  version        Int       @default(1)
 
   teachers TeacherSubject[]
 
@@ -27,8 +29,10 @@ model Subject {
 
 model Teacher {
   id        String   @id @db.Uuid
-  name      String   @db.VarChar(120)
-  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  name       String    @db.VarChar(120)
+  createdAt  DateTime  @map("created_at") @db.Timestamptz(3)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  version    Int       @default(1)
 
   subjects TeacherSubject[]
 
