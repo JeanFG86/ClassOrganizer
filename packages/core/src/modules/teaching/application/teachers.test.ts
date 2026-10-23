@@ -1,74 +1,189 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InvalidTeacherNameError, UnknownSubjectError, type Teacher } from '../domain/teacher.ts';
+import { StaleVersionError } from '../../../shared/versioning.ts';
+import {
+  ArchivedSubjectError,
+  InvalidTeacherNameError,
+  TeacherNotFoundError,
+  UnknownSubjectError,
+  type SubjectStatus,
+  type Teacher,
+} from '../domain/teacher.ts';
+import { makeArchiveTeacher, makeRestoreTeacher, makeUpdateTeacher } from './change-teacher.ts';
 import { makeListTeachers } from './list-teachers.ts';
 import type { SubjectLookup, TeacherRepository } from './ports.ts';
 import { makeRegisterTeacher } from './register-teacher.ts';
 
 class InMemoryTeacherRepository implements TeacherRepository {
-  readonly items: Teacher[] = [];
+  readonly items = new Map<string, Teacher>();
+
+  async findById(id: string): Promise<Teacher | null> {
+    return this.items.get(id) ?? null;
+  }
 
   async add(teacher: Teacher): Promise<void> {
-    this.items.push(teacher);
+    this.items.set(teacher.id, teacher);
+  }
+
+  async update(teacher: Teacher): Promise<Teacher> {
+    if (this.items.get(teacher.id)?.version !== teacher.version) {
+      throw new StaleVersionError();
+    }
+    const saved = { ...teacher, version: teacher.version + 1 };
+    this.items.set(teacher.id, saved);
+    return saved;
   }
 
   async listAll(): Promise<Teacher[]> {
-    return [...this.items];
+    return [...this.items.values()];
   }
 }
 
 const now = new Date('2026-02-01T12:00:00Z');
 
-describe('cadastro de professores', () => {
+describe('professores', () => {
   let teachers: InMemoryTeacherRepository;
+  let subjectStatus: Map<string, SubjectStatus>;
   let registerTeacher: ReturnType<typeof makeRegisterTeacher>;
-  const knownSubjects = new Set(['math', 'history']);
-  const subjects: SubjectLookup = {
-    existingSubjectIds: async (ids) => new Set(ids.filter((id) => knownSubjects.has(id))),
-  };
+  let updateTeacher: ReturnType<typeof makeUpdateTeacher>;
+  let archive: ReturnType<typeof makeArchiveTeacher>;
+  let restore: ReturnType<typeof makeRestoreTeacher>;
 
   beforeEach(() => {
     teachers = new InMemoryTeacherRepository();
+    subjectStatus = new Map([
+      ['math', 'active'],
+      ['history', 'active'],
+      ['latin', 'archived'],
+    ]);
+    const subjects: SubjectLookup = {
+      subjectStatuses: async (ids) => {
+        const found = new Map<string, SubjectStatus>();
+        for (const id of ids) {
+          const status = subjectStatus.get(id);
+          if (status) found.set(id, status);
+        }
+        return found;
+      },
+    };
+    const clock = { now: () => now };
     let sequence = 0;
     registerTeacher = makeRegisterTeacher({
       teachers,
       subjects,
-      clock: { now: () => now },
+      clock,
       ids: { next: () => `t-${++sequence}` },
     });
+    updateTeacher = makeUpdateTeacher({ teachers, subjects });
+    archive = makeArchiveTeacher({ teachers, clock });
+    restore = makeRestoreTeacher({ teachers });
   });
 
-  it('cadastra o professor com as habilitações informadas', async () => {
-    const teacher = await registerTeacher({ name: 'Ana Souza', subjectIds: ['math', 'history'] });
+  describe('cadastro', () => {
+    it('cadastra ativo, na versão 1, com as habilitações informadas', async () => {
+      const teacher = await registerTeacher({ name: 'Ana Souza', subjectIds: ['math', 'history'] });
 
-    expect(teacher).toEqual({
-      id: 't-1',
-      name: 'Ana Souza',
-      subjectIds: ['math', 'history'],
-      createdAt: now,
+      expect(teacher).toEqual({
+        id: 't-1',
+        name: 'Ana Souza',
+        subjectIds: ['math', 'history'],
+        createdAt: now,
+        archivedAt: null,
+        version: 1,
+      });
+      expect([...teachers.items.values()]).toEqual([teacher]);
     });
-    expect(teachers.items).toEqual([teacher]);
+
+    it('rejeita disciplina inexistente sem gravar nada', async () => {
+      await expect(
+        registerTeacher({ name: 'Ana', subjectIds: ['math', 'removida'] }),
+      ).rejects.toThrow(UnknownSubjectError);
+      expect(teachers.items.size).toBe(0);
+    });
+
+    it('rejeita habilitação em disciplina arquivada', async () => {
+      await expect(registerTeacher({ name: 'Ana', subjectIds: ['latin'] })).rejects.toThrow(
+        ArchivedSubjectError,
+      );
+    });
+
+    it('valida o nome', async () => {
+      await expect(registerTeacher({ name: ' ', subjectIds: ['math'] })).rejects.toThrow(
+        InvalidTeacherNameError,
+      );
+    });
+
+    it('lista em ordem alfabética', async () => {
+      for (const name of ['Zélia', 'Ítalo', 'Bruno']) {
+        await registerTeacher({ name, subjectIds: [] });
+      }
+
+      const names = (await makeListTeachers({ teachers })()).map((t) => t.name);
+
+      expect(names).toEqual(['Bruno', 'Ítalo', 'Zélia']);
+    });
   });
 
-  it('rejeita habilitação em disciplina inexistente sem gravar nada', async () => {
-    await expect(
-      registerTeacher({ name: 'Ana', subjectIds: ['math', 'removida'] }),
-    ).rejects.toThrow(UnknownSubjectError);
-    expect(teachers.items).toHaveLength(0);
+  describe('edição', () => {
+    it('substitui nome e habilitações e incrementa a versão', async () => {
+      const ana = await registerTeacher({ name: 'Ana', subjectIds: ['math'] });
+
+      const updated = await updateTeacher({
+        id: ana.id,
+        version: 1,
+        name: 'Ana Souza',
+        subjectIds: ['history'],
+      });
+
+      expect(updated).toMatchObject({ name: 'Ana Souza', subjectIds: ['history'], version: 2 });
+    });
+
+    it('mantém habilitação em disciplina que foi arquivada depois', async () => {
+      subjectStatus.set('latin', 'active');
+      const ana = await registerTeacher({ name: 'Ana', subjectIds: ['latin'] });
+      subjectStatus.set('latin', 'archived');
+
+      await expect(
+        updateTeacher({ id: ana.id, version: 1, name: 'Ana S.', subjectIds: ['latin', 'math'] }),
+      ).resolves.toMatchObject({ subjectIds: ['latin', 'math'] });
+    });
+
+    it('não acrescenta disciplina arquivada na edição', async () => {
+      const ana = await registerTeacher({ name: 'Ana', subjectIds: ['math'] });
+
+      await expect(
+        updateTeacher({ id: ana.id, version: 1, name: 'Ana', subjectIds: ['math', 'latin'] }),
+      ).rejects.toThrow(ArchivedSubjectError);
+    });
+
+    it('rejeita versão antiga sem gravar', async () => {
+      const ana = await registerTeacher({ name: 'Ana', subjectIds: [] });
+      await updateTeacher({ id: ana.id, version: 1, name: 'Ana Souza', subjectIds: [] });
+
+      await expect(
+        updateTeacher({ id: ana.id, version: 1, name: 'Outra', subjectIds: [] }),
+      ).rejects.toThrow(StaleVersionError);
+      expect((await teachers.findById(ana.id))?.name).toBe('Ana Souza');
+    });
+
+    it('informa professor inexistente', async () => {
+      await expect(
+        updateTeacher({ id: 'nada', version: 1, name: 'X', subjectIds: [] }),
+      ).rejects.toThrow(TeacherNotFoundError);
+    });
   });
 
-  it('valida o nome antes de consultar disciplinas', async () => {
-    await expect(registerTeacher({ name: ' ', subjectIds: ['math'] })).rejects.toThrow(
-      InvalidTeacherNameError,
-    );
-  });
+  describe('arquivamento', () => {
+    it('arquiva e restaura respeitando a versão', async () => {
+      const ana = await registerTeacher({ name: 'Ana', subjectIds: [] });
 
-  it('lista em ordem alfabética', async () => {
-    for (const name of ['Zélia', 'Ítalo', 'Bruno']) {
-      await registerTeacher({ name, subjectIds: [] });
-    }
+      const archived = await archive({ id: ana.id, version: 1 });
+      expect(archived).toMatchObject({ archivedAt: now, version: 2 });
+      await expect(restore({ id: ana.id, version: 1 })).rejects.toThrow(StaleVersionError);
 
-    const names = (await makeListTeachers({ teachers })()).map((t) => t.name);
-
-    expect(names).toEqual(['Bruno', 'Ítalo', 'Zélia']);
+      await expect(restore({ id: ana.id, version: 2 })).resolves.toMatchObject({
+        archivedAt: null,
+        version: 3,
+      });
+    });
   });
 });

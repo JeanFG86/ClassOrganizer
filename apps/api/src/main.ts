@@ -1,8 +1,14 @@
 import {
+  makeArchiveSubject,
+  makeArchiveTeacher,
   makeListSubjects,
   makeListTeachers,
   makeRegisterSubject,
   makeRegisterTeacher,
+  makeRestoreSubject,
+  makeRestoreTeacher,
+  makeUpdateSubject,
+  makeUpdateTeacher,
 } from '@classorganizer/core';
 import {
   PrismaSubjectRepository,
@@ -21,18 +27,20 @@ const config = loadConfig();
 const db = createDatabase(config.DATABASE_URL);
 const subjects = new PrismaSubjectRepository(db);
 const teachers = new PrismaTeacherRepository(db);
+const clock = systemClock;
 
 const app = buildApp(
   {
-    registerSubject: makeRegisterSubject({ subjects, clock: systemClock, ids: uuidGenerator }),
+    registerSubject: makeRegisterSubject({ subjects, clock, ids: uuidGenerator }),
     listSubjects: makeListSubjects({ subjects }),
-    registerTeacher: makeRegisterTeacher({
-      teachers,
-      subjects,
-      clock: systemClock,
-      ids: uuidGenerator,
-    }),
+    updateSubject: makeUpdateSubject({ subjects }),
+    archiveSubject: makeArchiveSubject({ subjects, clock }),
+    restoreSubject: makeRestoreSubject({ subjects }),
+    registerTeacher: makeRegisterTeacher({ teachers, subjects, clock, ids: uuidGenerator }),
     listTeachers: makeListTeachers({ teachers }),
+    updateTeacher: makeUpdateTeacher({ teachers, subjects }),
+    archiveTeacher: makeArchiveTeacher({ teachers, clock }),
+    restoreTeacher: makeRestoreTeacher({ teachers }),
     checkReadiness: () => checkDatabase(db),
   },
   { logger: loggerOptions('api', config.LOG_LEVEL) },

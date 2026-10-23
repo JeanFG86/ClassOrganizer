@@ -14,3 +14,13 @@ export abstract class DomainError extends Error {
     this.name = new.target.name;
   }
 }
+
+export class NotFoundError extends DomainError {
+  readonly code: string;
+  readonly kind = 'not_found';
+
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+  }
+}

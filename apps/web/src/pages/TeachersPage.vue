@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SubjectDto, TeacherDto } from '@classorganizer/contracts';
-import { computed, onMounted, ref } from 'vue';
-import { ApiRequestError } from '../services/api-client.ts';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { errorMessage, isOutdatedError, type Feedback } from '../services/feedback.ts';
 import { injectRequired } from '../services/inject-required.ts';
 import { subjectsApiKey } from '../services/subjects-api.ts';
 import { teachersApiKey } from '../services/teachers-api.ts';
@@ -16,21 +16,36 @@ const teachers = ref<TeacherDto[]>([]);
 const loadState = ref<LoadState>('loading');
 const loadError = ref('');
 
+const activeTeachers = computed(() => teachers.value.filter((t) => t.archivedAt === null));
+const archivedTeachers = computed(() => teachers.value.filter((t) => t.archivedAt !== null));
+const subjectById = computed(() => new Map(subjects.value.map((s) => [s.id, s])));
+
+/** Professor em edição no formulário; `null` quando o formulário cadastra um novo. */
+const editing = ref<TeacherDto | null>(null);
 const name = ref('');
 const selectedSubjectIds = ref<string[]>([]);
 const saving = ref(false);
-const formError = ref('');
-const savedMessage = ref('');
+const formFeedback = ref<Feedback | null>(null);
+const listFeedback = ref<Feedback | null>(null);
+const busy = ref(false);
 
-const subjectNameById = computed(() => new Map(subjects.value.map((s) => [s.id, s.name])));
+/**
+ * Disciplinas oferecidas no formulário: as ativas e, na edição, as arquivadas em que o
+ * professor já é habilitado (podem ser mantidas, mas não acrescentadas).
+ */
+const subjectOptions = computed(() =>
+  subjects.value
+    .filter((s) => s.archivedAt === null || editing.value?.subjectIds.includes(s.id))
+    .map((s) => ({ id: s.id, label: s.archivedAt ? `${s.name} (arquivada)` : s.name })),
+);
 
 function subjectNames(teacher: TeacherDto): string {
-  const names = teacher.subjectIds.map((id) => subjectNameById.value.get(id) ?? '(removida)');
+  const names = teacher.subjectIds.map((id) => {
+    const subject = subjectById.value.get(id);
+    if (!subject) return '(removida)';
+    return subject.archivedAt ? `${subject.name} (arquivada)` : subject.name;
+  });
   return names.length > 0 ? names.join(', ') : 'Sem habilitações';
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof ApiRequestError ? error.message : 'Ocorreu um erro inesperado.';
 }
 
 async function load(): Promise<void> {
@@ -46,34 +61,108 @@ async function refresh(): Promise<void> {
     teachers.value = teacherList;
     loadState.value = 'ready';
   } catch (error) {
-    loadError.value = messageOf(error);
+    loadError.value = errorMessage(error);
     loadState.value = 'error';
   }
 }
 
+function clearFeedback(): void {
+  formFeedback.value = null;
+  listFeedback.value = null;
+}
+
+function resetForm(): void {
+  editing.value = null;
+  name.value = '';
+  selectedSubjectIds.value = [];
+}
+
+async function startEdit(teacher: TeacherDto): Promise<void> {
+  clearFeedback();
+  editing.value = teacher;
+  name.value = teacher.name;
+  selectedSubjectIds.value = [...teacher.subjectIds];
+  await nextTick();
+  const input = document.getElementById('teacher-name');
+  input?.scrollIntoView?.({ block: 'center' });
+  input?.focus();
+}
+
+function cancelEdit(): void {
+  clearFeedback();
+  resetForm();
+}
+
 async function submit(): Promise<void> {
-  formError.value = '';
-  savedMessage.value = '';
+  clearFeedback();
   if (name.value.trim() === '') {
-    formError.value = 'Informe o nome do professor.';
+    formFeedback.value = { kind: 'error', text: 'Informe o nome do professor.' };
     return;
   }
 
   saving.value = true;
+  const input = { name: name.value, subjectIds: selectedSubjectIds.value };
   try {
-    const created = await teachersApi.register({
-      name: name.value,
-      subjectIds: selectedSubjectIds.value,
-    });
-    savedMessage.value = `Professor(a) "${created.name}" cadastrado(a).`;
-    name.value = '';
-    selectedSubjectIds.value = [];
+    if (editing.value) {
+      const updated = await teachersApi.update(editing.value.id, {
+        ...input,
+        version: editing.value.version,
+      });
+      formFeedback.value = {
+        kind: 'success',
+        text: `Professor(a) "${updated.name}" atualizado(a).`,
+      };
+    } else {
+      const created = await teachersApi.register(input);
+      formFeedback.value = {
+        kind: 'success',
+        text: `Professor(a) "${created.name}" cadastrado(a).`,
+      };
+    }
+    resetForm();
     await refresh();
   } catch (error) {
-    formError.value = messageOf(error);
+    formFeedback.value = { kind: 'error', text: errorMessage(error) };
+    if (isOutdatedError(error)) {
+      resetForm();
+      await refresh();
+    }
   } finally {
     saving.value = false;
   }
+}
+
+async function runListAction(action: () => Promise<string>): Promise<void> {
+  clearFeedback();
+  busy.value = true;
+  try {
+    listFeedback.value = { kind: 'success', text: await action() };
+    await refresh();
+  } catch (error) {
+    listFeedback.value = { kind: 'error', text: errorMessage(error) };
+    if (isOutdatedError(error)) {
+      await refresh();
+    }
+  } finally {
+    busy.value = false;
+  }
+}
+
+function archive(teacher: TeacherDto): Promise<void> {
+  if (editing.value?.id === teacher.id) {
+    resetForm();
+  }
+  return runListAction(async () => {
+    await teachersApi.archive(teacher.id, teacher.version);
+    return `Professor(a) "${teacher.name}" arquivado(a).`;
+  });
+}
+
+function restore(teacher: TeacherDto): Promise<void> {
+  return runListAction(async () => {
+    await teachersApi.restore(teacher.id, teacher.version);
+    return `Professor(a) "${teacher.name}" restaurado(a).`;
+  });
 }
 
 onMounted(load);
@@ -90,7 +179,16 @@ onMounted(load);
     </div>
 
     <template v-else>
-      <form class="card" novalidate @submit.prevent="submit">
+      <form
+        class="card"
+        novalidate
+        aria-labelledby="teacher-form-title"
+        @submit.prevent="submit"
+        @keydown.esc="editing && cancelEdit()"
+      >
+        <h2 id="teacher-form-title" class="form-title">
+          {{ editing ? `Editar professor: ${editing.name}` : 'Novo professor' }}
+        </h2>
         <label for="teacher-name">Nome do professor</label>
         <input
           id="teacher-name"
@@ -98,38 +196,95 @@ onMounted(load);
           name="name"
           maxlength="120"
           autocomplete="off"
-          :aria-invalid="formError !== ''"
-          :aria-describedby="formError ? 'teacher-form-error' : undefined"
+          :aria-invalid="formFeedback?.kind === 'error'"
+          :aria-describedby="formFeedback?.kind === 'error' ? 'teacher-form-error' : undefined"
         />
 
         <fieldset class="checks">
           <legend>Disciplinas que pode lecionar</legend>
-          <p v-if="subjects.length === 0" class="hint">
+          <p v-if="subjectOptions.length === 0" class="hint">
             Nenhuma disciplina cadastrada.
             <RouterLink to="/disciplinas">Cadastre as disciplinas</RouterLink> para habilitar
             professores.
           </p>
-          <label v-for="subject in subjects" :key="subject.id" class="check">
-            <input v-model="selectedSubjectIds" type="checkbox" :value="subject.id" />
-            {{ subject.name }}
+          <label v-for="option in subjectOptions" :key="option.id" class="check">
+            <input v-model="selectedSubjectIds" type="checkbox" :value="option.id" />
+            {{ option.label }}
           </label>
         </fieldset>
 
-        <button type="submit" :disabled="saving">
-          {{ saving ? 'Salvando…' : 'Cadastrar professor' }}
-        </button>
-        <p v-if="formError" id="teacher-form-error" class="error" role="alert">{{ formError }}</p>
-        <p v-if="savedMessage" class="success" role="status">{{ savedMessage }}</p>
+        <div class="form-actions">
+          <button type="submit" :disabled="saving">
+            {{ saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Cadastrar professor' }}
+          </button>
+          <button v-if="editing" type="button" class="ghost" @click="cancelEdit">
+            Cancelar edição
+          </button>
+        </div>
+        <p v-if="formFeedback?.kind === 'error'" id="teacher-form-error" class="error" role="alert">
+          {{ formFeedback.text }}
+        </p>
+        <p v-if="formFeedback?.kind === 'success'" class="success" role="status">
+          {{ formFeedback.text }}
+        </p>
       </form>
 
       <h2>Cadastrados</h2>
-      <p v-if="teachers.length === 0">Nenhum professor cadastrado ainda.</p>
+      <p v-if="listFeedback?.kind === 'error'" class="error" role="alert">
+        {{ listFeedback.text }}
+      </p>
+      <p v-if="listFeedback?.kind === 'success'" class="success" role="status">
+        {{ listFeedback.text }}
+      </p>
+      <p v-if="activeTeachers.length === 0">Nenhum professor cadastrado ainda.</p>
       <ul v-else class="list" aria-label="Professores cadastrados">
-        <li v-for="teacher in teachers" :key="teacher.id">
-          <strong>{{ teacher.name }}</strong>
-          <span class="muted"> — {{ subjectNames(teacher) }}</span>
+        <li v-for="teacher in activeTeachers" :key="teacher.id" class="item">
+          <span class="item-name">
+            <strong>{{ teacher.name }}</strong>
+            <span class="muted"> — {{ subjectNames(teacher) }}</span>
+          </span>
+          <span class="item-actions">
+            <button
+              type="button"
+              class="small ghost"
+              :aria-label="`Editar ${teacher.name}`"
+              :disabled="busy || saving"
+              @click="startEdit(teacher)"
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              class="small ghost"
+              :aria-label="`Arquivar ${teacher.name}`"
+              :disabled="busy || saving"
+              @click="archive(teacher)"
+            >
+              Arquivar
+            </button>
+          </span>
         </li>
       </ul>
+
+      <section v-if="archivedTeachers.length > 0" aria-labelledby="archived-teachers-title">
+        <h2 id="archived-teachers-title">Arquivados ({{ archivedTeachers.length }})</h2>
+        <ul class="list" aria-label="Professores arquivados">
+          <li v-for="teacher in archivedTeachers" :key="teacher.id" class="item">
+            <span class="item-name muted">{{ teacher.name }}</span>
+            <span class="item-actions">
+              <button
+                type="button"
+                class="small ghost"
+                :aria-label="`Restaurar ${teacher.name}`"
+                :disabled="busy || saving"
+                @click="restore(teacher)"
+              >
+                Restaurar
+              </button>
+            </span>
+          </li>
+        </ul>
+      </section>
     </template>
   </section>
 </template>
