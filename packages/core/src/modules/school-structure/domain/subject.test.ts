@@ -4,6 +4,7 @@ import {
   SUBJECT_NAME_MAX_LENGTH,
   createSubject,
   normalizeSubjectName,
+  SubjectEntity,
 } from './subject.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00Z');
@@ -35,6 +36,31 @@ describe('createSubject', () => {
     const name = 'a'.repeat(SUBJECT_NAME_MAX_LENGTH + 1);
 
     expect(() => createSubject({ id: 's1', name, createdAt })).toThrow(InvalidSubjectNameError);
+  });
+});
+
+describe('SubjectEntity', () => {
+  it('reconstitui uma fotografia sem redefinir identidade, versão ou datas', () => {
+    const state = {
+      ...createSubject({ id: 's1', name: 'Oficina fictícia', createdAt }),
+      version: 7,
+      archivedAt: createdAt,
+    };
+    const entity = SubjectEntity.reconstitute(state);
+    expect(entity.snapshot()).toEqual(state);
+    expect(entity.restore().snapshot()).toEqual({ ...state, archivedAt: null });
+    expect(entity.snapshot()).toEqual(state);
+  });
+
+  it('renomeia sem alterar a fotografia original nem sua versão', () => {
+    const entity = SubjectEntity.create({ id: 's1', name: 'Oficina fictícia', createdAt });
+    const renamed = entity.rename('  Oficina   experimental ');
+    expect(renamed.snapshot()).toMatchObject({
+      name: 'Oficina experimental',
+      normalizedName: 'oficina experimental',
+      version: 1,
+    });
+    expect(entity.snapshot().name).toBe('Oficina fictícia');
   });
 });
 

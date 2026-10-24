@@ -1,3 +1,4 @@
+import { bindUseCase } from '../../../shared/use-case.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { StaleVersionError } from '../../../shared/versioning.ts';
 import { InMemoryAssignmentRepository } from '../../../testing/in-memory-repositories.ts';
@@ -8,9 +9,9 @@ import {
   type SubjectStatus,
   type Teacher,
 } from '../domain/teacher.ts';
-import { makeChangeTeacherAvailability, makeUpdateTeacher } from './change-teacher.ts';
-import type { PeriodLookup, TeacherRepository } from './ports.ts';
-import { makeRegisterTeacher } from './register-teacher.ts';
+import { ChangeTeacherAvailability, UpdateTeacher } from './usecases/change-teacher.ts';
+import type { PeriodLookup, TeacherRepository } from './ports/index.ts';
+import { RegisterTeacher } from './usecases/register-teacher.ts';
 
 class InMemoryTeacherRepository implements TeacherRepository {
   readonly items = new Map<string, Teacher>();
@@ -42,9 +43,9 @@ const periodIds = new Set(['p1', 'p2', 'p3']);
 
 describe('carga, hora-atividade e disponibilidade do professor', () => {
   let teachers: InMemoryTeacherRepository;
-  let register: ReturnType<typeof makeRegisterTeacher>;
-  let update: ReturnType<typeof makeUpdateTeacher>;
-  let changeAvailability: ReturnType<typeof makeChangeTeacherAvailability>;
+  let register: RegisterTeacher['execute'];
+  let update: UpdateTeacher['execute'];
+  let changeAvailability: ChangeTeacherAvailability['execute'];
 
   beforeEach(() => {
     teachers = new InMemoryTeacherRepository();
@@ -55,18 +56,22 @@ describe('carga, hora-atividade e disponibilidade do professor', () => {
     const periods: PeriodLookup = {
       existingPeriodIds: async (ids) => new Set(ids.filter((id) => periodIds.has(id))),
     };
-    register = makeRegisterTeacher({
-      teachers,
-      subjects,
-      clock: { now: () => now },
-      ids: { next: () => 't-1' },
-    });
-    update = makeUpdateTeacher({
-      teachers,
-      subjects,
-      assignments: new InMemoryAssignmentRepository(),
-    });
-    changeAvailability = makeChangeTeacherAvailability({ teachers, periods });
+    register = bindUseCase(
+      new RegisterTeacher({
+        teachers,
+        subjects,
+        clock: { now: () => now },
+        ids: { next: () => 't-1' },
+      }),
+    );
+    update = bindUseCase(
+      new UpdateTeacher({
+        teachers,
+        subjects,
+        assignments: new InMemoryAssignmentRepository(),
+      }),
+    );
+    changeAvailability = bindUseCase(new ChangeTeacherAvailability({ teachers, periods }));
   });
 
   describe('carga máxima e hora-atividade', () => {

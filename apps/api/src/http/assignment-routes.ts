@@ -3,58 +3,35 @@ import {
   removeAssignmentQuerySchema,
   updateAssignmentRequestSchema,
 } from '@classorganizer/contracts';
-import type { AssignmentDto, AssignmentListDto } from '@classorganizer/contracts';
-import type {
-  AssignTeaching,
-  ChangeAssignment,
-  ListAssignments,
-  RemoveAssignment,
-  TeachingAssignment,
-} from '@classorganizer/core';
+
 import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
-
-export interface AssignmentRoutesDeps {
-  assignTeaching: AssignTeaching;
-  listAssignments: ListAssignments;
-  changeAssignment: ChangeAssignment;
-  removeAssignment: RemoveAssignment;
-}
-
-function toDto(assignment: TeachingAssignment): AssignmentDto {
-  return {
-    id: assignment.id,
-    classGroupId: assignment.classGroupId,
-    participants: assignment.participants.map((p) => ({ ...p })),
-    weeklyLessons: assignment.weeklyLessons,
-    resourceIds: [...assignment.resourceIds],
-    createdAt: assignment.createdAt.toISOString(),
-    version: assignment.version,
-  };
-}
+import {
+  AssignmentController,
+  type AssignmentOperations,
+} from '../controllers/assignment-controller.ts';
+export type AssignmentRoutesDeps = AssignmentOperations;
 
 export function registerAssignmentRoutes(app: FastifyInstance, deps: AssignmentRoutesDeps): void {
-  app.get('/api/v1/assignments', async (): Promise<AssignmentListDto> => {
-    const assignments = await deps.listAssignments();
-    return { items: assignments.map(toDto) };
-  });
+  const controller = new AssignmentController(deps);
+  app.get('/api/v1/assignments', () => controller.listAssignments());
 
   app.post('/api/v1/assignments', async (request, reply) => {
     const input = parseRequest(createAssignmentRequestSchema, request.body);
-    const assignment = await deps.assignTeaching(input);
-    return reply.status(201).send(toDto(assignment));
+    const assignment = await controller.assignTeaching(input);
+    return reply.status(201).send(assignment);
   });
 
-  app.put('/api/v1/assignments/:id', async (request): Promise<AssignmentDto> => {
+  app.put('/api/v1/assignments/:id', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const input = parseRequest(updateAssignmentRequestSchema, request.body);
-    return toDto(await deps.changeAssignment({ id, ...input }));
+    return await controller.changeAssignment({ id, ...input });
   });
 
   app.delete('/api/v1/assignments/:id', async (request, reply) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const { version } = parseRequest(removeAssignmentQuerySchema, request.query);
-    await deps.removeAssignment({ id, version });
+    await controller.removeAssignment({ id, version });
     return reply.status(204).send();
   });
 }

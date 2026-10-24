@@ -1,3 +1,4 @@
+import { bindUseCase } from '../../../shared/use-case.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryClassGroupRepository } from '../../../testing/in-memory-repositories.ts';
 import { StaleVersionError } from '../../../shared/versioning.ts';
@@ -7,34 +8,36 @@ import {
   InvalidClassGroupNameError,
 } from '../domain/class-group.ts';
 import {
-  makeArchiveClassGroup,
-  makeListClassGroups,
-  makeRegisterClassGroup,
-  makeRestoreClassGroup,
-  makeUpdateClassGroup,
-} from './class-groups.ts';
+  ArchiveClassGroup,
+  ListClassGroups,
+  RegisterClassGroup,
+  RestoreClassGroup,
+  UpdateClassGroup,
+} from './usecases/class-groups.ts';
 
 const now = new Date('2026-02-01T12:00:00Z');
 
 describe('turmas', () => {
   let classGroups: InMemoryClassGroupRepository;
-  let register: ReturnType<typeof makeRegisterClassGroup>;
-  let update: ReturnType<typeof makeUpdateClassGroup>;
-  let archive: ReturnType<typeof makeArchiveClassGroup>;
-  let restore: ReturnType<typeof makeRestoreClassGroup>;
+  let register: RegisterClassGroup['execute'];
+  let update: UpdateClassGroup['execute'];
+  let archive: ArchiveClassGroup['execute'];
+  let restore: RestoreClassGroup['execute'];
 
   beforeEach(() => {
     classGroups = new InMemoryClassGroupRepository();
     const clock = { now: () => now };
     let sequence = 0;
-    register = makeRegisterClassGroup({
-      classGroups,
-      clock,
-      ids: { next: () => `c-${++sequence}` },
-    });
-    update = makeUpdateClassGroup({ classGroups });
-    archive = makeArchiveClassGroup({ classGroups, clock });
-    restore = makeRestoreClassGroup({ classGroups });
+    register = bindUseCase(
+      new RegisterClassGroup({
+        classGroups,
+        clock,
+        ids: { next: () => `c-${++sequence}` },
+      }),
+    );
+    update = bindUseCase(new UpdateClassGroup({ classGroups }));
+    archive = bindUseCase(new ArchiveClassGroup({ classGroups, clock }));
+    restore = bindUseCase(new RestoreClassGroup({ classGroups }));
   });
 
   it('cadastra ativa na versão 1 com nome limpo', async () => {
@@ -71,7 +74,7 @@ describe('turmas', () => {
       await register({ name });
     }
 
-    const names = (await makeListClassGroups({ classGroups })()).map((c) => c.name);
+    const names = (await bindUseCase(new ListClassGroups({ classGroups }))()).map((c) => c.name);
 
     expect(names).toEqual(['6º ano A', '7º ano A', '7º ano B']);
   });

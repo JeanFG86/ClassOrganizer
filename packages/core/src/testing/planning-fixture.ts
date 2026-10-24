@@ -2,7 +2,7 @@ import type {
   GenerationRunRepository,
   GridRepository,
   PlanningRepository,
-} from '../modules/planning/application/ports.ts';
+} from '../modules/planning/application/ports/index.ts';
 import {
   isRunActive,
   type GenerationOutcome,
@@ -16,7 +16,7 @@ import type {
   Planning,
   PlanningRevision,
 } from '../modules/planning/domain/planning.ts';
-import type { GridHistoryEntry } from '../modules/planning/application/ports.ts';
+import type { GridHistoryEntry } from '../modules/planning/application/ports/index.ts';
 import type { Weekday } from '../shared/weekdays.ts';
 
 const created = '2026-01-01T00:00:00.000Z';

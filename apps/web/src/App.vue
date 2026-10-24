@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { ref } from 'vue';
-import { accessApiKey, roleLabels } from './services/access-api.ts';
-import { injectRequired } from './services/inject-required.ts';
-import { errorMessage } from './services/feedback.ts';
+import { accessApiKey, roleLabels } from './modules/access/presentation/session-store.ts';
+import { injectRequired } from './shared/presentation/inject-required.ts';
+import { errorMessage } from './shared/presentation/feedback.ts';
 const api = injectRequired(accessApiKey);
 const router = useRouter();
 const logoutError = ref('');
@@ -48,6 +48,6 @@ async function logout() {
     <p v-if="api.session.value?.user.role === 'viewer'" class="muted" role="status">
       Seu perfil permite apenas consulta e download das revisões.
     </p>
-    <RouterView />
+    <RouterView :key="$route.path" />
   </main>
 </template>

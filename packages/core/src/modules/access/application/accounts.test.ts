@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeManageAccounts, type AccountRepository, type StoredUser } from './accounts.ts';
+import { type AccountRepository, type StoredUser } from './usecases/accounts.ts';
+import { createAccountTestOperations } from '../../../testing/use-case-operations.ts';
 const user: StoredUser = {
   id: 'account-a',
   username: 'admin-test',
@@ -23,7 +24,7 @@ function fixture() {
   return {
     repository,
     passwords,
-    cases: makeManageAccounts({
+    cases: createAccountTestOperations({
       repository,
       passwords,
       clock: { now: () => new Date(0) },

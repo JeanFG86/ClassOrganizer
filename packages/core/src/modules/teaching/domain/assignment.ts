@@ -98,7 +98,7 @@ function validResources(resourceIds: readonly string[]): string[] {
   return [...resourceIds];
 }
 
-export function createAssignment(input: {
+function createAssignmentState(input: {
   id: string;
   classGroupId: string;
   participants: readonly AssignmentParticipant[];
@@ -116,7 +116,7 @@ export function createAssignment(input: {
 }
 
 /** A turma permanece; participantes, carga e recursos são alterados juntos. */
-export function changeAssignment(
+function changeAssignmentState(
   assignment: TeachingAssignment,
   input: {
     participants: readonly AssignmentParticipant[];
@@ -130,4 +130,57 @@ export function changeAssignment(
     weeklyLessons: validWeeklyLessons(input.weeklyLessons),
     resourceIds: validResources(input.resourceIds),
   };
+}
+
+/** Transições de negócio; fotografias são cópias independentes do estado. */
+export class TeachingAssignmentEntity {
+  readonly #state: TeachingAssignment;
+  private constructor(state: TeachingAssignment) {
+    this.#state = structuredClone(state);
+  }
+  static reconstitute(state: TeachingAssignment): TeachingAssignmentEntity {
+    return new TeachingAssignmentEntity(state);
+  }
+  snapshot(): TeachingAssignment {
+    return structuredClone(this.#state);
+  }
+  static create(input: {
+    id: string;
+    classGroupId: string;
+    participants: readonly AssignmentParticipant[];
+    weeklyLessons: number;
+    resourceIds: readonly string[];
+    createdAt: Date;
+  }): TeachingAssignmentEntity {
+    return new TeachingAssignmentEntity(createAssignmentState(input));
+  }
+  change(input: {
+    participants: readonly AssignmentParticipant[];
+    weeklyLessons: number;
+    resourceIds: readonly string[];
+  }): TeachingAssignmentEntity {
+    return new TeachingAssignmentEntity(changeAssignmentState(this.#state, input));
+  }
+}
+
+export function createAssignment(input: {
+  id: string;
+  classGroupId: string;
+  participants: readonly AssignmentParticipant[];
+  weeklyLessons: number;
+  resourceIds: readonly string[];
+  createdAt: Date;
+}): TeachingAssignment {
+  return TeachingAssignmentEntity.create(input).snapshot();
+}
+
+export function changeAssignment(
+  assignment: TeachingAssignment,
+  input: {
+    participants: readonly AssignmentParticipant[];
+    weeklyLessons: number;
+    resourceIds: readonly string[];
+  },
+): TeachingAssignment {
+  return TeachingAssignmentEntity.reconstitute(assignment).change(input).snapshot();
 }

@@ -1,3 +1,4 @@
+import { bindUseCase } from '../../../shared/use-case.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { StaleVersionError } from '../../../shared/versioning.ts';
 import {
@@ -6,10 +7,10 @@ import {
   SubjectNotFoundError,
   type Subject,
 } from '../domain/subject.ts';
-import { makeArchiveSubject, makeRestoreSubject, makeUpdateSubject } from './change-subject.ts';
-import { makeListSubjects } from './list-subjects.ts';
-import { makeRegisterSubject } from './register-subject.ts';
-import type { SubjectRepository } from './subject-repository.ts';
+import { ArchiveSubject, RestoreSubject, UpdateSubject } from './usecases/change-subject.ts';
+import { ListSubjects } from './queries/list-subjects.ts';
+import { RegisterSubject } from './usecases/register-subject.ts';
+import type { SubjectRepository } from './ports/subject-repository.ts';
 
 class InMemorySubjectRepository implements SubjectRepository {
   readonly items = new Map<string, Subject>();
@@ -46,24 +47,26 @@ const later = new Date('2026-03-01T12:00:00Z');
 describe('disciplinas', () => {
   let subjects: InMemorySubjectRepository;
   let clockNow: Date;
-  let registerSubject: ReturnType<typeof makeRegisterSubject>;
-  let updateSubject: ReturnType<typeof makeUpdateSubject>;
-  let archive: ReturnType<typeof makeArchiveSubject>;
-  let restore: ReturnType<typeof makeRestoreSubject>;
+  let registerSubject: RegisterSubject['execute'];
+  let updateSubject: UpdateSubject['execute'];
+  let archive: ArchiveSubject['execute'];
+  let restore: RestoreSubject['execute'];
 
   beforeEach(() => {
     subjects = new InMemorySubjectRepository();
     clockNow = now;
     let sequence = 0;
     const clock = { now: () => clockNow };
-    registerSubject = makeRegisterSubject({
-      subjects,
-      clock,
-      ids: { next: () => `id-${++sequence}` },
-    });
-    updateSubject = makeUpdateSubject({ subjects });
-    archive = makeArchiveSubject({ subjects, clock });
-    restore = makeRestoreSubject({ subjects });
+    registerSubject = bindUseCase(
+      new RegisterSubject({
+        subjects,
+        clock,
+        ids: { next: () => `id-${++sequence}` },
+      }),
+    );
+    updateSubject = bindUseCase(new UpdateSubject({ subjects }));
+    archive = bindUseCase(new ArchiveSubject({ subjects, clock }));
+    restore = bindUseCase(new RestoreSubject({ subjects }));
   });
 
   describe('cadastro', () => {
@@ -109,7 +112,7 @@ describe('disciplinas', () => {
         await registerSubject({ name });
       }
 
-      const names = (await makeListSubjects({ subjects })()).map((s) => s.name);
+      const names = (await bindUseCase(new ListSubjects({ subjects }))()).map((s) => s.name);
 
       expect(names).toEqual(['Artes', 'Biologia', 'Ética', 'Química']);
     });

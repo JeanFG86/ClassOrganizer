@@ -5,7 +5,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing/timetable-fixture.ts"
+    "./testing": "./src/testing/timetable-fixture.ts",
+    "./access": "./src/modules/access/index.ts",
+    "./school-structure": "./src/modules/school-structure/index.ts",
+    "./teaching": "./src/modules/teaching/index.ts",
+    "./planning": "./src/modules/planning/index.ts",
+    "./timetable": "./src/modules/timetable/index.ts",
+    "./generation": "./src/modules/generation/index.ts",
+    "./shared": "./src/shared/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"

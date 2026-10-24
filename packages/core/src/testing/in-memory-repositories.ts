@@ -1,12 +1,12 @@
 // Repositórios em memória para testes do core. Imitam o comportamento relevante dos
 // adaptadores reais (versão otimista e unicidade); não são usados em produção.
-import type { ClassGroupRepository } from '../modules/school-structure/application/class-groups.ts';
-import type { ResourceRepository } from '../modules/school-structure/application/resources.ts';
-import type { ShiftRepository } from '../modules/school-structure/application/shift-repository.ts';
+import type { ClassGroupRepository } from '../modules/school-structure/application/usecases/class-groups.ts';
+import type { ResourceRepository } from '../modules/school-structure/application/usecases/resources.ts';
+import type { ShiftRepository } from '../modules/school-structure/application/ports/shift-repository.ts';
 import type { Resource } from '../modules/school-structure/domain/resource.ts';
 import type { ClassGroup } from '../modules/school-structure/domain/class-group.ts';
 import type { Shift } from '../modules/school-structure/domain/shift.ts';
-import type { AssignmentRepository } from '../modules/teaching/application/ports.ts';
+import type { AssignmentRepository } from '../modules/teaching/application/ports/index.ts';
 import { type TeachingAssignment } from '../modules/teaching/domain/assignment.ts';
 import { StaleVersionError } from '../shared/versioning.ts';
 

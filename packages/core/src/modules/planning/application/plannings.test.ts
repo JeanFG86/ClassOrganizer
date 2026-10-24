@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { makePlannings } from './plannings.ts';
+
+import { createPlanningTestOperations } from '../../../testing/use-case-operations.ts';
 import type { CatalogSnapshot } from '../domain/planning.ts';
-import type { Actor } from '../../access/domain/access.ts';
+import type { Actor } from '../../access/domain/index.ts';
 import {
   completeGrid,
   makeCatalogFixture,
@@ -21,13 +22,13 @@ const empty: CatalogSnapshot = {
 describe('planejamentos e revisões', () => {
   let catalog: CatalogSnapshot;
   let store: ReturnType<typeof makeInMemoryPlanningStore>;
-  let useCases: ReturnType<typeof makePlannings>;
+  let useCases: ReturnType<typeof createPlanningTestOperations>;
   let sequence: number;
   beforeEach(() => {
     catalog = empty;
     sequence = 0;
     store = makeInMemoryPlanningStore(() => catalog);
-    useCases = makePlannings({
+    useCases = createPlanningTestOperations({
       repository: store.repository,
       grids: store.grids,
       clock: { now: () => new Date(empty.capturedAt) },

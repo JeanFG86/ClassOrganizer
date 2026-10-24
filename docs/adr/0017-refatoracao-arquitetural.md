@@ -1,8 +1,8 @@
 # ADR 0017 — Casos de uso explícitos e organização por módulo
 
-- **Status:** aceita; implementação incremental
+- **Status:** aceita; sete etapas implementadas
 - **Data:** 24/10/2026
-- **Complementa:** ADRs 0001, 0002 e 0003; substitui o padrão de fábricas de casos de uso da ADR 0001 conforme cada módulo migra.
+- **Complementa:** ADRs 0001, 0002 e 0003; substitui o padrão de fábricas de casos de uso da ADR 0001 nos módulos migrados.
 
 ## Contexto
 
@@ -50,7 +50,7 @@ O usuário aprovou a refatoração baseada no [NodeVue](https://github.com/JeanF
 
 Cada etapa tem uma branch, um commit final e um PR. Etapas dependentes podem partir da branch anterior enquanto o usuário revisa, com a base indicada no PR. O usuário faz os merges na ordem; cada PR deve ser redirecionado para `main` quando sua base for incorporada.
 
-Fábricas e reexports temporários são permitidos durante a migração para manter cada etapa executável. A etapa final elimina compatibilidades que perderam consumidores. Os testes preservam as expectativas de comportamento e acompanham apenas as mudanças de montagem e contratos internos necessárias.
+As fábricas e os reexports temporários usados durante a migração foram removidos na etapa final. A composição dos conjuntos de casos de uso fica nos aplicativos; o suporte dos testes monta as mesmas classes em `testing`. Os testes preservam as expectativas de comportamento e acompanham apenas as mudanças de montagem e contratos internos necessárias.
 
 ## Consequências
 
@@ -59,3 +59,11 @@ Fábricas e reexports temporários são permitidos durante a migração para man
 - A passagem de dados para entidades exige conferir reconstituição, cópias e serialização, especialmente em fotografias históricas.
 - Novas fronteiras serão verificadas pelo dependency-cruiser à medida que os módulos migrarem.
 - O [registro da refatoração](../testing/refatoracao-arquitetural.md) documenta a base e as verificações relevantes, usando somente informações do código e fixtures públicas inventadas.
+
+## Fronteiras verificadas
+
+- O domínio de outro módulo é acessado por `domain/index.ts`, e suas portas por `application/ports/index.ts`. O índice completo do módulo atende os consumidores externos ao core. Essa separação evita carregar casos de uso pela API de domínio.
+- Na web, interfaces são públicas em `application/index.ts`; apresentação pode usar o índice público do outro módulo. Aplicação e apresentação não importam implementações HTTP, e `shared` não importa módulos de negócio.
+- Controllers e transporte HTTP não acessam infraestrutura nem composição. Os controllers dos cadastros traduzem explicitamente os estados para DTOs; as rotas validam e traduzem entradas.
+- Código de produção não depende de `testing`. Testes com projetos temporários provam que imports proibidos falham e contratos públicos são aceitos.
+- Fotografias das entidades são cópias independentes; contratos públicos e migrações permanecem compatíveis.

@@ -4,75 +4,43 @@ import {
   updateTeacherRequestSchema,
   versionRequestSchema,
 } from '@classorganizer/contracts';
-import type { TeacherDto, TeacherListDto } from '@classorganizer/contracts';
-import type {
-  ArchiveTeacher,
-  ChangeTeacherAvailability,
-  ListTeachers,
-  RegisterTeacher,
-  RestoreTeacher,
-  Teacher,
-  UpdateTeacher,
-} from '@classorganizer/core';
+
 import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
-
-export interface TeacherRoutesDeps {
-  registerTeacher: RegisterTeacher;
-  listTeachers: ListTeachers;
-  updateTeacher: UpdateTeacher;
-  archiveTeacher: ArchiveTeacher;
-  restoreTeacher: RestoreTeacher;
-  changeTeacherAvailability: ChangeTeacherAvailability;
-}
-
-function toDto(teacher: Teacher): TeacherDto {
-  return {
-    id: teacher.id,
-    name: teacher.name,
-    subjectIds: [...teacher.subjectIds],
-    maxWeeklyLessons: teacher.maxWeeklyLessons,
-    planningPeriods: teacher.planningPeriods,
-    unavailable: teacher.unavailable.map((slot) => ({ ...slot })),
-    createdAt: teacher.createdAt.toISOString(),
-    archivedAt: teacher.archivedAt?.toISOString() ?? null,
-    version: teacher.version,
-  };
-}
+import { TeacherController, type TeacherOperations } from '../controllers/teacher-controller.ts';
+export type TeacherRoutesDeps = TeacherOperations;
 
 export function registerTeacherRoutes(app: FastifyInstance, deps: TeacherRoutesDeps): void {
-  app.get('/api/v1/teachers', async (): Promise<TeacherListDto> => {
-    const teachers = await deps.listTeachers();
-    return { items: teachers.map(toDto) };
-  });
+  const controller = new TeacherController(deps);
+  app.get('/api/v1/teachers', () => controller.listTeachers());
 
   app.post('/api/v1/teachers', async (request, reply) => {
     const input = parseRequest(registerTeacherRequestSchema, request.body);
-    const teacher = await deps.registerTeacher(input);
-    return reply.status(201).send(toDto(teacher));
+    const teacher = await controller.registerTeacher(input);
+    return reply.status(201).send(teacher);
   });
 
-  app.put('/api/v1/teachers/:id', async (request): Promise<TeacherDto> => {
+  app.put('/api/v1/teachers/:id', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const input = parseRequest(updateTeacherRequestSchema, request.body);
-    return toDto(await deps.updateTeacher({ id, ...input }));
+    return await controller.updateTeacher({ id, ...input });
   });
 
-  app.put('/api/v1/teachers/:id/availability', async (request): Promise<TeacherDto> => {
+  app.put('/api/v1/teachers/:id/availability', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const input = parseRequest(changeTeacherAvailabilityRequestSchema, request.body);
-    return toDto(await deps.changeTeacherAvailability({ id, ...input }));
+    return await controller.changeTeacherAvailability({ id, ...input });
   });
 
-  app.post('/api/v1/teachers/:id/archive', async (request): Promise<TeacherDto> => {
+  app.post('/api/v1/teachers/:id/archive', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const { version } = parseRequest(versionRequestSchema, request.body);
-    return toDto(await deps.archiveTeacher({ id, version }));
+    return await controller.archiveTeacher({ id, version });
   });
 
-  app.post('/api/v1/teachers/:id/restore', async (request): Promise<TeacherDto> => {
+  app.post('/api/v1/teachers/:id/restore', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const { version } = parseRequest(versionRequestSchema, request.body);
-    return toDto(await deps.restoreTeacher({ id, version }));
+    return await controller.restoreTeacher({ id, version });
   });
 }

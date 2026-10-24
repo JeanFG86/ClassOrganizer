@@ -1,5 +1,5 @@
-import type { AssignmentParticipant } from '../../teaching/domain/assignment.ts';
-import type { UnavailableSlot } from '../../teaching/domain/teacher.ts';
+import type { AssignmentParticipant } from '../../teaching/domain/index.ts';
+import type { UnavailableSlot } from '../../teaching/domain/index.ts';
 import type { Weekday } from '../../../shared/weekdays.ts';
 
 export interface TimetablePeriod {

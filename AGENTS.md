@@ -6,8 +6,8 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 - **Produto:** organizador de aulas para a secretaria de uma escola. Distribui as cargas dos professores e monta a grade semanal.
 - **Plano completo:** [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md), com as entregas E0 a E9.
-- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0016).
-- **Refatoração aprovada:** [ADR 0017](docs/adr/0017-refatoracao-arquitetural.md), com um PR por etapa e casos de uso em classes com `execute`. Durante a migração, fábricas e reexports temporários mantêm compatibilidade. Etapas dependentes podem usar a branch anterior como base, indicada no PR; o usuário continua responsável pelos merges.
+- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0017).
+- **Arquitetura atual:** [ADR 0017](docs/adr/0017-refatoracao-arquitetural.md), com um PR por etapa e casos de uso em classes com `execute`. As sete etapas estão implementadas; use as APIs públicas dos módulos e as classes com `execute`. Etapas dependentes podem usar a branch anterior como base, indicada no PR; o usuário continua responsável pelos merges.
 - **Como rodar:** [README.md](README.md).
 
 ---
@@ -53,9 +53,9 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 **Telas existentes:** Início, Disciplinas, Turmas, Turnos (`/turnos`), Recursos especiais (`/recursos`), Professores, Disponibilidade (`/disponibilidade`) e Atribuições; Entrar, Minha conta, Acessos, Planejamentos e Auditoria na E4; Grade (`/planejamentos/:id/grade`) na E5; Geração automática (`/planejamentos/:id/geracao`) na E6.
 
-### Entrega em revisão
+### Última entrega funcional
 
-- **Recursos especiais opcionais** (branch `e3/recursos`): cadastro de recursos (quadra, laboratório) com arquivar e restaurar; cada bloco de aulas reserva até 5 recursos; a fotografia da revisão leva os recursos ativos ao validador e ao motor, que já tratavam a exclusividade; a grade acusa `conflict.resource`. Sem recursos cadastrados, nada muda. Veja a [ADR 0016](docs/adr/0016-recursos-especiais.md). O primeiro acesso continua em [acesso local](docs/operations/acesso-local.md).
+- **Recursos especiais opcionais** (PR #14, incorporado na `main`): cadastro de recursos (quadra, laboratório) com arquivar e restaurar; cada bloco de aulas reserva até 5 recursos; a fotografia da revisão leva os recursos ativos ao validador e ao motor, que já tratavam a exclusividade; a grade acusa `conflict.resource`. Sem recursos cadastrados, nada muda. Veja a [ADR 0016](docs/adr/0016-recursos-especiais.md). O primeiro acesso continua em [acesso local](docs/operations/acesso-local.md).
 
 ### Situação da E0 (levantamento)
 
@@ -103,12 +103,12 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 Veja as ADRs 0001 a 0003. Em resumo:
 
 ```text
-apps/api            Fastify: rotas, tradução de erros, composição (main.ts é a raiz de composição)
-apps/worker         Processo de tarefas (o motor entra aqui na E2/E6)
-apps/web            Vue 3 + Vite + vue-router
-packages/core       Domínio e casos de uso, sem dependência de framework
-packages/contracts  Esquemas Zod da API, compartilhados com a web
-packages/infrastructure  Prisma/PostgreSQL, logger, relógio e ids
+apps/api            main.ts inicia; composition monta; controllers traduzem; http adapta o Fastify
+apps/worker         composition monta; consumers consome; generation executa; health acompanha
+apps/web            app compõe Vue e router; modules separa aplicação, infra e apresentação
+packages/core       Módulos com domínio, casos de uso execute e portas; APIs públicas por camada
+packages/contracts  Esquemas Zod em modules e shared, compartilhados com a web
+packages/infrastructure  Adaptadores em modules; conexão, logger, relógio e ids compartilhados
 tests/e2e           Playwright contra o Compose completo
 ```
 
@@ -129,9 +129,11 @@ tests/e2e           Playwright contra o Compose completo
 
 **Padrões do domínio** (siga o código existente em `packages/core/src/modules`):
 
-- **Módulos:** `school-structure` (disciplinas, turmas, turnos) e `teaching` (professores, atribuições).
-- **Casos de uso:** nos módulos migrados pela ADR 0017, classes com `execute`, portas pelo construtor e campos explícitos. Os demais ainda usam fábricas `makeX(deps)`; adapte os consumidores ao migrar cada módulo.
-- **Portas:** são definidas pelo módulo que as usa (por exemplo, `SubjectLookup`, `PeriodLookup` em `teaching/application/ports.ts`) e implementadas pelos repositórios.
+- **Módulos:** `access`, `school-structure`, `teaching`, `planning`, `timetable` e `generation`. A web tem os módulos correspondentes às suas telas.
+- **Casos de uso:** classes com `execute`, portas pelo construtor e campos explícitos. A composição dos apps usa `bindUseCase` para adaptar os métodos à fronteira de autorização. As fábricas antigas dos casos de uso foram removidas. Funções puras de domínio e fábricas de fixtures continuam válidas.
+- **Portas:** são definidas em `application/ports` pelo módulo consumidor (por exemplo, `SubjectLookup` e `PeriodLookup` em `teaching/application/ports/repositories.ts`) e implementadas pelos adaptadores.
+- **APIs públicas:** outro módulo usa `index.ts`, `domain/index.ts` ou `application/ports/index.ts` conforme a camada. O domínio acessa somente o contrato de domínio do outro módulo. Imports internos entre módulos e atalhos pelo índice raiz do core são proibidos pelo dependency-cruiser.
+- **Entidades:** concentram transições e devolvem fotografias independentes por `snapshot()`. Reconstitua dados persistidos com `reconstitute`, preservando identidade, versão e datas. Os repositórios trocam estados serializáveis com os casos de uso.
 - **Erros:** `DomainError` tem `code` estável e `kind` (`validation`, `conflict`, `not_found`, `unauthorized`, `forbidden` ou `rate_limit`), que a API traduz para 400, 409, 404, 401, 403 ou 429. As mensagens são para a secretaria, em português.
 - **Concorrência otimista:** todo cadastro tem `version`. A gravação usa `updateMany WHERE id AND version` e, se nada mudar, lança `StaleVersionError` (409 `concurrency.stale`). A tela recarrega.
 - **Arquivar em vez de excluir** (`archivedAt`), com restaurar.
@@ -155,8 +157,10 @@ tests/e2e           Playwright contra o Compose completo
 
 **Web:**
 
-- **Dependências injetadas** com `provide` em `main.ts` e `injectRequired(key)` nas páginas. Os testes fornecem _fakes_.
-- **Clientes HTTP** ficam em `apps/web/src/services/*-api.ts` e validam as respostas com os esquemas de `contracts`.
+- **Dependências injetadas:** `app/compose-app.ts` monta cliente HTTP, serviços, sessão e router e chama `provide`; páginas e composables usam `injectRequired(key)`. `main.ts` inicia a aplicação. Os testes fornecem _fakes_.
+- **Clientes HTTP:** implementações em `modules/<module>/infra`, interfaces em `application` e chaves em `presentation`. Recebem `HttpClient` explicitamente e validam respostas com os schemas de `contracts`. A apresentação usa portas e a API pública do outro módulo; componentes compartilhados recebem permissões por props.
+- **Estado de página:** coordenação de grade, geração e atribuições fica em composables de apresentação; a sessão pertence ao módulo de acesso e é injetada no router. Páginas remontam quando o caminho muda; o acompanhamento da geração não agenda chamadas após desmontar.
+- **Suporte de teste:** `testing` é consumido apenas por testes. As regras arquiteturais têm testes que exercitam imports aceitos e proibidos.
 - **Estados de tela:** carregando, vazio, erro com "Tentar novamente", e retorno com `role="status"` ou `role="alert"`.
 - **Acessibilidade:** rótulos em todos os campos, `aria-label` nas ações de cada linha e navegação por teclado.
 - **Celular:** confira cada tela nova a 375 px de largura. A página não pode rolar para o lado; tabelas rolam dentro do próprio card.
@@ -168,7 +172,7 @@ tests/e2e           Playwright contra o Compose completo
 
 Fluxo usado em todas as entregas até agora:
 
-1. **Partir da `main` atualizada:** `git checkout main && git pull --ff-only`, depois `git checkout -b <etapa>/<assunto>` (por exemplo, `e3/aulas-compartilhadas` ou `e2/motor-prova`).
+1. **Base da entrega:** no fluxo de refatoração aprovado, PRs dependentes podem usar a branch da etapa anterior, indicada no PR, e devem ser incorporados na ordem pelo usuário. No fluxo habitual, **partir da `main` atualizada:** `git checkout main && git pull --ff-only`, depois `git checkout -b <etapa>/<assunto>` (por exemplo, `e3/aulas-compartilhadas` ou `e2/motor-prova`).
 2. **Implementar a entrega inteira:**
    - domínio com testes de unidade;
    - repositório e migração com testes de integração;
