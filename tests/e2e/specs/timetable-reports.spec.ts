@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import ExcelJS from 'exceljs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { planningDetailSchema, gridViewSchema } from '@classorganizer/contracts';
@@ -29,7 +31,7 @@ async function pdfPages(data: Buffer) {
   }
 }
 
-test('impressão histórica por turma e professor gera PDF com identificação, fixação e HA', async ({
+test('revisão histórica gera PDF e XLSX com identificação, fixação, cargas e HA', async ({
   page,
   request,
 }) => {
@@ -108,7 +110,9 @@ test('impressão histórica por turma e professor gera PDF com identificação, 
   await page.goto('/planejamentos');
   await page.getByRole('button', { name: 'Abrir ' + detail.name, exact: true }).click();
   await page.getByRole('link', { name: 'Imprimir revisão 1', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Impressão e PDF', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Impressão e exportação', exact: true }),
+  ).toBeVisible();
   await page.getByLabel('Turma para imprimir', { exact: true }).selectOption(group.id);
   await expect(page.getByRole('button', { name: 'Imprimir / salvar PDF' })).toBeEnabled();
   const classPdf = await pdfPages(
@@ -142,6 +146,49 @@ test('impressão histórica por turma e professor gera PDF com identificação, 
   expect(teacherPdf[0]).toContain('Hora-atividade');
   expect(teacherPdf[0]).toContain(teacherName);
   expect(teacherPdf[0]).not.toContain('Nome atual diferente');
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Baixar XLSX da revisão completa' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toContain('-revisao-1-v');
+  const file = test.info().outputPath('revisao.xlsx');
+  await download.saveAs(file);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(new Uint8Array(await readFile(file)).buffer);
+  expect(workbook.worksheets.map((s) => s.name)).toEqual([
+    'Revisão',
+    'Horários',
+    'Professores',
+    'Turmas',
+    'Blocos',
+  ]);
+  const schedules = workbook.getWorksheet('Horários');
+  const lessons = schedules?.getRows(7, schedules.rowCount - 6) ?? [];
+  const ownLesson = lessons.find((row) => row.getCell(6).value === groupName);
+  expect(ownLesson?.getCell(8).value).toBe(teacherName);
+  expect(ownLesson?.getCell(10).value).toBe('Sim');
+  expect(ownLesson?.getCell(4).value).toEqual(new Date('1899-12-30T07:00:00Z'));
+  expect(ownLesson?.getCell(4).numFmt).toBe('hh:mm');
+  expect(
+    lessons.some(
+      (row) => row.getCell(1).value === 'Hora-atividade' && row.getCell(8).value === teacherName,
+    ),
+  ).toBe(true);
+  expect(schedules?.getCell('A2').value).toContain('Histórica');
+  expect(schedules?.getCell('A2').value).toContain('RASCUNHO');
+  const teachers = workbook.getWorksheet('Professores');
+  const load = teachers
+    ?.getRows(7, teachers.rowCount - 6)
+    ?.find((row) => row.getCell(1).value === teacherName);
+  expect(load?.getCell(2).value).toBe(1);
+  expect(load?.getCell(4).value).toBe(1);
+  expect(load?.getCell(6).value).toBe(1);
+  for (const sheet of workbook.worksheets)
+    sheet.eachRow((row) =>
+      row.eachCell((cell) => {
+        expect(cell.formula).toBeUndefined();
+        expect(cell.hyperlink).toBeUndefined();
+      }),
+    );
   await page.setViewportSize({ width: 375, height: 812 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('impressao-mobile.png'), fullPage: true });

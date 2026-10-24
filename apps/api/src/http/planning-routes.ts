@@ -5,6 +5,8 @@ import {
   restoreRevisionSchema,
   compareRevisionsSchema,
   timetableReportQuerySchema,
+  timetableWorkbookQuerySchema,
+  XLSX_MEDIA_TYPE,
 } from '@classorganizer/contracts';
 import { z } from 'zod';
 import { idParamsSchema, parseRequest } from './errors.ts';
@@ -14,6 +16,17 @@ import { PlanningController, type PlanningOperations } from '../controllers/plan
 export function registerPlanningRoutes(app: FastifyInstance, operations: PlanningOperations): void {
   const controller = new PlanningController(operations);
   const revisionParams = z.object({ id: z.uuid(), revisionId: z.uuid() });
+  app.get('/api/v1/plannings/:id/workbook', async (request, reply) => {
+    const file = await controller.timetableWorkbook({
+      ...parseRequest(idParamsSchema, request.params),
+      ...parseRequest(timetableWorkbookQuerySchema, request.query),
+    });
+    return reply
+      .header('Cache-Control', 'no-store')
+      .header('Content-Disposition', `attachment; filename="${file.fileName}"`)
+      .type(XLSX_MEDIA_TYPE)
+      .send(Buffer.from(file.content));
+  });
   app.get('/api/v1/plannings/:id/report', (request, reply) => {
     reply.header('Cache-Control', 'no-store');
     return controller.timetableReport({

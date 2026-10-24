@@ -12,6 +12,10 @@ afterEach(async () => {
 });
 function setup() {
   const operations: PlanningOperations = {
+    timetableWorkbook: vi.fn(async () => ({
+      content: new Uint8Array([80, 75, 3, 4]),
+      fileName: 'grade.xlsx',
+    })),
     timetableReport: vi.fn(async () => ({
       planning: { id, name: 'Plano inventado', year: 2027, version: 1, archived: false },
       revision: {
@@ -53,6 +57,30 @@ function setup() {
   return operations;
 }
 describe('HTTP das versões de planejamento', () => {
+  it('retorna XLSX binário sem cache e exige revisão e versão explícitas', async () => {
+    const operations = setup();
+    const response = await app.inject({
+      url: `/api/v1/plannings/${id}/workbook?revisionId=${revisionId}&version=3`,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(response.headers['content-disposition']).toBe('attachment; filename="grade.xlsx"');
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect([...response.rawPayload]).toEqual([80, 75, 3, 4]);
+    expect(operations.timetableWorkbook).toHaveBeenCalledWith({ id, revisionId, version: 3 });
+    for (const query of [
+      `revisionId=${revisionId}`,
+      'version=3',
+      `revisionId=${revisionId}&version=0`,
+      `revisionId=invalid&version=1`,
+    ])
+      expect(
+        (await app.inject({ url: `/api/v1/plannings/${id}/workbook?${query}` })).statusCode,
+      ).toBe(400);
+    expect(operations.timetableWorkbook).toHaveBeenCalledOnce();
+  });
   it('exige revisão e perspectiva explícitas no relatório e encaminha o filtro', async () => {
     const operations = setup();
     const response = await app.inject({

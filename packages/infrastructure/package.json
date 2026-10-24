@@ -17,6 +17,7 @@
     "@classorganizer/core": "workspace:*",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "exceljs": "4.4.0",
     "pino": "10.4.0"
   },
   "devDependencies": {

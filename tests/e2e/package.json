@@ -11,6 +11,7 @@
   "devDependencies": {
     "@classorganizer/contracts": "workspace:*",
     "@playwright/test": "1.64.1",
+    "exceljs": "4.4.0",
     "pdfjs-dist": "6.4.299"
   }
 }

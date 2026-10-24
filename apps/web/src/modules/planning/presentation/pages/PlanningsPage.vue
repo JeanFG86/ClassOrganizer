@@ -255,7 +255,7 @@ onMounted(load);
               query: { revisao: revision.id },
             }"
             :aria-label="'Imprimir revisão ' + revision.number"
-            >Impressão e PDF</RouterLink
+            >Impressão, PDF e XLSX</RouterLink
           >
           <RouterLink
             class="button"

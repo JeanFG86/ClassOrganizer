@@ -1,11 +1,11 @@
 import { ApiRequestError } from '../../application/api-error.ts';
-import type { HttpClient } from '../../application/ports/http-client.ts';
+import type { HttpClient, FileDownloadClient } from '../../application/ports/http-client.ts';
 import { apiErrorSchema } from '@classorganizer/contracts';
 import type { z } from 'zod';
 
 /** Erro de chamada à API com mensagem pronta para exibir à secretaria. */
 
-export class FetchHttpClient implements HttpClient {
+export class FetchHttpClient implements HttpClient, FileDownloadClient {
   readonly #baseUrl: string;
   readonly #fetch: typeof fetch;
   readonly #onSessionExpired: () => void;
@@ -59,6 +59,31 @@ export class FetchHttpClient implements HttpClient {
       throw new ApiRequestError('contract', 'O servidor respondeu em um formato inesperado.');
     }
     return parsed.data;
+  }
+  async download(path: string, mediaType: string): Promise<Blob> {
+    let response: Response;
+    try {
+      response = await this.#fetch(`${this.#baseUrl}${path}`, {
+        headers: { accept: mediaType, 'x-entreaulas-client': 'web' },
+      });
+    } catch {
+      throw new ApiRequestError('network', 'Não foi possível conectar ao servidor.');
+    }
+    if (!response.ok) {
+      if (response.status === 401) this.#onSessionExpired();
+      const body: unknown = await response.json().catch(() => undefined);
+      const parsed = apiErrorSchema.safeParse(body);
+      throw parsed.success
+        ? new ApiRequestError(parsed.data.error.code, parsed.data.error.message, response.status)
+        : new ApiRequestError(
+            'http',
+            'Não foi possível baixar o arquivo. Tente novamente.',
+            response.status,
+          );
+    }
+    if (response.headers.get('content-type')?.split(';')[0]?.trim() !== mediaType)
+      throw new ApiRequestError('contract', 'O servidor respondeu em um formato inesperado.');
+    return response.blob();
   }
 }
 

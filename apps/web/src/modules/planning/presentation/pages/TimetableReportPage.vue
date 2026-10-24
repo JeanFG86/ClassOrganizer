@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTimetableReport } from '../use-timetable-report.ts';
 import TimetableReportSheets from '../components/TimetableReportSheets.vue';
+import { useTimetableWorkbook } from '../use-timetable-workbook.ts';
 const {
   report,
   perspective,
@@ -13,12 +14,16 @@ const {
   chooseRevision,
   print,
 } = useTimetableReport();
+const { downloading, exportError, exportStatus, downloadWorkbook } = useTimetableWorkbook(
+  () => report.value,
+  () => loading.value || Boolean(error.value),
+);
 </script>
 <template>
   <section class="report-page" aria-labelledby="report-title">
     <div class="report-controls">
       <p><RouterLink to="/planejamentos">Voltar aos planejamentos</RouterLink></p>
-      <h1 id="report-title">Impressão e PDF</h1>
+      <h1 id="report-title">Impressão e exportação</h1>
       <p>
         A impressão usa os dados da revisão selecionada. No diálogo do navegador, escolha a
         impressora ou Salvar como PDF. Cada turma ou professor tem folhas próprias por turno; folhas
@@ -65,6 +70,26 @@ const {
           <button :disabled="!ready" @click="print">Imprimir / salvar PDF</button
           ><button :disabled="loading" @click="load">Atualizar prévia</button>
         </div>
+      </div>
+      <div class="card stack-form">
+        <h2>Planilha XLSX</h2>
+        <p>
+          O arquivo reúne a identificação, os horários, as cargas e os blocos de toda a revisão
+          selecionada.
+        </p>
+        <button
+          :disabled="loading || Boolean(error) || !report || downloading"
+          @click="downloadWorkbook"
+        >
+          {{ downloading ? 'Preparando XLSX…' : 'Baixar XLSX da revisão completa' }}
+        </button>
+        <p v-if="exportError" role="alert" class="error">
+          {{ exportError }}
+          <button :disabled="loading || downloading" @click="downloadWorkbook">
+            Tentar baixar novamente
+          </button>
+        </p>
+        <p v-if="exportStatus" role="status">{{ exportStatus }}</p>
       </div>
       <p v-if="loading" role="status">Carregando a impressão…</p>
       <div v-if="error" role="alert" class="error">

@@ -1,4 +1,9 @@
 import { z } from 'zod';
+export const XLSX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+export const timetableWorkbookQuerySchema = z.object({
+  revisionId: z.uuid(),
+  version: z.coerce.number().int().positive(),
+});
 
 export const timetableReportQuerySchema = z.object({
   revisionId: z.uuid(),
