@@ -2,6 +2,7 @@
 
 - **Status:** aceita
 - **Data:** 22/10/2026
+- **Evolução:** a [ADR 0017](0017-refatoracao-arquitetural.md) substitui incrementalmente as fábricas por casos de uso com `execute` e detalha a organização interna dos adaptadores.
 
 ## Contexto
 

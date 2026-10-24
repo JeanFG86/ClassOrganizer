@@ -7,6 +7,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 - **Produto:** organizador de aulas para a secretaria de uma escola. Distribui as cargas dos professores e monta a grade semanal.
 - **Plano completo:** [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md), com as entregas E0 a E9.
 - **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0016).
+- **Refatoração aprovada:** [ADR 0017](docs/adr/0017-refatoracao-arquitetural.md), com um PR por etapa e casos de uso em classes com `execute`. Durante a migração, fábricas e reexports temporários mantêm compatibilidade. Etapas dependentes podem usar a branch anterior como base, indicada no PR; o usuário continua responsável pelos merges.
 - **Como rodar:** [README.md](README.md).
 
 ---
@@ -129,7 +130,7 @@ tests/e2e           Playwright contra o Compose completo
 **Padrões do domínio** (siga o código existente em `packages/core/src/modules`):
 
 - **Módulos:** `school-structure` (disciplinas, turmas, turnos) e `teaching` (professores, atribuições).
-- **Casos de uso** são fábricas `makeX(deps)` que devolvem uma função. Os tipos são exportados como `type X = ReturnType<typeof makeX>`.
+- **Casos de uso:** nos módulos migrados pela ADR 0017, classes com `execute`, portas pelo construtor e campos explícitos. Os demais ainda usam fábricas `makeX(deps)`; adapte os consumidores ao migrar cada módulo.
 - **Portas:** são definidas pelo módulo que as usa (por exemplo, `SubjectLookup`, `PeriodLookup` em `teaching/application/ports.ts`) e implementadas pelos repositórios.
 - **Erros:** `DomainError` tem `code` estável e `kind` (`validation`, `conflict`, `not_found`, `unauthorized`, `forbidden` ou `rate_limit`), que a API traduz para 400, 409, 404, 401, 403 ou 429. As mensagens são para a secretaria, em português.
 - **Concorrência otimista:** todo cadastro tem `version`. A gravação usa `updateMany WHERE id AND version` e, se nada mudar, lança `StaleVersionError` (409 `concurrency.stale`). A tela recarrega.
