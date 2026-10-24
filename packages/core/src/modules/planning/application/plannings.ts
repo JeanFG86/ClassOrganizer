@@ -8,6 +8,9 @@ import {
   requireRole,
   type Actor,
 } from '../../access/domain/access.ts';
+import { translateCatalog } from '../domain/catalog-translation.ts';
+import { diagnoseGrid, isGridComplete } from '../domain/diagnosis.ts';
+import { DEFAULT_GRID_RULES, type GridRules } from '../domain/grid.ts';
 import {
   PlanningError,
   requireDraft,
@@ -16,21 +19,18 @@ import {
   type Planning,
   type PlanningRevision,
 } from '../domain/planning.ts';
+import { carryGrid } from './grid-transfer.ts';
+import type { GridRepository, PlanningRepository } from './ports.ts';
 
-export interface PlanningRepository {
-  list(): Promise<Planning[]>;
-  find(id: string): Promise<Planning | null>;
-  revisions(planningId: string): Promise<PlanningRevision[]>;
-  add(planning: Planning, revision: PlanningRevision): Promise<void>;
-  save(planning: Planning, revision?: PlanningRevision): Promise<void>;
-  capture(): Promise<CatalogSnapshot>;
-}
+export type { PlanningRepository } from './ports.ts';
+
 export function makePlannings(deps: {
   repository: PlanningRepository;
+  grids: GridRepository;
   clock: Clock;
   ids: IdGenerator;
 }) {
-  const { repository, clock, ids } = deps;
+  const { repository, grids, clock, ids } = deps;
   async function find(id: string, version?: number) {
     const planning = await repository.find(id);
     if (!planning) throw new NotFoundError('planning.not_found', 'Planejamento não encontrado.');
@@ -41,6 +41,7 @@ export function makePlannings(deps: {
     planningId: string,
     number: number,
     snapshot: CatalogSnapshot,
+    gridRules: GridRules,
     actor: Actor,
   ): PlanningRevision {
     return {
@@ -48,12 +49,30 @@ export function makePlannings(deps: {
       planningId,
       number,
       snapshot,
+      gridRules,
       createdAt: clock.now(),
       createdBy: actor.id,
       rulesReviewed: false,
       availabilityReviewed: false,
       sealedAt: null,
     };
+  }
+  /** Conclusão exige uma grade completa e sem problemas (ADR 0013). */
+  async function requireCompleteGrid(revision: PlanningRevision) {
+    const diagnosis = diagnoseGrid(
+      translateCatalog(revision.snapshot, revision.gridRules, revision.id),
+      await grids.placements(revision.id),
+    );
+    if (isGridComplete(diagnosis)) return;
+    const issues = [...diagnosis.model, ...diagnosis.problems, ...diagnosis.pending];
+    throw new PlanningError(
+      'planning.grid_incomplete',
+      'A grade precisa estar completa e sem problemas para concluir a revisão. ' +
+        (issues.length === 1
+          ? 'Há 1 pendência: '
+          : 'Há ' + issues.length + ' pendências; a primeira: ') +
+        (issues[0]?.message ?? ''),
+    );
   }
   return {
     async list(actor: Actor) {
@@ -76,18 +95,18 @@ export function makePlannings(deps: {
     ) {
       requireRole(actor, WRITE_ROLES);
       const name = validatePlanningInput(input.name, input.year);
-      let snapshot: CatalogSnapshot;
+      let source: { planning: Planning; revision: PlanningRevision } | null = null;
       if (input.sourceId) {
         if (input.sourceVersion === undefined) throw new StaleVersionError();
-        await find(input.sourceId, input.sourceVersion);
-        const source = (await repository.revisions(input.sourceId)).at(-1);
-        if (!source)
+        const planning = await find(input.sourceId, input.sourceVersion);
+        const revision = (await repository.revisions(input.sourceId)).at(-1);
+        if (!revision)
           throw new PlanningError(
             'planning.empty',
             'O planejamento não possui revisão para copiar.',
           );
-        snapshot = source.snapshot;
-      } else snapshot = await repository.capture();
+        source = { planning, revision };
+      }
       const planning: Planning = {
         id: ids.next(),
         name,
@@ -97,7 +116,24 @@ export function makePlannings(deps: {
         archivedAt: null,
         copiedFromId: input.sourceId ?? null,
       };
-      await repository.add(planning, draft(planning.id, 1, snapshot, actor));
+      const revision = draft(
+        planning.id,
+        1,
+        source ? source.revision.snapshot : await repository.capture(),
+        source ? source.revision.gridRules : DEFAULT_GRID_RULES,
+        actor,
+      );
+      await repository.add(planning, revision);
+      if (source)
+        await carryGrid(
+          { grids, clock, ids },
+          {
+            from: source.revision,
+            to: revision,
+            actor,
+            origin: source.planning.name + ', revisão ' + source.revision.number,
+          },
+        );
       return planning;
     },
     async change(
@@ -137,9 +173,17 @@ export function makePlannings(deps: {
               'planning.draft_exists',
               'Conclua o rascunho atual antes de abrir outro.',
             );
-          await repository.save(
-            planning,
-            draft(planning.id, latest.number + 1, await repository.capture(), actor),
+          const next = draft(
+            planning.id,
+            latest.number + 1,
+            await repository.capture(),
+            latest.gridRules,
+            actor,
+          );
+          await repository.save(planning, next);
+          await carryGrid(
+            { grids, clock, ids },
+            { from: latest, to: next, actor, origin: 'revisão ' + latest.number },
           );
         } else {
           requireDraft(planning, latest);
@@ -158,6 +202,7 @@ export function makePlannings(deps: {
                 'planning.review_required',
                 'Revise as regras e a disponibilidade antes de concluir.',
               );
+            await requireCompleteGrid(latest);
             latest.sealedAt = clock.now();
           }
           await repository.save(planning, latest);

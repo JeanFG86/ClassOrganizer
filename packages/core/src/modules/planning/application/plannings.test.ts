@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { makePlannings, type PlanningRepository } from './plannings.ts';
-import type { CatalogSnapshot, Planning, PlanningRevision } from '../domain/planning.ts';
+import { makePlannings } from './plannings.ts';
+import type { CatalogSnapshot } from '../domain/planning.ts';
 import type { Actor } from '../../access/domain/access.ts';
+import {
+  completeGrid,
+  makeCatalogFixture,
+  makeInMemoryPlanningStore,
+} from '../../../testing/planning-fixture.ts';
 const actor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
-const snapshot: CatalogSnapshot = {
+const empty: CatalogSnapshot = {
   formatVersion: 1,
   catalogVersion: 1,
   capturedAt: '2026-01-01T00:00:00.000Z',
@@ -14,65 +19,51 @@ const snapshot: CatalogSnapshot = {
   assignments: [],
 };
 describe('planejamentos e revisões', () => {
-  let items: Planning[];
-  let revisions: PlanningRevision[];
+  let catalog: CatalogSnapshot;
+  let store: ReturnType<typeof makeInMemoryPlanningStore>;
   let useCases: ReturnType<typeof makePlannings>;
   let sequence: number;
   beforeEach(() => {
-    items = [];
-    revisions = [];
+    catalog = empty;
     sequence = 0;
-    const repository: PlanningRepository = {
-      list: async () => structuredClone(items),
-      find: async (id) => structuredClone(items.find((p) => p.id === id) ?? null),
-      revisions: async (id) => structuredClone(revisions.filter((r) => r.planningId === id)),
-      add: async (planning, revision) => {
-        items.push(structuredClone(planning));
-        revisions.push(structuredClone(revision));
-      },
-      save: async (planning, revision) => {
-        const index = items.findIndex((p) => p.id === planning.id);
-        items[index] = { ...planning, version: planning.version + 1 };
-        if (revision) {
-          const index = revisions.findIndex((r) => r.id === revision.id);
-          if (index < 0) revisions.push(structuredClone(revision));
-          else revisions[index] = structuredClone(revision);
-        }
-      },
-      capture: async () => structuredClone(snapshot),
-    };
+    store = makeInMemoryPlanningStore(() => catalog);
     useCases = makePlannings({
-      repository,
-      clock: { now: () => new Date(snapshot.capturedAt) },
+      repository: store.repository,
+      grids: store.grids,
+      clock: { now: () => new Date(empty.capturedAt) },
       ids: { next: () => 'id-' + ++sequence },
     });
   });
   async function create() {
     const result = await useCases.create(actor, { name: 'Plano fictício', year: 2027 });
-    const revision = revisions.at(-1);
+    const revision = store.revisions.at(-1);
     if (!revision) throw new Error('Revisão ausente.');
     return { result, revision };
   }
-  it('cria um rascunho com conferências pendentes', async () => {
+  async function review(id: string, version: number, revisionId: string) {
+    await useCases.change(actor, {
+      id,
+      version,
+      revisionId,
+      operation: 'review',
+      rulesReviewed: true,
+      availabilityReviewed: true,
+    });
+  }
+  it('cria um rascunho com conferências pendentes e regras padrão', async () => {
     const { result, revision } = await create();
     expect(result.version).toBe(1);
     expect(revision).toMatchObject({
       rulesReviewed: false,
       availabilityReviewed: false,
       sealedAt: null,
-      snapshot,
+      snapshot: empty,
+      gridRules: { planningPeriods: 'any_shift', daily: { maxPerDay: 2, consecutive: true } },
     });
   });
   it('cópia preserva dados e exige novas conferências', async () => {
     const { result, revision } = await create();
-    await useCases.change(actor, {
-      id: result.id,
-      version: 1,
-      revisionId: revision.id,
-      operation: 'review',
-      rulesReviewed: true,
-      availabilityReviewed: true,
-    });
+    await review(result.id, 1, revision.id);
     const copy = await useCases.create(actor, {
       name: 'Cópia fictícia',
       year: 2028,
@@ -80,10 +71,10 @@ describe('planejamentos e revisões', () => {
       sourceVersion: 2,
     });
     expect(copy.copiedFromId).toBe(result.id);
-    expect(revisions.at(-1)).toMatchObject({
+    expect(store.revisions.at(-1)).toMatchObject({
       rulesReviewed: false,
       availabilityReviewed: false,
-      snapshot,
+      snapshot: empty,
     });
   });
   it('não conclui sem conferência e não altera revisão concluída', async () => {
@@ -92,22 +83,74 @@ describe('planejamentos e revisões', () => {
     await expect(useCases.change(actor, { ...ref, operation: 'seal' })).rejects.toMatchObject({
       code: 'planning.review_required',
     });
-    await useCases.change(actor, {
-      ...ref,
-      operation: 'review',
-      rulesReviewed: true,
-      availabilityReviewed: true,
-    });
+    await review(result.id, 1, revision.id);
     await useCases.change(actor, { ...ref, version: 2, operation: 'seal' });
     await expect(
       useCases.change(actor, { ...ref, version: 3, operation: 'review' }),
     ).rejects.toMatchObject({ code: 'planning.sealed' });
     await useCases.change(actor, { ...ref, version: 3, operation: 'draft' });
-    expect(revisions.at(-1)).toMatchObject({
+    expect(store.revisions.at(-1)).toMatchObject({
       number: 2,
       rulesReviewed: false,
       availabilityReviewed: false,
     });
+  });
+  it('conclusão exige grade completa e sem problemas', async () => {
+    catalog = makeCatalogFixture();
+    const { result, revision } = await create();
+    await review(result.id, 1, revision.id);
+    const seal = { id: result.id, version: 2, revisionId: revision.id, operation: 'seal' as const };
+    await expect(useCases.change(actor, seal)).rejects.toMatchObject({
+      code: 'planning.grid_incomplete',
+      message: expect.stringContaining('Há 4 pendências'),
+    });
+    store.placements.set(revision.id, completeGrid());
+    await useCases.change(actor, seal);
+    expect(store.revisions.at(-1)?.sealedAt).not.toBeNull();
+  });
+  it('novo rascunho e cópia levam grade e regras, descartando o que deixou de existir', async () => {
+    catalog = makeCatalogFixture();
+    const { result, revision } = await create();
+    store.placements.set(revision.id, completeGrid());
+    store.revisions[0] = {
+      ...revision,
+      gridRules: { ...revision.gridRules, planningPeriods: 'teaching_shifts' },
+    };
+    await review(result.id, 1, revision.id);
+    await useCases.change(actor, {
+      id: result.id,
+      version: 2,
+      revisionId: revision.id,
+      operation: 'seal',
+    });
+    // O bloco a2 deixa de existir nos cadastros atuais.
+    catalog = { ...makeCatalogFixture(), catalogVersion: 4 };
+    catalog.assignments = catalog.assignments.filter((a) => (a as { id: string }).id !== 'a2');
+    await useCases.change(actor, {
+      id: result.id,
+      version: 3,
+      revisionId: revision.id,
+      operation: 'draft',
+    });
+    const next = store.revisions.at(-1);
+    if (!next) throw new Error('Rascunho ausente.');
+    expect(next.gridRules.planningPeriods).toBe('teaching_shifts');
+    expect(store.placements.get(next.id)).toHaveLength(5);
+    expect(store.history.filter((c) => c.revisionId === next.id)).toEqual([
+      expect.objectContaining({
+        kind: 'import',
+        sequence: 1,
+        summary: expect.stringContaining('5 alocações mantidas, 1 descartada'),
+      }),
+    ]);
+    await useCases.create(actor, {
+      name: 'Cópia fictícia',
+      year: 2028,
+      sourceId: result.id,
+      sourceVersion: 4,
+    });
+    const copied = store.revisions.at(-1);
+    expect(copied && store.placements.get(copied.id)).toHaveLength(5);
   });
   it('rejeita versão antiga, revisão de outro planejamento e escrita por consulta', async () => {
     const { result, revision } = await create();
@@ -148,6 +191,6 @@ describe('planejamentos e revisões', () => {
         operation: 'review',
       }),
     ).rejects.toMatchObject({ code: 'planning.archived' });
-    expect(revisions).toHaveLength(1);
+    expect(store.revisions).toHaveLength(1);
   });
 });

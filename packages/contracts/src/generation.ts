@@ -9,7 +9,7 @@ const named = z.object({ id, name: z.string().min(1).max(200) });
 export const timetableSnapshotSchema = z.object({
   modelVersion: z.literal(1),
   sourceRevision: z.string().min(1).max(200),
-  lessonMinutes: z.number().int(),
+  lessonMinutes: z.number().int().nullable(),
   weekdays: z.array(day),
   periods: z.array(
     z.object({ id, shiftId: id, startMinute: z.number().int(), endMinute: z.number().int() }),

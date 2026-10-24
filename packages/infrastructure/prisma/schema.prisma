@@ -188,6 +188,7 @@ model AppUser {
   sessions LoginSession[]
   audits AuditEvent[]
   revisions PlanningRevision[]
+  timetableChanges TimetableChange[]
   @@map("app_user")
 }
 model LoginSession {
@@ -242,11 +243,44 @@ model PlanningRevision {
   createdAt DateTime @map("created_at") @db.Timestamptz(3)
   createdBy String @map("created_by") @db.Uuid
   snapshot Json
+  gridRules Json @default("{\"formatVersion\":1,\"planningPeriods\":\"any_shift\",\"daily\":{\"maxPerDay\":2,\"consecutive\":true},\"dailyExceptions\":[]}") @map("grid_rules")
   rulesReviewed Boolean @default(false) @map("rules_reviewed")
   availabilityReviewed Boolean @default(false) @map("availability_reviewed")
   sealedAt DateTime? @map("sealed_at") @db.Timestamptz(3)
   planning Planning @relation(fields: [planningId], references: [id], onDelete: Restrict)
   creator AppUser @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  placements TimetablePlacement[]
+  timetableChanges TimetableChange[]
   @@unique([planningId, number])
   @@map("planning_revision")
+}
+/// Alocação da grade de uma revisão; aponta para ids da fotografia, sem FK para cadastros (ADR 0013).
+model TimetablePlacement {
+  revisionId String @map("revision_id") @db.Uuid
+  kind String @db.VarChar(10)
+  entityId String @map("entity_id") @db.Uuid
+  weekday Int @db.SmallInt
+  periodId String @map("period_id") @db.Uuid
+  pinned Boolean @default(false)
+  revision PlanningRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  @@id([revisionId, kind, entityId, weekday, periodId])
+  @@map("timetable_placement")
+}
+/// Histórico somente de acréscimo das alterações da grade.
+model TimetableChange {
+  id String @id @db.Uuid
+  revisionId String @map("revision_id") @db.Uuid
+  sequence Int
+  actorId String @map("actor_id") @db.Uuid
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  kind String @db.VarChar(10)
+  summary String
+  delta Json
+  revertsId String? @unique @map("reverts_id") @db.Uuid
+  revision PlanningRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  actor AppUser @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  reverts TimetableChange? @relation("timetable_change_revert", fields: [revertsId], references: [id], onDelete: Restrict)
+  revertedBy TimetableChange? @relation("timetable_change_revert")
+  @@unique([revisionId, sequence])
+  @@map("timetable_change")
 }

@@ -1,4 +1,7 @@
-import { DomainError } from '../../../shared/domain-error.ts';
+import type { GridRules } from './grid.ts';
+import { PlanningError } from './planning-error.ts';
+
+export { PlanningError };
 
 export type JsonValue =
   string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -19,6 +22,8 @@ export interface PlanningRevision {
   createdAt: Date;
   createdBy: string;
   snapshot: CatalogSnapshot;
+  /** Regras da grade desta revisão (ADR 0013). */
+  gridRules: GridRules;
   rulesReviewed: boolean;
   availabilityReviewed: boolean;
   sealedAt: Date | null;
@@ -31,15 +36,6 @@ export interface Planning {
   createdAt: Date;
   archivedAt: Date | null;
   copiedFromId: string | null;
-}
-export class PlanningError extends DomainError {
-  readonly code: string;
-  readonly kind: 'validation' | 'conflict';
-  constructor(code: string, message: string, kind: PlanningError['kind'] = 'conflict') {
-    super(message);
-    this.code = code;
-    this.kind = kind;
-  }
 }
 export function validatePlanningInput(name: string, year: number): string {
   const trimmed = name.trim();

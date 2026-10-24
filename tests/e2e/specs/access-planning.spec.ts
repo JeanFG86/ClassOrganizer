@@ -1,10 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
-test('planejamento → conferência → conclusão → cópia com nova revisão necessária', async ({
+test('planejamento → conferência → conclusão bloqueada sem grade → cópia com nova revisão necessária', async ({
   page,
+  request,
 }) => {
-  const name = 'Plano fictício ' + randomUUID().slice(0, 8);
+  const suffix = randomUUID().slice(0, 8);
+  const name = 'Plano fictício ' + suffix;
+  // Um professor ativo com hora-atividade garante pendência na grade, qualquer que seja o banco.
+  expect(
+    (
+      await request.post('/api/v1/teachers', {
+        data: { name: 'Docente com HA ' + suffix, subjectIds: [], planningPeriods: 1 },
+      })
+    ).status(),
+  ).toBe(201);
   await page.goto('/planejamentos');
   await page.getByLabel('Nome do planejamento', { exact: true }).fill(name);
   await page.getByLabel('Ano', { exact: true }).fill('2027');
@@ -18,7 +28,10 @@ test('planejamento → conferência → conclusão → cópia com nova revisão 
   await detail.getByRole('button', { name: 'Salvar conferência' }).click();
   await expect(detail.getByRole('button', { name: 'Concluir revisão' })).toBeEnabled();
   await detail.getByRole('button', { name: 'Concluir revisão' }).click();
-  await expect(detail.getByRole('heading', { name: 'Revisão 1 · Concluída' })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText(
+    'A grade precisa estar completa e sem problemas para concluir a revisão.',
+  );
+  await expect(detail.getByRole('heading', { name: 'Revisão 1 · Rascunho' })).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
   await detail.getByRole('button', { name: 'Baixar revisão 1', exact: true }).click();
   expect((await downloadPromise).suggestedFilename()).toContain('-revisao-1.json');

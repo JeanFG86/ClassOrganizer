@@ -23,6 +23,9 @@ const actions: Record<string, string> = {
   'planning.draft': 'Abertura de rascunho',
   'planning.archive': 'Arquivamento de planejamento',
   'planning.restore': 'Restauração de planejamento',
+  'planning.grid': 'Alteração da grade',
+  'planning.gridUndo': 'Desfazer alteração da grade',
+  'planning.gridRules': 'Alteração das regras da grade',
 };
 const catalogActions: Record<string, string> = {
   registerSubject: 'Cadastro de disciplina',

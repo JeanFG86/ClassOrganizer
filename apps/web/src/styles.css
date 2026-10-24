@@ -560,3 +560,139 @@ a.button.ghost {
 .revision-card {
   overflow-wrap: anywhere;
 }
+
+/* Grade manual (E5) */
+.grid-header select {
+  max-width: 100%;
+}
+.grid-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+.grid-legend div {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.grid-legend dt,
+.grid-legend dd {
+  margin: 0;
+}
+.grid-swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--border);
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.grid-swatch.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.grid-swatch.unavailable,
+.grid-matrix td.grid-unavailable {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 4px,
+    color-mix(in srgb, var(--muted) 18%, transparent) 4px,
+    color-mix(in srgb, var(--muted) 18%, transparent) 8px
+  );
+}
+.grid-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+.grid-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.grid-matrix td {
+  min-width: 6.5rem;
+  vertical-align: top;
+}
+.grid-time {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.grid-item,
+.grid-empty {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.85rem;
+  text-align: left;
+  line-height: 1.25;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.grid-item + .grid-item {
+  margin-top: 0.25rem;
+}
+button.grid-item:hover:not(:disabled),
+button.grid-empty:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.grid-item.selected {
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+}
+.grid-item.conflict {
+  border-color: var(--error);
+  border-style: dashed;
+}
+.grid-item-title {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.grid-item-detail {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.grid-flags {
+  float: right;
+}
+.grid-empty {
+  color: var(--muted);
+  border-style: dashed;
+  text-align: center;
+}
+.grid-empty-text {
+  display: block;
+  text-align: center;
+}
+.grid-panel h2 {
+  font-size: 1.1rem;
+  margin-top: 0;
+}
+.grid-panel h3 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+.grid-pending {
+  border: 2px solid var(--accent);
+}
+.issue-list {
+  margin: 0.25rem 0 0.75rem;
+  padding-left: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.grid-history li {
+  overflow-wrap: anywhere;
+}
+.inline-heading {
+  display: inline;
+  font-size: 1.1rem;
+}

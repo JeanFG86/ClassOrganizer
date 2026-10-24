@@ -6,6 +6,7 @@ import {
   AccessError,
   makeAuthorizedOperation,
   makePlannings,
+  makeTimetableGrid,
 } from '@classorganizer/core';
 import type { Role } from '@classorganizer/core';
 import {
@@ -14,6 +15,7 @@ import {
   hashToken,
   makeAccounts,
   makeLogin,
+  PrismaGridRepository,
   PrismaPlanningRepository,
   publicUser,
   systemClock,
@@ -28,6 +30,10 @@ import {
   changePasswordSchema,
   createPlanningSchema,
   changePlanningSchema,
+  gridCommandSchema,
+  gridQuerySchema,
+  gridRulesChangeSchema,
+  gridUndoSchema,
 } from '@classorganizer/contracts';
 import { buildApp, type AppOptions } from './app.ts';
 import { makeCatalogServices } from './catalog-services.ts';
@@ -43,6 +49,13 @@ export function createSecureApp(
     catalog: makeCatalogServices(tx),
     plannings: makePlannings({
       repository: new PrismaPlanningRepository(tx),
+      grids: new PrismaGridRepository(tx),
+      clock: systemClock,
+      ids: uuidGenerator,
+    }),
+    grid: makeTimetableGrid({
+      plannings: new PrismaPlanningRepository(tx),
+      grids: new PrismaGridRepository(tx),
       clock: systemClock,
       ids: uuidGenerator,
     }),
@@ -164,6 +177,32 @@ export function createSecureApp(
     (services, actor, input: z.infer<typeof changePlanningSchema> & { id: string }) =>
       services.plannings.change(actor, input),
   );
+  type GridCommand = z.infer<typeof gridCommandSchema> & { id: string };
+  const viewGrid = protect(
+    READ_ROLES,
+    undefined,
+    (services, actor, input: { id: string; revisionId?: string | undefined }) =>
+      services.grid.view(actor, input),
+  );
+  // A prévia não grava nada: não bloqueia app_state nem gera auditoria.
+  const previewGrid = protect(WRITE_ROLES, undefined, (services, actor, input: GridCommand) =>
+    services.grid.preview(actor, input),
+  );
+  const applyGrid = protect(WRITE_ROLES, 'planning.grid', (services, actor, input: GridCommand) =>
+    services.grid.apply(actor, input),
+  );
+  const undoGrid = protect(
+    WRITE_ROLES,
+    'planning.gridUndo',
+    (services, actor, input: z.infer<typeof gridUndoSchema> & { id: string }) =>
+      services.grid.undo(actor, input),
+  );
+  const changeGridRules = protect(
+    WRITE_ROLES,
+    'planning.gridRules',
+    (services, actor, input: z.infer<typeof gridRulesChangeSchema> & { id: string }) =>
+      services.grid.changeRules(actor, input),
+  );
   const listAudits = protect(
     ADMIN_ROLES,
     undefined,
@@ -244,6 +283,36 @@ export function createSecureApp(
         app.put('/api/v1/plannings/:id', (request) =>
           changePlanning({
             ...parseRequest(changePlanningSchema, request.body),
+            ...parseRequest(idParamsSchema, request.params),
+          }),
+        );
+        app.get('/api/v1/plannings/:id/grid', (request) =>
+          viewGrid({
+            ...parseRequest(gridQuerySchema, request.query),
+            ...parseRequest(idParamsSchema, request.params),
+          }),
+        );
+        app.post('/api/v1/plannings/:id/grid/preview', (request) =>
+          previewGrid({
+            ...parseRequest(gridCommandSchema, request.body),
+            ...parseRequest(idParamsSchema, request.params),
+          }),
+        );
+        app.post('/api/v1/plannings/:id/grid/operations', (request) =>
+          applyGrid({
+            ...parseRequest(gridCommandSchema, request.body),
+            ...parseRequest(idParamsSchema, request.params),
+          }),
+        );
+        app.post('/api/v1/plannings/:id/grid/undo', (request) =>
+          undoGrid({
+            ...parseRequest(gridUndoSchema, request.body),
+            ...parseRequest(idParamsSchema, request.params),
+          }),
+        );
+        app.put('/api/v1/plannings/:id/grid/rules', (request) =>
+          changeGridRules({
+            ...parseRequest(gridRulesChangeSchema, request.body),
             ...parseRequest(idParamsSchema, request.params),
           }),
         );

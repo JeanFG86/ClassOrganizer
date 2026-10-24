@@ -6,6 +6,8 @@ import type {
 } from './model.ts';
 import { validateTimetableModel } from './validate-model.ts';
 
+const DAY_NAMES = ['segunda', 'terça', 'quarta', 'quinta', 'sexta'];
+
 interface ScheduledEvent {
   weekday: number;
   period: TimetablePeriod;
@@ -19,9 +21,9 @@ interface ScheduledEvent {
 export function validateTimetableProposal(
   snapshot: TimetableSnapshot,
   proposal: TimetableProposal,
-  options: { complete?: boolean } = {},
+  options: { complete?: boolean; limits?: boolean } = {},
 ): TimetableIssue[] {
-  const issues = validateTimetableModel(snapshot);
+  const issues = validateTimetableModel(snapshot, { limits: options.limits ?? true });
   if (issues.length) return issues;
   const fail = (code: string, message: string, ...entityIds: string[]) =>
     issues.push({ code, message, entityIds });
@@ -30,6 +32,8 @@ export function validateTimetableProposal(
   const teachers = new Map(snapshot.teachers.map((t) => [t.id, t]));
   const classes = new Map(snapshot.classGroups.map((c) => [c.id, c]));
   const resources = new Map(snapshot.resources.map((r) => [r.id, r]));
+  const subjects = new Map(snapshot.subjects.map((s) => [s.id, s.name]));
+  const amount = (n: number, one: string, many: string) => n + ' ' + (n === 1 ? one : many);
   const lessonCounts = new Map<string, number>();
   const planningCounts = new Map<string, number>();
   const seen = new Set<string>();
@@ -37,6 +41,7 @@ export function validateTimetableProposal(
   const daily = new Map<string, TimetablePeriod[]>();
   const key = (kind: string, id: string, day: number, period: string) =>
     JSON.stringify([kind, id, day, period]);
+  const day = (weekday: number) => DAY_NAMES[weekday - 1] ?? 'dia ' + weekday;
   const time = (p: TimetablePeriod) =>
     String(Math.floor(p.startMinute / 60)).padStart(2, '0') +
     ':' +
@@ -120,11 +125,15 @@ export function validateTimetableProposal(
     if (count > a.weeklyLessons || (options.complete !== false && count !== a.weeklyLessons))
       fail(
         'load.lessons',
-        'O bloco da turma ' +
+        'O bloco de ' +
+          [...new Set(a.participants.map((p) => subjects.get(p.subjectId) ?? p.subjectId))].join(
+            ' + ',
+          ) +
+          ' na turma ' +
           (classes.get(a.classGroupId)?.name ?? a.classGroupId) +
           ' exige ' +
-          a.weeklyLessons +
-          ' aulas; a proposta contém ' +
+          amount(a.weeklyLessons, 'aula', 'aulas') +
+          '; a grade contém ' +
           count +
           '.',
         a.id,
@@ -138,8 +147,8 @@ export function validateTimetableProposal(
         'A hora-atividade de ' +
           t.name +
           ' exige ' +
-          t.planningPeriods +
-          ' períodos; a proposta contém ' +
+          amount(t.planningPeriods, 'período', 'períodos') +
+          '; a grade contém ' +
           count +
           '.',
         t.id,
@@ -162,8 +171,8 @@ export function validateTimetableProposal(
         fail(
           'teacher.unavailable',
           (teacher?.name ?? id) +
-            ' está indisponível no dia ' +
-            event.weekday +
+            ' está indisponível na ' +
+            day(event.weekday) +
             ', às ' +
             time(event.period) +
             '.',
@@ -190,8 +199,8 @@ export function validateTimetableProposal(
           'conflict.class',
           'A turma ' +
             (classes.get(a.classGroupId)?.name ?? a.classGroupId) +
-            ' tem blocos sobrepostos no dia ' +
-            a.weekday +
+            ' tem blocos sobrepostos na ' +
+            day(a.weekday) +
             ', às ' +
             time(a.period) +
             '.',
@@ -203,8 +212,8 @@ export function validateTimetableProposal(
         fail(
           'conflict.teacher',
           (teachers.get(id)?.name ?? id) +
-            ' tem atividades sobrepostas no dia ' +
-            a.weekday +
+            ' tem atividades sobrepostas na ' +
+            day(a.weekday) +
             ', às ' +
             time(a.period) +
             '.',
@@ -217,8 +226,8 @@ export function validateTimetableProposal(
           'conflict.resource',
           'O recurso ' +
             (resources.get(id)?.name ?? id) +
-            ' está ocupado por dois blocos no dia ' +
-            a.weekday +
+            ' está ocupado por dois blocos na ' +
+            day(a.weekday) +
             ', às ' +
             time(a.period) +
             '.',

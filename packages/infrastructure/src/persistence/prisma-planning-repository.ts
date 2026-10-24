@@ -6,6 +6,7 @@ import {
   type Planning,
   type PlanningRepository,
   type PlanningRevision,
+  validateGridRules,
 } from '@classorganizer/core';
 import type { Prisma } from '../generated/prisma/client.ts';
 import type { PersistenceClient } from './database.ts';
@@ -20,6 +21,13 @@ import { systemClock } from '../system/system-ports.ts';
 
 function jsonRows(rows: unknown[]): JsonValue[] {
   return JSON.parse(JSON.stringify(rows)) as JsonValue[];
+}
+function revisionData(revision: PlanningRevision) {
+  return {
+    ...revision,
+    snapshot: revision.snapshot as unknown as Prisma.InputJsonObject,
+    gridRules: revision.gridRules as unknown as Prisma.InputJsonObject,
+  };
 }
 export class PrismaPlanningRepository implements PlanningRepository {
   readonly #db: PersistenceClient;
@@ -38,14 +46,16 @@ export class PrismaPlanningRepository implements PlanningRepository {
       where: { planningId },
       orderBy: { number: 'asc' },
     });
-    return rows.map((row) => ({ ...row, snapshot: row.snapshot as unknown as CatalogSnapshot }));
+    return rows.map((row) => ({
+      ...row,
+      snapshot: row.snapshot as unknown as CatalogSnapshot,
+      gridRules: validateGridRules(row.gridRules),
+    }));
   }
   async add(planning: Planning, revision: PlanningRevision): Promise<void> {
     await inTransaction(this.#db, async (tx) => {
       await tx.planning.create({ data: planning });
-      await tx.planningRevision.create({
-        data: { ...revision, snapshot: revision.snapshot as unknown as Prisma.InputJsonObject },
-      });
+      await tx.planningRevision.create({ data: revisionData(revision) });
     });
   }
   async save(planning: Planning, revision?: PlanningRevision): Promise<void> {
@@ -63,8 +73,9 @@ export class PrismaPlanningRepository implements PlanningRepository {
       if (revision) {
         await tx.planningRevision.upsert({
           where: { id: revision.id, planningId: planning.id },
-          create: { ...revision, snapshot: revision.snapshot as unknown as Prisma.InputJsonObject },
+          create: revisionData(revision),
           update: {
+            gridRules: revision.gridRules as unknown as Prisma.InputJsonObject,
             rulesReviewed: revision.rulesReviewed,
             availabilityReviewed: revision.availabilityReviewed,
             sealedAt: revision.sealedAt,
