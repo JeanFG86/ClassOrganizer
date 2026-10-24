@@ -217,3 +217,14 @@ export * from './modules/planning/application/timetable-grid.ts';
 export * from './modules/planning/domain/generation-run.ts';
 export * from './modules/planning/application/generation-runs.ts';
 export * from './modules/generation/application/generation-queue.ts';
+
+export type {
+  SessionView,
+  SessionRepository,
+  AuditReader,
+  AuditEntry,
+  AuditCursor,
+  LoginResult,
+} from './modules/access/application/ports/session-repository.ts';
+export { GetSession, Logout } from './modules/access/application/usecases/sessions.ts';
+export { ListAudits } from './modules/access/application/queries/list-audits.ts';
