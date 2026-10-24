@@ -94,6 +94,12 @@ export function composeOperations(
 
   return {
     catalog,
+    preserveRevision: protect(
+      WRITE_ROLES,
+      'planning.revisionPreserve',
+      (services, actor, input: Input<Services['plannings']['preserveRevision']>) =>
+        services.plannings.preserveRevision(actor, input),
+    ),
     login: composeLogin(db),
     session: protect(READ_ROLES, undefined, (services) => services.session()),
     logout: protect(READ_ROLES, 'access.logout', (services) => services.logout()),
@@ -121,6 +127,24 @@ export function composeOperations(
     ),
     detailPlanning: protect(READ_ROLES, undefined, (services, actor, id: string) =>
       services.plannings.detail(actor, id),
+    ),
+    compareRevisions: protect(
+      READ_ROLES,
+      undefined,
+      (services, actor, input: Input<Services['plannings']['compareRevisions']>) =>
+        services.plannings.compareRevisions(actor, input),
+    ),
+    renameRevision: protect(
+      WRITE_ROLES,
+      'planning.revisionName',
+      (services, actor, input: Input<Services['plannings']['renameRevision']>) =>
+        services.plannings.renameRevision(actor, input),
+    ),
+    restoreRevision: protect(
+      WRITE_ROLES,
+      'planning.revisionRestore',
+      (services, actor, input: Input<Services['plannings']['restoreRevision']>) =>
+        services.plannings.restoreRevision(actor, input),
     ),
     createPlanning: protect(
       WRITE_ROLES,

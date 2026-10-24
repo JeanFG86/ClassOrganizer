@@ -14,6 +14,8 @@ import {
   planningDetailSchema,
   type GridOperationDto,
   type GridSlotDto,
+  revisionComparisonSchema,
+  revisionRestoreResultSchema,
 } from '@classorganizer/contracts';
 
 const client = { 'x-entreaulas-client': 'web' };
@@ -319,5 +321,178 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
       expect.arrayContaining([{ action: 'planning.gridUndo' }, { action: 'planning.gridRules' }]),
     );
     expect((await call('GET', 'audit', undefined, adminCookie)).statusCode).toBe(200);
+  });
+  it('E7: nomeia revisão concluída, compara e restaura com fotografia e fixações originais', async () => {
+    await operate({ type: 'place', slot: lesson(1, 0) });
+    await operate({ type: 'place', slot: lesson(2, 0) });
+    await operate({ type: 'place', slot: planning(3, 1) });
+    await operate({ type: 'pin', slot: lesson(1, 0), pinned: true });
+    const originalGrid = await view();
+    const firstId = revisionId;
+    for (const operation of ['review', 'seal', 'draft']) {
+      const response = await call('PUT', 'plannings/' + planningId, {
+        version,
+        revisionId,
+        operation,
+        rulesReviewed: true,
+        availabilityReviewed: true,
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      version++;
+    }
+    const second = await view();
+    revisionId = second.revision.id;
+    const nameResponse = await call('PUT', `plannings/${planningId}/revisions/${firstId}/name`, {
+      version,
+      name: 'Grade aprovada',
+    });
+    expect(nameResponse.statusCode, nameResponse.body).toBe(200);
+    version++;
+    // Nem mesmo uma gravação direta pode reabrir ou mudar o conteúdo concluído.
+    await expect(
+      testDb.db.planningRevision.update({ where: { id: firstId }, data: { sealedAt: null } }),
+    ).rejects.toThrow(/imutável/);
+    await expect(
+      testDb.db.planningRevision.update({ where: { id: firstId }, data: { rulesReviewed: false } }),
+    ).rejects.toThrow(/imutável/);
+    await expect(
+      testDb.db.planningRevision.update({ where: { id: firstId }, data: { name: ' ' } }),
+    ).rejects.toThrow(/name_not_blank/);
+    await operate({ type: 'remove', slot: lesson(2, 0) });
+    const comparisonResponse = await call(
+      'GET',
+      `plannings/${planningId}/revisions/comparison?fromRevisionId=${firstId}&toRevisionId=${revisionId}`,
+      undefined,
+      viewerCookie,
+    );
+    expect(comparisonResponse.statusCode, comparisonResponse.body).toBe(200);
+    expect(revisionComparisonSchema.parse(comparisonResponse.json())).toMatchObject({
+      kept: 2,
+      removed: [expect.objectContaining({ pinned: false })],
+      added: [],
+      rulesChanged: false,
+    });
+    const old = await testDb.db.planningRevision.findMany({
+      where: { planningId },
+      orderBy: { number: 'asc' },
+    });
+    const auditCount = await testDb.db.auditEvent.count();
+    const restoreUrl = `plannings/${planningId}/revisions/${firstId}/restore`;
+    expect((await call('POST', restoreUrl, { version }, viewerCookie)).statusCode).toBe(403);
+    expect((await call('POST', restoreUrl, { version: version - 1 })).statusCode).toBe(409);
+    expect(await testDb.db.auditEvent.count()).toBe(auditCount);
+    const restoredResponse = await call('POST', restoreUrl, { version });
+    expect(restoredResponse.statusCode, restoredResponse.body).toBe(201);
+    const result = revisionRestoreResultSchema.parse(restoredResponse.json());
+    const restoredGrid = await view();
+    expect(result.version).toBe(version + 1);
+    expect(restoredGrid.placements).toEqual(originalGrid.placements);
+    expect(restoredGrid.history).toEqual([
+      expect.objectContaining({ kind: 'import', sequence: 1 }),
+    ]);
+    const rows = await testDb.db.planningRevision.findMany({
+      where: { planningId },
+      orderBy: { number: 'asc' },
+    });
+    expect(rows.slice(0, 2)).toEqual(old);
+    expect(rows[2]).toMatchObject({
+      snapshot: old[0]?.snapshot,
+      gridRules: old[0]?.gridRules,
+      restoredFromId: firstId,
+      rulesReviewed: false,
+      availabilityReviewed: false,
+      sealedAt: null,
+    });
+    // O rascunho substituído permanece consultável, mas não editável.
+    expect(
+      (await call('GET', `plannings/${planningId}/grid?revisionId=${revisionId}`)).json(),
+    ).toMatchObject({ editable: false });
+    expect(
+      await testDb.db.auditEvent.count({
+        where: { action: 'planning.revisionRestore', entityId: planningId },
+      }),
+    ).toBe(1);
+    await expect(
+      testDb.db.planningRevision.update({
+        where: { id: result.revisionId },
+        data: { restoredFromId: revisionId },
+      }),
+    ).rejects.toThrow(/imutável/);
+  });
+
+  it('E7: falha no histórico reverte restauração, versão, alocações e auditoria na mesma transação', async () => {
+    const source = await testDb.db.planningRevision.findUniqueOrThrow({
+      where: { id: revisionId },
+    });
+    const preserveUrl = `plannings/${planningId}/revisions/${source.id}/preserve`;
+    expect((await call('POST', preserveUrl, { version }, viewerCookie)).statusCode).toBe(403);
+    const preserved = await call('POST', preserveUrl, { version });
+    expect(preserved.statusCode, preserved.body).toBe(201);
+    version = revisionRestoreResultSchema.parse(preserved.json()).version;
+    // O banco protege o rascunho preservado mesmo sem conclusão formal.
+    await expect(
+      testDb.db.planningRevision.update({
+        where: { id: source.id },
+        data: { rulesReviewed: true },
+      }),
+    ).rejects.toThrow(/imutável/);
+    await expect(
+      testDb.db.timetablePlacement.create({
+        data: { revisionId: source.id, ...lesson(1, 0), pinned: false },
+      }),
+    ).rejects.toThrow(/imutável/);
+    expect((await call('POST', preserveUrl, { version })).statusCode).toBe(409);
+    const before = await testDb.db.planning.findUniqueOrThrow({ where: { id: planningId } });
+    const audits = await testDb.db.auditEvent.count();
+    await testDb.db.$executeRawUnsafe(
+      `CREATE FUNCTION reject_restore_history() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Falha simulada de histórico'; END; $$`,
+    );
+    await testDb.db.$executeRawUnsafe(
+      'CREATE TRIGGER reject_restore_history BEFORE INSERT ON timetable_change FOR EACH ROW EXECUTE FUNCTION reject_restore_history()',
+    );
+    try {
+      const response = await call(
+        'POST',
+        `plannings/${planningId}/revisions/${revisionId}/restore`,
+        { version },
+      );
+      expect(response.statusCode).toBe(500);
+      expect(await testDb.db.planning.findUniqueOrThrow({ where: { id: planningId } })).toEqual(
+        before,
+      );
+      expect(await testDb.db.planningRevision.count()).toBe(2);
+      expect(await testDb.db.timetablePlacement.count()).toBe(0);
+      expect(await testDb.db.auditEvent.count()).toBe(audits);
+    } finally {
+      await testDb.db.$executeRawUnsafe('DROP TRIGGER reject_restore_history ON timetable_change');
+      await testDb.db.$executeRawUnsafe('DROP FUNCTION reject_restore_history()');
+    }
+  });
+
+  it('E7: a origem da restauração deve pertencer ao mesmo planejamento também no banco', async () => {
+    const source = await testDb.db.planningRevision.findUniqueOrThrow({
+      where: { id: revisionId },
+    });
+    const other = await ok('POST', 'plannings', { name: 'Outro plano inventado', year: 2028 });
+    await expect(
+      testDb.db.planningRevision.create({
+        data: {
+          ...source,
+          snapshot: source.snapshot ?? {},
+          gridRules: source.gridRules ?? {},
+          id: randomUUID(),
+          number: 2,
+          planningId: other.id,
+          restoredFromId: source.id,
+        },
+      }),
+    ).rejects.toThrow();
+    expect(
+      (
+        await call('POST', `plannings/${other.id}/revisions/${source.id}/restore`, {
+          version: other.version,
+        })
+      ).statusCode,
+    ).toBe(404);
   });
 });
