@@ -4,7 +4,7 @@ import {
   knownTimetableProposal,
 } from '../../../testing/timetable-fixture.ts';
 import { makeGenerateTimetable } from './usecases/generate-timetable.ts';
-import type { EngineSearchResult, TimetableEngine } from './engine.ts';
+import type { EngineSearchResult, TimetableEngine } from './ports/engine.ts';
 
 const options = { timeLimitMs: 1000, nodeLimit: 10000, seed: 17, memoryLimitMb: 64 };
 const solved = (): EngineSearchResult => ({

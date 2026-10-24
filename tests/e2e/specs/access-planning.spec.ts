@@ -109,7 +109,9 @@ test('administrador cria e desativa acesso pela tela', async ({ page }) => {
   await page.getByLabel('Usuário do novo acesso', { exact: true }).fill(username);
   await page.getByLabel('Senha inicial', { exact: true }).fill('senha ficticia e2e 2026!');
   await page.getByRole('button', { name: 'Criar acesso', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveText('Acesso criado.');
+  await expect(page.getByRole('status').filter({ hasText: 'Acesso criado.' })).toHaveText(
+    'Acesso criado.',
+  );
   await page.getByRole('button', { name: 'Editar acesso ' + username, exact: true }).click();
   await page.getByLabel('Desativar acesso', { exact: true }).check();
   await page.getByRole('button', { name: 'Salvar acesso', exact: true }).click();

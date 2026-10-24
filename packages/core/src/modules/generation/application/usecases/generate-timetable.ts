@@ -11,7 +11,7 @@ import type {
   GenerationOptions,
   GenerationResult,
   TimetableEngine,
-} from '../engine.ts';
+} from '../ports/engine.ts';
 
 export type GenerateTimetableDependencies = { engine: TimetableEngine };
 export class GenerateTimetable {

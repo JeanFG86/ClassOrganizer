@@ -2,8 +2,8 @@ import type {
   TimetableIssue,
   TimetableProposal,
   TimetableSnapshot,
-} from '../../timetable/domain/model.ts';
-import type { PreferenceMetrics } from '../../timetable/domain/preferences.ts';
+} from '../../../timetable/domain/model.ts';
+import type { PreferenceMetrics } from '../../../timetable/domain/preferences.ts';
 
 export interface GenerationOptions {
   readonly timeLimitMs: number;

@@ -8,7 +8,7 @@ O plano completo está em [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/P
 
 ## Usar localmente (Docker)
 
-A refatoração arquitetural está em andamento conforme a [ADR 0017](docs/adr/0017-refatoracao-arquitetural.md), com [referência de validação e etapas](docs/testing/refatoracao-arquitetural.md). As etapas 1 a 4 registram a referência inicial, separam a API e organizam domínio, casos de uso com execute, portas e repositórios por módulo; o login depende de portas do core e as entidades preservam fotografias independentes.
+A refatoração arquitetural está em andamento conforme a [ADR 0017](docs/adr/0017-refatoracao-arquitetural.md), com [referência de validação e etapas](docs/testing/refatoracao-arquitetural.md). As etapas 1 a 5 registram a referência inicial, organizam API e domínio por módulo e separam composição, consumidor, heartbeat e executor em thread no worker. As entidades preservam fotografias independentes.
 
 Requisitos: Docker Desktop com WSL2 (Windows) ou Docker Engine + Compose v2 (Linux).
 
