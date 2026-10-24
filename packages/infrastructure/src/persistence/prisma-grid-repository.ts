@@ -25,7 +25,7 @@ function placement(row: {
     throw new Error('Alocação inválida no banco.');
   return { kind, entityId, weekday, periodId, pinned };
 }
-const placements = (value: Prisma.JsonValue): Placement[] =>
+export const placements = (value: Prisma.JsonValue): Placement[] =>
   Array.isArray(value)
     ? value.map((item) => placement(item as unknown as Parameters<typeof placement>[0]))
     : [];
@@ -53,7 +53,7 @@ export class PrismaGridRepository implements GridRepository {
     });
     return rows.map((row) => {
       const kind = row.kind;
-      if (kind !== 'operation' && kind !== 'undo' && kind !== 'import')
+      if (kind !== 'operation' && kind !== 'undo' && kind !== 'import' && kind !== 'generation')
         throw new Error('Alteração inválida no banco.');
       const delta = row.delta as { removed?: Prisma.JsonValue; added?: Prisma.JsonValue };
       return {

@@ -32,6 +32,11 @@ export const router = createRouter({
       meta: { title: 'Grade' },
     },
     {
+      path: '/planejamentos/:id/geracao',
+      component: () => import('./pages/GenerationPage.vue'),
+      meta: { title: 'Geração automática' },
+    },
+    {
       path: '/auditoria',
       component: () => import('./pages/AuditPage.vue'),
       meta: { title: 'Auditoria', admin: true },

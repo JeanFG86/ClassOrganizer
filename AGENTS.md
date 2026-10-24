@@ -32,7 +32,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ## 2. Onde o projeto está
 
-### Já entregue (PRs #1 a #10, todos na `main`)
+### Já entregue (PRs #1 a #11, todos na `main`)
 
 | PR  | Branch                       | Entrega                                                                                                                                                                                                                         |
 | --- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -46,12 +46,13 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 | #8  | `e3/aulas-compartilhadas`    | Atribuições em blocos simultâneos com um ou mais professores e disciplinas; divisão de carga em blocos separados ([ADR 0009](docs/adr/0009-aulas-compartilhadas.md)).                                                           |
 | #9  | `e2/motor-prova`             | **E2:** contrato autocontido, validador independente, motor TypeScript em thread e benchmark; homologação operacional pendente antes da E6 ([ADR 0010](docs/adr/0010-motor-de-referencia-e-validacao.md)).                      |
 | #10 | `e4/acesso-planejamentos`    | **E4:** contas locais, papéis, sessões, auditoria atômica e planejamentos com fotografias da base, cópia e conferências ([ADR 0011](docs/adr/0011-acesso-e-sessoes.md), [ADR 0012](docs/adr/0012-planejamentos-e-revisoes.md)). |
+| #11 | `e5/grade-manual`            | **E5:** grade manual por revisão (turma, professor e visão geral), operações atômicas com prévia, regras configuráveis, histórico com desfazer e conclusão com grade completa ([ADR 0013](docs/adr/0013-grade-manual.md)).      |
 
-**Telas existentes:** Início, Disciplinas, Turmas, Turnos (`/turnos`), Professores, Disponibilidade (`/disponibilidade`) e Atribuições; Entrar, Minha conta, Acessos, Planejamentos e Auditoria na E4; Grade (`/planejamentos/:id/grade`) na E5.
+**Telas existentes:** Início, Disciplinas, Turmas, Turnos (`/turnos`), Professores, Disponibilidade (`/disponibilidade`) e Atribuições; Entrar, Minha conta, Acessos, Planejamentos e Auditoria na E4; Grade (`/planejamentos/:id/grade`) na E5; Geração automática (`/planejamentos/:id/geracao`) na E6.
 
 ### Entrega em revisão
 
-- **E5 — grade manual com validador:** grade de cada revisão por turma, professor e visão geral; inserir, mover, trocar, remover e fixar com prévia e confirmação atômicas; regras configuráveis (onde cumprir hora-atividade, limite diário e exceções); histórico com desfazer; conclusão exige grade completa. Veja a [ADR 0013](docs/adr/0013-grade-manual.md). O primeiro acesso continua em [acesso local](docs/operations/acesso-local.md).
+- **E6, primeira parte — geração automática integrada** (branch `e6/geracao-integrada`): solicitação gravada na tabela `generation_run`, que é a própria fila (`FOR UPDATE SKIP LOCKED`); worker com reserva renovada, retomada após interrupção, cancelamento e devolução à fila no encerramento; tela com acompanhamento, comparação com a grade atual e aplicação única, conferida de novo e desfazível. Metas provisórias (30 s, 2 milhões de nós, 256 MiB) configuráveis por variáveis de ambiente. Veja a [ADR 0014](docs/adr/0014-geracao-integrada.md). O primeiro acesso continua em [acesso local](docs/operations/acesso-local.md).
 
 ### Situação da E0 (levantamento)
 
@@ -76,16 +77,18 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ## 3. O que falta fazer (ordem sugerida)
 
-1. **Recursos especiais, se forem confirmados** (quadra, laboratório): o item "configuração dos recursos especiais" da E3.
-2. **E6 a E8** conforme o plano: geração no worker (reaproveitando a tradução, as regras e as fixações da E5); versões e saídas (PDF, XLSX, CSV); piloto, backup e operação local.
+1. **E6, segunda parte — preferências:** evitar janelas e distribuir as aulas pelos dias, com prioridades documentadas e métricas compreensíveis, sem compensar violação obrigatória (plano, seção 5.3). Reaproveita a fila, as execuções e a comparação da primeira parte.
+2. **Recursos especiais, se forem confirmados** (quadra, laboratório): o item "configuração dos recursos especiais" da E3.
+3. **E7 e E8** conforme o plano: versões e saídas (PDF, XLSX, CSV); piloto, backup e operação local.
 
-**Antes de E6:** pactuar metas e repetir a prova do motor com as políticas completas. Os relatórios de referência e crescimento ficam somente em `privado/e2/`; não publicar volumes nem resultados derivados da escola. O exemplo público é inteiramente fictício.
+**Metas do motor:** a E6 adotou as metas técnicas provisórias como configuração, por decisão do usuário, e repetiu a prova localmente com as regras da E5 (ADR 0014). Pactuar as metas com a escola continua pendente. Para medir de novo, `privado/e2/e6-policies.mjs` gera as variantes de regras das entradas locais. Os relatórios de referência e crescimento ficam somente em `privado/e2/`; não publicar volumes nem resultados derivados da escola. O exemplo público é inteiramente fictício.
 
 **Pendências registradas nas ADRs:**
 
 - Hora-atividade: a E5 configura "qualquer turno" ou "turnos em que o professor tem aulas"; falta "dia fixo da área" e escolha por professor, se a escola pedir.
 - Aulas assíncronas e atividades sem turma.
-- Preferências: evitar janelas, preferir certos dias. A E5 só mostra as janelas de cada professor, sem pontuação.
+- Preferências: evitar janelas, preferir certos dias. A E5 e a primeira parte da E6 só mostram as janelas de cada professor, sem pontuação.
+- Diagnóstico de inviabilidade: a geração explica capacidade e fixações contraditórias, sem apontar o conjunto mínimo de causas.
 - Recursos especiais (quadra, laboratório) ainda não entram na grade.
 - A carga máxima é hoje só um **alerta** (vira bloqueio se a escola confirmar).
 - Arquivar turma ou disciplina com atribuições é permitido.

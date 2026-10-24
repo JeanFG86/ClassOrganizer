@@ -5,19 +5,23 @@ import {
   WRITE_ROLES,
   AccessError,
   makeAuthorizedOperation,
+  makeGenerationRuns,
   makePlannings,
   makeTimetableGrid,
 } from '@classorganizer/core';
-import type { Role } from '@classorganizer/core';
+import type { GenerationSettings, Role } from '@classorganizer/core';
 import {
   checkDatabase,
   createAccessUnitOfWork,
   hashToken,
   makeAccounts,
   makeLogin,
+  PrismaGenerationRunRepository,
   PrismaGridRepository,
   PrismaPlanningRepository,
   publicUser,
+  randomSeeds,
+  sha256Digest,
   systemClock,
   uuidGenerator,
 } from '@classorganizer/infrastructure';
@@ -34,15 +38,25 @@ import {
   gridQuerySchema,
   gridRulesChangeSchema,
   gridUndoSchema,
+  generationCommandSchema,
+  generationParamsSchema,
 } from '@classorganizer/contracts';
 import { buildApp, type AppOptions } from './app.ts';
 import { makeCatalogServices } from './catalog-services.ts';
 import { idParamsSchema, parseRequest } from './http/errors.ts';
 
+/** Metas provisórias da busca, enquanto não houver metas pactuadas (ADR 0014). */
+export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
+  timeLimitMs: 30_000,
+  nodeLimit: 2_000_000,
+  memoryLimitMb: 256,
+};
+
 export function createSecureApp(
   db: Database,
-  options: { logger: AppOptions['logger']; origin: string },
+  options: { logger: AppOptions['logger']; origin: string; generation?: GenerationSettings },
 ) {
+  const generationSettings = options.generation ?? DEFAULT_GENERATION_SETTINGS;
   const context = new AsyncLocalStorage<{ sessionHash: string | null }>();
   const currentSession = () => context.getStore()?.sessionHash ?? null;
   const unitOfWork = createAccessUnitOfWork(db, (tx) => ({
@@ -58,6 +72,16 @@ export function createSecureApp(
       grids: new PrismaGridRepository(tx),
       clock: systemClock,
       ids: uuidGenerator,
+    }),
+    generation: makeGenerationRuns({
+      plannings: new PrismaPlanningRepository(tx),
+      grids: new PrismaGridRepository(tx),
+      runs: new PrismaGenerationRunRepository(tx),
+      clock: systemClock,
+      ids: uuidGenerator,
+      digest: sha256Digest,
+      seeds: randomSeeds,
+      settings: generationSettings,
     }),
     accounts: makeAccounts(tx),
     async session() {
@@ -203,6 +227,36 @@ export function createSecureApp(
     (services, actor, input: z.infer<typeof gridRulesChangeSchema> & { id: string }) =>
       services.grid.changeRules(actor, input),
   );
+  type GenerationCommand = z.infer<typeof generationCommandSchema> & { id: string };
+  const listGenerations = protect(
+    READ_ROLES,
+    undefined,
+    (services, actor, input: { id: string; revisionId?: string | undefined }) =>
+      services.generation.list(actor, input),
+  );
+  const detailGeneration = protect(
+    READ_ROLES,
+    undefined,
+    (services, actor, input: z.infer<typeof generationParamsSchema>) =>
+      services.generation.detail(actor, input),
+  );
+  const requestGeneration = protect(
+    WRITE_ROLES,
+    'planning.generationRequest',
+    (services, actor, input: GenerationCommand) => services.generation.request(actor, input),
+  );
+  const cancelGeneration = protect(
+    WRITE_ROLES,
+    'planning.generationCancel',
+    (services, actor, input: z.infer<typeof generationParamsSchema>) =>
+      services.generation.cancel(actor, input),
+  );
+  const applyGeneration = protect(
+    WRITE_ROLES,
+    'planning.generationApply',
+    (services, actor, input: GenerationCommand & { runId: string }) =>
+      services.generation.apply(actor, input),
+  );
   const listAudits = protect(
     ADMIN_ROLES,
     undefined,
@@ -314,6 +368,32 @@ export function createSecureApp(
           changeGridRules({
             ...parseRequest(gridRulesChangeSchema, request.body),
             ...parseRequest(idParamsSchema, request.params),
+          }),
+        );
+        app.get('/api/v1/plannings/:id/generations', (request) =>
+          listGenerations({
+            ...parseRequest(gridQuerySchema, request.query),
+            ...parseRequest(idParamsSchema, request.params),
+          }),
+        );
+        app.post('/api/v1/plannings/:id/generations', async (request, reply) =>
+          reply.code(201).send(
+            await requestGeneration({
+              ...parseRequest(generationCommandSchema, request.body),
+              ...parseRequest(idParamsSchema, request.params),
+            }),
+          ),
+        );
+        app.get('/api/v1/plannings/:id/generations/:runId', (request) =>
+          detailGeneration(parseRequest(generationParamsSchema, request.params)),
+        );
+        app.post('/api/v1/plannings/:id/generations/:runId/cancel', (request) =>
+          cancelGeneration(parseRequest(generationParamsSchema, request.params)),
+        );
+        app.post('/api/v1/plannings/:id/generations/:runId/apply', (request) =>
+          applyGeneration({
+            ...parseRequest(generationCommandSchema, request.body),
+            ...parseRequest(generationParamsSchema, request.params),
           }),
         );
         app.get('/api/v1/audit', (request) => {

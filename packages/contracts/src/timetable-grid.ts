@@ -93,7 +93,7 @@ export const gridViewSchema = z.object({
     z.object({
       id: z.uuid(),
       sequence: z.number().int().positive(),
-      kind: z.enum(['operation', 'undo', 'import']),
+      kind: z.enum(['operation', 'undo', 'import', 'generation']),
       summary: z.string(),
       actorUsername: z.string(),
       occurredAt: z.iso.datetime(),

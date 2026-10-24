@@ -26,6 +26,9 @@ const actions: Record<string, string> = {
   'planning.grid': 'Alteração da grade',
   'planning.gridUndo': 'Desfazer alteração da grade',
   'planning.gridRules': 'Alteração das regras da grade',
+  'planning.generationRequest': 'Solicitação de geração automática',
+  'planning.generationCancel': 'Cancelamento de geração automática',
+  'planning.generationApply': 'Aplicação de proposta gerada',
 };
 const catalogActions: Record<string, string> = {
   registerSubject: 'Cadastro de disciplina',

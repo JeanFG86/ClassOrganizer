@@ -1,5 +1,5 @@
 export { DomainError, NotFoundError, type DomainErrorKind } from './shared/domain-error.ts';
-export type { Clock, IdGenerator } from './shared/ports.ts';
+export type { Clock, Digest, IdGenerator, SeedGenerator } from './shared/ports.ts';
 export { StaleVersionError, type VersionedRef } from './shared/versioning.ts';
 export { WEEKDAYS, isWeekday, type Weekday } from './shared/weekdays.ts';
 export { statusOf, type EntityStatus } from './shared/archiving.ts';
@@ -190,3 +190,6 @@ export * from './modules/planning/domain/diagnosis.ts';
 export * from './modules/planning/domain/grid-summary.ts';
 export * from './modules/planning/application/ports.ts';
 export * from './modules/planning/application/timetable-grid.ts';
+export * from './modules/planning/domain/generation-run.ts';
+export * from './modules/planning/application/generation-runs.ts';
+export * from './modules/generation/application/generation-queue.ts';

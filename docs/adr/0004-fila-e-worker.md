@@ -1,6 +1,6 @@
 # ADR 0004 — Fila de tarefas e worker
 
-- **Status:** proposta (decisão final na E6)
+- **Status:** substituída pela [ADR 0014](0014-geracao-integrada.md), que adota uma fila própria sobre a tabela de execuções
 - **Data:** 22/10/2026
 
 ## Contexto

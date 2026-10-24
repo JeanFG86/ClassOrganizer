@@ -3,7 +3,7 @@
 - **Status:** aceita para a prova técnica E2; homologação operacional pendente
 - **Data:** 23/10/2026
 - **Relacionadas:** ADRs 0004, 0007, 0008 e 0009
-- **Atualizada por:** [ADR 0013](0013-grade-manual.md), quanto à regra de equivalência de durações e aos limites de tamanho na validação da grade manual
+- **Atualizada por:** [ADR 0013](0013-grade-manual.md), quanto à regra de equivalência de durações e aos limites de tamanho na validação da grade manual; [ADR 0014](0014-geracao-integrada.md), que adota as metas provisórias como configuração e registra a nova medição com as regras da E5
 
 ## Contexto
 

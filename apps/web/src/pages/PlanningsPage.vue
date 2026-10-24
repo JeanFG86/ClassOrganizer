@@ -227,6 +227,12 @@ onMounted(load);
             }"
             :aria-label="'Abrir grade da revisão ' + revision.number"
             >Abrir grade</RouterLink
+          ><RouterLink
+            v-if="revision.id === latest?.id"
+            class="button"
+            :to="'/planejamentos/' + detail.id + '/geracao'"
+            :aria-label="'Abrir geração automática da revisão ' + revision.number"
+            >Geração automática</RouterLink
           ><button :aria-label="'Baixar revisão ' + revision.number" @click="download(revision)">
             Baixar revisão em JSON
           </button>
@@ -258,7 +264,7 @@ onMounted(load);
         </div>
         <p class="muted">
           Concluir exige a grade completa e sem problemas e congela a revisão. Isso ainda não
-          publica a grade nem gera horários.
+          publica a grade.
         </p>
       </form>
       <button

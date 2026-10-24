@@ -13,6 +13,10 @@ const configSchema = z.object({
     )
     .default('http://localhost:8080'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+  /** Metas provisórias da busca (ADR 0014), gravadas em cada solicitação. */
+  GENERATION_TIME_LIMIT_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
+  GENERATION_NODE_LIMIT: z.coerce.number().int().min(1_000).default(2_000_000),
+  GENERATION_MEMORY_LIMIT_MB: z.coerce.number().int().min(16).max(1024).default(256),
 });
 
 export type ApiConfig = z.infer<typeof configSchema>;

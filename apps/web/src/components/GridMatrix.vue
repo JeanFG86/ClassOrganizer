@@ -10,6 +10,8 @@ const props = defineProps<{
   hasProblem: (item: GridItem) => boolean;
   selectedKey: string | null;
   interactive: boolean;
+  /** Na comparação de uma proposta: alocação que não está na grade atual. */
+  isChanged?: (item: GridItem) => boolean;
 }>();
 const emit = defineEmits<{
   pick: [item: GridItem];
@@ -20,6 +22,7 @@ function itemLabel(item: GridItem): string {
   const flags = [
     item.placement.pinned ? 'fixada' : '',
     props.hasProblem(item) ? 'com problema' : '',
+    props.isChanged?.(item) ? 'muda em relação à grade atual' : '',
     props.selectedKey === placementKey(item.placement) ? 'selecionada' : '',
   ].filter(Boolean);
   return props.describe(item) + (flags.length ? ' (' + flags.join(', ') + ')' : '');
@@ -72,14 +75,15 @@ function itemLabel(item: GridItem): string {
               <div
                 v-else
                 class="grid-item"
-                :class="{ conflict: hasProblem(item) }"
+                :class="{ conflict: hasProblem(item), changed: isChanged?.(item) }"
                 :aria-label="itemLabel(item)"
                 role="img"
               >
                 <span class="grid-item-title">{{ item.title }}</span>
                 <span class="grid-item-detail">{{ item.detail }}</span>
                 <span class="grid-flags" aria-hidden="true"
-                  >{{ item.placement.pinned ? '📌' : '' }}{{ hasProblem(item) ? '⚠' : '' }}</span
+                  >{{ item.placement.pinned ? '📌' : '' }}{{ hasProblem(item) ? '⚠' : ''
+                  }}{{ isChanged?.(item) ? '✚' : '' }}</span
                 >
               </div>
             </template>

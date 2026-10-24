@@ -189,6 +189,8 @@ model AppUser {
   audits AuditEvent[]
   revisions PlanningRevision[]
   timetableChanges TimetableChange[]
+  requestedGenerations GenerationRun[] @relation("generation_requester")
+  appliedGenerations GenerationRun[] @relation("generation_applier")
   @@map("app_user")
 }
 model LoginSession {
@@ -234,6 +236,7 @@ model Planning {
   copiedFrom Planning? @relation("planning_copy", fields: [copiedFromId], references: [id], onDelete: Restrict)
   copies Planning[] @relation("planning_copy")
   revisions PlanningRevision[]
+  generationRuns GenerationRun[]
   @@map("planning")
 }
 model PlanningRevision {
@@ -251,7 +254,10 @@ model PlanningRevision {
   creator AppUser @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   placements TimetablePlacement[]
   timetableChanges TimetableChange[]
+  generationRuns GenerationRun[]
   @@unique([planningId, number])
+  /// Alvo da FK composta de generation_run (a revisão pertence ao planejamento da execução).
+  @@unique([id, planningId], map: "planning_revision_id_planning_id_key")
   @@map("planning_revision")
 }
 /// Alocação da grade de uma revisão; aponta para ids da fotografia, sem FK para cadastros (ADR 0013).
@@ -283,4 +289,36 @@ model TimetableChange {
   revertedBy TimetableChange? @relation("timetable_change_revert")
   @@unique([revisionId, sequence])
   @@map("timetable_change")
+}
+/// Execução da geração automática; a própria linha é a entrada da fila do worker (ADR 0014).
+model GenerationRun {
+  id String @id @db.Uuid
+  planningId String @map("planning_id") @db.Uuid
+  revisionId String @map("revision_id") @db.Uuid
+  requestedBy String @map("requested_by") @db.Uuid
+  requestedAt DateTime @map("requested_at") @db.Timestamptz(3)
+  status String @db.VarChar(20)
+  /// Limites e semente gravados na solicitação.
+  options Json
+  /// Snapshot do motor capturado na solicitação; o worker não lê cadastros.
+  input Json
+  inputDigest String @map("input_digest") @db.Char(64)
+  attempts Int @default(0)
+  leaseOwner String? @map("lease_owner") @db.VarChar(100)
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(3)
+  heartbeatAt DateTime? @map("heartbeat_at") @db.Timestamptz(3)
+  cancelRequestedAt DateTime? @map("cancel_requested_at") @db.Timestamptz(3)
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  result Json?
+  appliedAt DateTime? @map("applied_at") @db.Timestamptz(3)
+  appliedBy String? @map("applied_by") @db.Uuid
+  planning Planning @relation(fields: [planningId], references: [id], onDelete: Restrict)
+  revision PlanningRevision @relation(fields: [revisionId, planningId], references: [id, planningId], onDelete: Restrict)
+  requester AppUser @relation("generation_requester", fields: [requestedBy], references: [id], onDelete: Restrict)
+  applier AppUser? @relation("generation_applier", fields: [appliedBy], references: [id], onDelete: Restrict)
+  @@index([revisionId, requestedAt])
+  @@index([planningId])
+  @@index([status, requestedAt])
+  @@map("generation_run")
 }
