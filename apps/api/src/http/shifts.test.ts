@@ -10,14 +10,13 @@ import {
   ShiftInUseError,
   ShiftNameAlreadyInUseError,
   ShiftNotFoundError,
-  createClassGroup,
-  createShift,
-  scheduleClassGroup,
   type ArchiveShift,
   type ChangeClassGroupSchedule,
   type ListShifts,
   type RegisterShift,
   type UpdateShift,
+  ClassGroupEntity,
+  ShiftEntity,
 } from '@classorganizer/core';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -29,7 +28,7 @@ const C6A = '6a6a6a6a-6a6a-4a6a-8a6a-6a6a6a6a6a6a';
 const P1 = '10000000-0000-4000-8000-000000000001';
 const P2 = '10000000-0000-4000-8000-000000000002';
 const queue = [P1, P2];
-const manha = createShift(
+const manha = ShiftEntity.create(
   {
     id: MORNING,
     name: 'Manhã',
@@ -40,7 +39,7 @@ const manha = createShift(
     createdAt,
   },
   { next: () => queue.shift() ?? '' },
-);
+).snapshot();
 
 describe('API HTTP — turnos e aulas', () => {
   let app: FastifyInstance;
@@ -161,11 +160,11 @@ describe('API HTTP — turnos e aulas', () => {
   });
 
   it('define o turno e as aulas da turma', async () => {
-    const turma = scheduleClassGroup(
-      createClassGroup({ id: C6A, name: '6º A', createdAt }),
-      manha,
-      [P1],
-    );
+    const turma = ClassGroupEntity.reconstitute(
+      ClassGroupEntity.create({ id: C6A, name: '6º A', createdAt }).snapshot(),
+    )
+      .schedule(manha, [P1])
+      .snapshot();
     const changeClassGroupSchedule = vi.fn<ChangeClassGroupSchedule['execute']>(async () => ({
       ...turma,
       version: 2,

@@ -1,13 +1,13 @@
-import { TeachingAssignmentEntity } from '../../domain/assignment.ts';
-
-import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
-import { assertVersion } from '../../../../shared/versioning.ts';
-import type { VersionedRef } from '../../../../shared/versioning.ts';
 import {
+  TeachingAssignmentEntity,
   AssignmentNotFoundError,
   InvalidAssignmentReferenceError,
   TeacherNotQualifiedError,
 } from '../../domain/assignment.ts';
+
+import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
+import { assertVersion } from '../../../../shared/versioning.ts';
+import type { VersionedRef } from '../../../../shared/versioning.ts';
 import type { AssignmentParticipant, TeachingAssignment } from '../../domain/assignment.ts';
 import type {
   AssignmentRepository,
@@ -17,7 +17,7 @@ import type {
   TeacherRepository,
 } from '../ports/index.ts';
 
-interface AssignmentDeps {
+interface AssignmentDependencies {
   assignments: AssignmentRepository;
   teachers: TeacherRepository;
   subjects: SubjectLookup;
@@ -44,7 +44,7 @@ async function assertTeacherCanTeach(
 }
 
 async function assertParticipants(
-  deps: Pick<AssignmentDeps, 'teachers' | 'subjects'>,
+  deps: Pick<AssignmentDependencies, 'teachers' | 'subjects'>,
   participants: readonly AssignmentParticipant[],
 ): Promise<void> {
   const statuses = await deps.subjects.subjectStatuses([
@@ -89,7 +89,10 @@ async function loadForChange(
   return assignment;
 }
 
-export type AssignTeachingDependencies = AssignmentDeps & { clock: Clock; ids: IdGenerator };
+export type AssignTeachingDependencies = AssignmentDependencies & {
+  clock: Clock;
+  ids: IdGenerator;
+};
 export class AssignTeaching {
   readonly #deps: AssignTeachingDependencies;
   constructor(deps: AssignTeachingDependencies) {

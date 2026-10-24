@@ -1,15 +1,10 @@
-import {
-  InvalidAvailabilityError,
-  createShift,
-  createTeacher,
-  setUnavailability,
-} from '@classorganizer/core';
+import { InvalidAvailabilityError, TeacherEntity, ShiftEntity } from '@classorganizer/core';
 import type { Shift } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { startTestDatabase } from '../testing/postgres-container.ts';
-import type { TestDatabase } from '../testing/postgres-container.ts';
-import { PrismaShiftRepository } from '../modules/school-structure/prisma-shift-repository.ts';
-import { PrismaTeacherRepository } from '../modules/teaching/prisma-teacher-repository.ts';
+import { startTestDatabase } from '../../testing/postgres-container.ts';
+import type { TestDatabase } from '../../testing/postgres-container.ts';
+import { PrismaShiftRepository } from '../school-structure/prisma-shift-repository.ts';
+import { PrismaTeacherRepository } from './prisma-teacher-repository.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -20,7 +15,7 @@ const MISSING = '10000000-0000-4000-8000-0000000000ff';
 
 function morning(): Shift {
   const queue = [P1, P2];
-  return createShift(
+  return ShiftEntity.create(
     {
       id: MORNING,
       name: 'Manhã',
@@ -31,7 +26,7 @@ function morning(): Shift {
       createdAt,
     },
     { next: () => queue.shift() ?? '' },
-  );
+  ).snapshot();
 }
 
 describe('carga e disponibilidade do professor (PostgreSQL)', () => {
@@ -55,14 +50,14 @@ describe('carga e disponibilidade do professor (PostgreSQL)', () => {
   });
 
   it('grava carga máxima e hora-atividade', async () => {
-    const ana = createTeacher({
+    const ana = TeacherEntity.create({
       id: ANA,
       name: 'Ana',
       subjectIds: [],
       maxWeeklyLessons: 20,
       planningPeriods: 7,
       createdAt,
-    });
+    }).snapshot();
 
     await teachers.add(ana);
     expect(await teachers.findById(ANA)).toEqual(ana);
@@ -76,34 +71,43 @@ describe('carga e disponibilidade do professor (PostgreSQL)', () => {
   });
 
   it('substitui os horários indisponíveis e os devolve ordenados', async () => {
-    const ana = createTeacher({ id: ANA, name: 'Ana', subjectIds: [], createdAt });
+    const ana = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [],
+      createdAt,
+    }).snapshot();
     await teachers.add(ana);
     const known = await shifts.existingPeriodIds([P1, P2, MISSING, 'não-é-uuid']);
     expect(known).toEqual(new Set([P1, P2]));
 
-    const blocked = setUnavailability(
-      ana,
-      [
-        { weekday: 5, periodId: P1 },
-        { weekday: 1, periodId: P2 },
-        { weekday: 1, periodId: P1 },
-      ],
-      known,
-    );
+    const blocked = TeacherEntity.reconstitute(ana)
+      .setUnavailability(
+        [
+          { weekday: 5, periodId: P1 },
+          { weekday: 1, periodId: P2 },
+          { weekday: 1, periodId: P1 },
+        ],
+        known,
+      )
+      .snapshot();
     await teachers.update(blocked);
     expect(await teachers.findById(ANA)).toEqual({ ...blocked, version: 2 });
 
-    const fewer = setUnavailability(
-      { ...blocked, version: 2 },
-      [{ weekday: 3, periodId: P2 }],
-      known,
-    );
+    const fewer = TeacherEntity.reconstitute({ ...blocked, version: 2 })
+      .setUnavailability([{ weekday: 3, periodId: P2 }], known)
+      .snapshot();
     await teachers.update(fewer);
     expect((await teachers.findById(ANA))?.unavailable).toEqual([{ weekday: 3, periodId: P2 }]);
   });
 
   it('o banco recusa aula inexistente, sem passar pelo caso de uso', async () => {
-    const ana = createTeacher({ id: ANA, name: 'Ana', subjectIds: [], createdAt });
+    const ana = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [],
+      createdAt,
+    }).snapshot();
     await teachers.add(ana);
 
     await expect(
@@ -113,7 +117,12 @@ describe('carga e disponibilidade do professor (PostgreSQL)', () => {
   });
 
   it('o banco recusa dia fora de segunda a sexta e hora-atividade acima do limite', async () => {
-    const ana = createTeacher({ id: ANA, name: 'Ana', subjectIds: [], createdAt });
+    const ana = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [],
+      createdAt,
+    }).snapshot();
     await teachers.add(ana);
 
     await expect(
@@ -125,17 +134,23 @@ describe('carga e disponibilidade do professor (PostgreSQL)', () => {
   });
 
   it('a aula removida do turno deixa de constar como indisponível', async () => {
-    const ana = createTeacher({ id: ANA, name: 'Ana', subjectIds: [], createdAt });
+    const ana = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [],
+      createdAt,
+    }).snapshot();
     await teachers.add(ana);
     await teachers.update(
-      setUnavailability(
-        ana,
-        [
-          { weekday: 1, periodId: P1 },
-          { weekday: 2, periodId: P2 },
-        ],
-        new Set([P1, P2]),
-      ),
+      TeacherEntity.reconstitute(ana)
+        .setUnavailability(
+          [
+            { weekday: 1, periodId: P1 },
+            { weekday: 2, periodId: P2 },
+          ],
+          new Set([P1, P2]),
+        )
+        .snapshot(),
     );
 
     const shift = morning();

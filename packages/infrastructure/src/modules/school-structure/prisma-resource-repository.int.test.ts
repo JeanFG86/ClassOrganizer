@@ -1,7 +1,7 @@
 import {
   ResourceNameAlreadyInUseError,
   StaleVersionError,
-  createResource,
+  ResourceEntity,
 } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startTestDatabase } from '../../testing/postgres-container.ts';
@@ -28,7 +28,7 @@ describe('PrismaResourceRepository (PostgreSQL)', () => {
   });
 
   it('grava, busca pelo nome normalizado, atualiza com versão e informa a situação', async () => {
-    const lab = createResource({ id: LAB, name: 'Laboratório', createdAt });
+    const lab = ResourceEntity.create({ id: LAB, name: 'Laboratório', createdAt }).snapshot();
     await resources.add(lab);
     expect(await resources.findById(LAB)).toEqual(lab);
     expect(await resources.findByNormalizedName(lab.normalizedName)).toEqual(lab);
@@ -43,11 +43,15 @@ describe('PrismaResourceRepository (PostgreSQL)', () => {
   });
 
   it('recusa nome repetido, inclusive ao renomear, e nome vazio direto no banco', async () => {
-    await resources.add(createResource({ id: LAB, name: 'Laboratório', createdAt }));
+    await resources.add(
+      ResourceEntity.create({ id: LAB, name: 'Laboratório', createdAt }).snapshot(),
+    );
     await expect(
-      resources.add(createResource({ id: COURT, name: 'laboratorio', createdAt })),
+      resources.add(
+        ResourceEntity.create({ id: COURT, name: 'laboratorio', createdAt }).snapshot(),
+      ),
     ).rejects.toThrow(ResourceNameAlreadyInUseError);
-    const court = createResource({ id: COURT, name: 'Quadra', createdAt });
+    const court = ResourceEntity.create({ id: COURT, name: 'Quadra', createdAt }).snapshot();
     await resources.add(court);
     await expect(
       resources.update({ ...court, name: 'Laboratório', normalizedName: 'laboratorio' }),

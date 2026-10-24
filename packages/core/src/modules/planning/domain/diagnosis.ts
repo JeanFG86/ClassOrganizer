@@ -1,6 +1,5 @@
 import type { TimetableIssue } from '../../timetable/domain/index.ts';
-import { validateTimetableModel } from '../../timetable/domain/index.ts';
-import { validateTimetableProposal } from '../../timetable/domain/index.ts';
+import { validateTimetableModel, validateTimetableProposal } from '../../timetable/domain/index.ts';
 import { gridProposal, type TranslatedCatalog } from './catalog-translation.ts';
 import type { Placement } from './grid.ts';
 

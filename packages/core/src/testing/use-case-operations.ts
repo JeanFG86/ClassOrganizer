@@ -20,6 +20,18 @@ import {
   CreatePlanning,
   ChangePlanning,
   type PlanningsDependencies,
+  ViewTimetableGrid,
+  PreviewTimetableGrid,
+  ApplyTimetableGrid,
+  UndoTimetableGrid,
+  ChangeGridRules,
+  type TimetableGridDependencies,
+  ListGenerationRuns,
+  GetGenerationRun,
+  RequestGeneration,
+  CancelGeneration,
+  ApplyGeneration,
+  type GenerationRunsDependencies,
 } from '../modules/planning/index.ts';
 export function createPlanningTestOperations(deps: PlanningsDependencies) {
   return {
@@ -29,14 +41,6 @@ export function createPlanningTestOperations(deps: PlanningsDependencies) {
     change: bindUseCase(new ChangePlanning(deps)),
   };
 }
-import {
-  ViewTimetableGrid,
-  PreviewTimetableGrid,
-  ApplyTimetableGrid,
-  UndoTimetableGrid,
-  ChangeGridRules,
-  type TimetableGridDependencies,
-} from '../modules/planning/index.ts';
 export function createGridTestOperations(deps: TimetableGridDependencies) {
   return {
     view: bindUseCase(new ViewTimetableGrid(deps)),
@@ -46,14 +50,6 @@ export function createGridTestOperations(deps: TimetableGridDependencies) {
     changeRules: bindUseCase(new ChangeGridRules(deps)),
   };
 }
-import {
-  ListGenerationRuns,
-  GetGenerationRun,
-  RequestGeneration,
-  CancelGeneration,
-  ApplyGeneration,
-  type GenerationRunsDependencies,
-} from '../modules/planning/index.ts';
 export function createGenerationTestOperations(deps: GenerationRunsDependencies) {
   return {
     list: bindUseCase(new ListGenerationRuns(deps)),

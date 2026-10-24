@@ -3,8 +3,8 @@ import type {
   TimetableProposal,
   TimetableSnapshot,
   PreferenceCriterion,
+  PreferenceMetrics,
 } from '../../timetable/domain/index.ts';
-import type { PreferenceMetrics } from '../../timetable/domain/index.ts';
 import { slotKey, type GridDelta, type Placement } from './grid.ts';
 
 /** Estados finais, os mesmos da prova do motor (ADR 0010). */

@@ -4,12 +4,17 @@ import {
 } from '../../../planning/domain/index.ts';
 import type { TimetableSnapshot } from '../../../timetable/domain/index.ts';
 
+/** Execução reservada por um worker, com a entrada gravada na solicitação. */
 export interface ClaimedGeneration {
   readonly id: string;
   readonly attempt: number;
   readonly snapshot: TimetableSnapshot;
   readonly options: GenerationRunOptions;
 }
+/**
+ * Fila durável das execuções (ADR 0014). A reserva tem prazo: um worker interrompido perde
+ * a execução, que volta a ser reservada até o limite de tentativas.
+ */
 export interface GenerationQueue {
   claim(workerId: string, leaseMs: number, maxAttempts: number): Promise<ClaimedGeneration | null>;
   /** Renova a reserva; `null` quando ela já não pertence a este worker. */

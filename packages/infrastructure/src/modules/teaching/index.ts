@@ -1,2 +1,2 @@
-export * from './prisma-assignment-repository.ts';
-export * from './prisma-teacher-repository.ts';
+export { PrismaAssignmentRepository } from './prisma-assignment-repository.ts';
+export { PrismaTeacherRepository } from './prisma-teacher-repository.ts';

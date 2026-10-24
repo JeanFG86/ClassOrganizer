@@ -2,11 +2,10 @@ import { apiErrorSchema, teacherSchema } from '@classorganizer/contracts';
 import {
   InvalidAvailabilityError,
   InvalidWorkloadError,
-  createTeacher,
-  setUnavailability,
   type ChangeTeacherAvailability,
   type RegisterTeacher,
   type UpdateTeacher,
+  TeacherEntity,
 } from '@classorganizer/core';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -15,14 +14,14 @@ import { buildTestApp } from '../testing/stub-deps.ts';
 const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const P1 = '10000000-0000-4000-8000-000000000001';
-const ana = createTeacher({
+const ana = TeacherEntity.create({
   id: ANA,
   name: 'Ana',
   subjectIds: [],
   maxWeeklyLessons: 20,
   planningPeriods: 7,
   createdAt,
-});
+}).snapshot();
 
 describe('API HTTP — carga e disponibilidade do professor', () => {
   let app: FastifyInstance;
@@ -79,7 +78,9 @@ describe('API HTTP — carga e disponibilidade do professor', () => {
   });
 
   it('substitui os horários indisponíveis', async () => {
-    const changed = setUnavailability(ana, [{ weekday: 2, periodId: P1 }], new Set([P1]));
+    const changed = TeacherEntity.reconstitute(ana)
+      .setUnavailability([{ weekday: 2, periodId: P1 }], new Set([P1]))
+      .snapshot();
     const changeTeacherAvailability = vi.fn<ChangeTeacherAvailability['execute']>(async () => ({
       ...changed,
       version: 2,

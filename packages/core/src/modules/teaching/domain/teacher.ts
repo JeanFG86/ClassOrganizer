@@ -273,37 +273,3 @@ export class TeacherEntity {
     return new TeacherEntity(restoreTeacherState(this.#state));
   }
 }
-
-export function createTeacher(
-  input: {
-    id: string;
-    name: string;
-    subjectIds: readonly string[];
-    createdAt: Date;
-  } & WorkloadInput,
-): Teacher {
-  return TeacherEntity.create(input).snapshot();
-}
-
-export function changeTeacher(
-  teacher: Teacher,
-  input: { name: string; subjectIds: readonly string[] } & WorkloadInput,
-): Teacher {
-  return TeacherEntity.reconstitute(teacher).change(input).snapshot();
-}
-
-export function setUnavailability(
-  teacher: Teacher,
-  slots: readonly { weekday: number; periodId: string }[],
-  knownPeriodIds: ReadonlySet<string>,
-): Teacher {
-  return TeacherEntity.reconstitute(teacher).setUnavailability(slots, knownPeriodIds).snapshot();
-}
-
-export function archiveTeacher(teacher: Teacher, at: Date): Teacher {
-  return TeacherEntity.reconstitute(teacher).archive(at).snapshot();
-}
-
-export function restoreTeacher(teacher: Teacher): Teacher {
-  return TeacherEntity.reconstitute(teacher).restore().snapshot();
-}

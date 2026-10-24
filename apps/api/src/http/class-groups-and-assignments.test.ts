@@ -6,8 +6,6 @@ import {
   StaleVersionError,
   TeacherHasAssignmentsError,
   TeacherNotQualifiedError,
-  createAssignment,
-  createClassGroup,
   type ArchiveTeacher,
   type AssignTeaching,
   type ChangeAssignment,
@@ -17,6 +15,8 @@ import {
   type RemoveAssignment,
   type UpdateClassGroup,
   type UpdateTeacher,
+  ClassGroupEntity,
+  TeachingAssignmentEntity,
 } from '@classorganizer/core';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -27,15 +27,15 @@ const C6A = '6a6a6a6a-6a6a-4a6a-8a6a-6a6a6a6a6a6a';
 const MATH = '11111111-1111-4111-8111-111111111111';
 const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const A1 = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1';
-const turma = createClassGroup({ id: C6A, name: '6º ano A', createdAt });
-const assignment = createAssignment({
+const turma = ClassGroupEntity.create({ id: C6A, name: '6º ano A', createdAt }).snapshot();
+const assignment = TeachingAssignmentEntity.create({
   id: A1,
   classGroupId: C6A,
   participants: [{ subjectId: MATH, teacherId: ANA }],
   weeklyLessons: 5,
   resourceIds: [],
   createdAt,
-});
+}).snapshot();
 
 describe('API HTTP — turmas e atribuições', () => {
   let app: FastifyInstance;
@@ -140,7 +140,12 @@ describe('API HTTP — turmas e atribuições', () => {
           },
         ],
       };
-      const block = createAssignment({ id: A1, ...payload, resourceIds: [], createdAt });
+      const block = TeachingAssignmentEntity.create({
+        id: A1,
+        ...payload,
+        resourceIds: [],
+        createdAt,
+      }).snapshot();
       const assignTeaching = vi.fn<AssignTeaching['execute']>(async () => block);
       const changeAssignment = vi.fn<ChangeAssignment['execute']>(async () => ({
         ...block,

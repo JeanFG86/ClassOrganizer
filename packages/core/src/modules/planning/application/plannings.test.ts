@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createPlanningTestOperations } from '../../../testing/use-case-operations.ts';
+import {
+  ArchivePlanning,
+  CreatePlanning,
+  ListPlannings,
+  RestorePlanning,
+  ReviewPlanningRevision,
+} from './usecases/plannings.ts';
 import type { CatalogSnapshot } from '../domain/planning.ts';
 import type { Actor } from '../../access/domain/index.ts';
 import {
@@ -193,5 +200,42 @@ describe('planejamentos e revisões', () => {
       }),
     ).rejects.toMatchObject({ code: 'planning.archived' });
     expect(store.revisions).toHaveLength(1);
+  });
+});
+
+describe('operações de planejamento com dependências mínimas', () => {
+  it('cada operação recebe somente as portas que usa', async () => {
+    const store = makeInMemoryPlanningStore(() => empty);
+    const clock = { now: () => new Date(empty.capturedAt) };
+    let sequence = 0;
+    const planning = await new CreatePlanning({
+      repository: store.repository,
+      grids: store.grids,
+      clock,
+      ids: { next: () => 'id-' + ++sequence },
+    }).execute(actor, { name: 'Plano fictício', year: 2027 });
+    const revision = store.revisions.at(-1);
+    if (!revision) throw new Error('Revisão ausente.');
+    const repository = { repository: store.repository };
+    const reviewed = await new ReviewPlanningRevision(repository).execute(actor, {
+      id: planning.id,
+      version: 1,
+      revisionId: revision.id,
+      rulesReviewed: true,
+      availabilityReviewed: true,
+    });
+    expect(reviewed.version).toBe(2);
+    const admin: Actor = { ...actor, role: 'admin' };
+    const archived = await new ArchivePlanning({ ...repository, clock }).execute(admin, {
+      id: planning.id,
+      version: 2,
+    });
+    expect(archived).toMatchObject({ archivedAt: clock.now(), version: 3 });
+    const restored = await new RestorePlanning(repository).execute(admin, {
+      id: planning.id,
+      version: 3,
+    });
+    expect(restored).toMatchObject({ archivedAt: null, version: 4 });
+    expect(await new ListPlannings(repository).execute(actor)).toHaveLength(1);
   });
 });

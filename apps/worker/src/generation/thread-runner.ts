@@ -1,7 +1,11 @@
-import type { GenerationExecutor } from '@classorganizer/core';
+import type {
+  GenerationExecutor,
+  GenerationOptions,
+  GenerationResult,
+  TimetableSnapshot,
+} from '@classorganizer/core';
 import { Worker } from 'node:worker_threads';
 import { generationRequestSchema, generationResultSchema } from '@classorganizer/contracts';
-import type { GenerationOptions, GenerationResult, TimetableSnapshot } from '@classorganizer/core';
 
 /** O processo principal continua livre para heartbeat e cancelamento durante o cálculo. */
 export class ThreadGenerationExecutor implements GenerationExecutor {

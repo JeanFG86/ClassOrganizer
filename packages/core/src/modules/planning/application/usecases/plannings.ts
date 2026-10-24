@@ -10,101 +10,85 @@ import {
 } from '../../../access/domain/index.ts';
 import { translateCatalog } from '../../domain/catalog-translation.ts';
 import { diagnoseGrid, isGridComplete } from '../../domain/diagnosis.ts';
-import { DEFAULT_GRID_RULES, type GridRules } from '../../domain/grid.ts';
+import { DEFAULT_GRID_RULES } from '../../domain/grid.ts';
 import {
-  PlanningError,
   PlanningEntity,
+  PlanningError,
   PlanningRevisionEntity,
-  validatePlanningInput,
-  type CatalogSnapshot,
   type Planning,
   type PlanningRevision,
 } from '../../domain/planning.ts';
-import { carryGrid } from '../grid-transfer.ts';
 import type { GridRepository, PlanningRepository } from '../ports/index.ts';
+import { carryGrid } from '../services/grid-transfer.ts';
 
-export type { PlanningRepository } from '../ports/index.ts';
-
+/** Dependências de todas as operações de planejamento, usadas pela composição. */
 export type PlanningsDependencies = {
   repository: PlanningRepository;
   grids: GridRepository;
   clock: Clock;
   ids: IdGenerator;
 };
-function planningsContext(deps: PlanningsDependencies) {
-  const { repository, grids, clock, ids } = deps;
-  async function find(id: string, version?: number) {
-    const planning = await repository.find(id);
-    if (!planning) throw new NotFoundError('planning.not_found', 'Planejamento não encontrado.');
-    if (version !== undefined && planning.version !== version) throw new StaleVersionError();
-    return planning;
-  }
-  function draft(
-    planningId: string,
-    number: number,
-    snapshot: CatalogSnapshot,
-    gridRules: GridRules,
-    actor: Actor,
-  ): PlanningRevision {
-    return {
-      id: ids.next(),
-      planningId,
-      number,
-      snapshot,
-      gridRules,
-      createdAt: clock.now(),
-      createdBy: actor.id,
-      rulesReviewed: false,
-      availabilityReviewed: false,
-      sealedAt: null,
-    };
-  }
-  async function requireCompleteGrid(revision: PlanningRevision) {
-    const diagnosis = diagnoseGrid(
-      translateCatalog(revision.snapshot, revision.gridRules, revision.id),
-      await grids.placements(revision.id),
-    );
-    if (isGridComplete(diagnosis)) return;
-    const issues = [...diagnosis.model, ...diagnosis.problems, ...diagnosis.pending];
-    throw new PlanningError(
-      'planning.grid_incomplete',
-      'A grade precisa estar completa e sem problemas para concluir a revisão. ' +
-        (issues.length === 1
-          ? 'Há 1 pendência: '
-          : 'Há ' + issues.length + ' pendências; a primeira: ') +
-        (issues[0]?.message ?? ''),
-    );
-  }
-  return { deps, repository, grids, clock, ids, find, draft, requireCompleteGrid };
+
+/** Referência à revisão atual, exigida pelas operações que alteram um rascunho. */
+type RevisionRef = { id: string; version: number; revisionId?: string | undefined };
+
+async function findPlanning(
+  repository: PlanningRepository,
+  id: string,
+  version?: number,
+): Promise<Planning> {
+  const planning = await repository.find(id);
+  if (!planning) throw new NotFoundError('planning.not_found', 'Planejamento não encontrado.');
+  if (version !== undefined && planning.version !== version) throw new StaleVersionError();
+  return planning;
 }
+
+/** Carrega o planejamento ativo e confere que a revisão informada é a mais recente. */
+async function findCurrentRevision(repository: PlanningRepository, ref: RevisionRef) {
+  const planning = await findPlanning(repository, ref.id, ref.version);
+  const latest = (await repository.revisions(planning.id)).at(-1);
+  if (!latest || latest.id !== ref.revisionId)
+    throw new PlanningError(
+      'planning.revision_invalid',
+      'Atualize a página e selecione a revisão atual.',
+    );
+  if (planning.archivedAt)
+    throw new PlanningError('planning.archived', 'Restaure o planejamento antes de alterá-lo.');
+  return { planning, latest };
+}
+
+/** A gravação avança a versão do planejamento em uma unidade. */
+function saved(planning: Planning): Planning {
+  return { ...planning, version: planning.version + 1 };
+}
+
+export type ListPlanningsDependencies = Pick<PlanningsDependencies, 'repository'>;
 export class ListPlannings {
-  readonly #deps: PlanningsDependencies;
-  constructor(deps: PlanningsDependencies) {
+  readonly #deps: ListPlanningsDependencies;
+  constructor(deps: ListPlanningsDependencies) {
     this.#deps = deps;
   }
   async execute(actor: Actor) {
-    const { repository } = planningsContext(this.#deps);
-
     requireRole(actor, READ_ROLES);
-
-    return repository.list();
+    return this.#deps.repository.list();
   }
 }
+
+export type GetPlanningDependencies = Pick<PlanningsDependencies, 'repository'>;
 export class GetPlanning {
-  readonly #deps: PlanningsDependencies;
-  constructor(deps: PlanningsDependencies) {
+  readonly #deps: GetPlanningDependencies;
+  constructor(deps: GetPlanningDependencies) {
     this.#deps = deps;
   }
   async execute(actor: Actor, id: string) {
-    const { repository, find } = planningsContext(this.#deps);
-
+    const { repository } = this.#deps;
     requireRole(actor, READ_ROLES);
-
-    const planning = await find(id);
-
+    const planning = await findPlanning(repository, id);
     return { ...planning, revisions: await repository.revisions(id) };
   }
 }
+
+/** Cria um planejamento com a fotografia atual ou copia a última revisão de outro. */
 export class CreatePlanning {
   readonly #deps: PlanningsDependencies;
   constructor(deps: PlanningsDependencies) {
@@ -118,42 +102,37 @@ export class CreatePlanning {
       sourceId?: string | undefined;
       sourceVersion?: number | undefined;
     },
-  ) {
-    const { repository, grids, clock, ids, find, draft } = planningsContext(this.#deps);
-
+  ): Promise<Planning> {
+    const { repository, grids, clock, ids } = this.#deps;
     requireRole(actor, WRITE_ROLES);
-
-    const name = validatePlanningInput(input.name, input.year);
-
-    let source: { planning: Planning; revision: PlanningRevision } | null = null;
-
-    if (input.sourceId) {
-      if (input.sourceVersion === undefined) throw new StaleVersionError();
-      const planning = await find(input.sourceId, input.sourceVersion);
-      const revision = (await repository.revisions(input.sourceId)).at(-1);
-      if (!revision)
-        throw new PlanningError('planning.empty', 'O planejamento não possui revisão para copiar.');
-      source = { planning, revision };
-    }
-
-    const planning: Planning = PlanningEntity.create({
+    const planning = PlanningEntity.create({
       id: ids.next(),
-      name,
+      name: input.name,
       year: input.year,
       createdAt: clock.now(),
       copiedFromId: input.sourceId ?? null,
     }).snapshot();
 
-    const revision = draft(
-      planning.id,
-      1,
-      source ? source.revision.snapshot : await repository.capture(),
-      source ? source.revision.gridRules : DEFAULT_GRID_RULES,
-      actor,
-    );
+    let source: { planning: Planning; revision: PlanningRevision } | null = null;
+    if (input.sourceId) {
+      if (input.sourceVersion === undefined) throw new StaleVersionError();
+      const original = await findPlanning(repository, input.sourceId, input.sourceVersion);
+      const revision = (await repository.revisions(input.sourceId)).at(-1);
+      if (!revision)
+        throw new PlanningError('planning.empty', 'O planejamento não possui revisão para copiar.');
+      source = { planning: original, revision };
+    }
 
+    const revision = PlanningRevisionEntity.open({
+      id: ids.next(),
+      planningId: planning.id,
+      number: 1,
+      snapshot: source ? source.revision.snapshot : await repository.capture(),
+      gridRules: source ? source.revision.gridRules : DEFAULT_GRID_RULES,
+      createdAt: clock.now(),
+      createdBy: actor.id,
+    }).snapshot();
     await repository.add(planning, revision);
-
     if (source)
       await carryGrid(
         { grids, clock, ids },
@@ -164,86 +143,170 @@ export class CreatePlanning {
           origin: source.planning.name + ', revisão ' + source.revision.number,
         },
       );
-
     return planning;
   }
 }
-export class ChangePlanning {
+
+/** Abre um rascunho novo depois de uma revisão concluída, trazendo a grade dela. */
+export class OpenPlanningDraft {
   readonly #deps: PlanningsDependencies;
   constructor(deps: PlanningsDependencies) {
     this.#deps = deps;
   }
+  async execute(actor: Actor, input: RevisionRef): Promise<Planning> {
+    const { repository, grids, clock, ids } = this.#deps;
+    requireRole(actor, WRITE_ROLES);
+    const { planning, latest } = await findCurrentRevision(repository, input);
+    if (!latest.sealedAt)
+      throw new PlanningError(
+        'planning.draft_exists',
+        'Conclua o rascunho atual antes de abrir outro.',
+      );
+    const next = PlanningRevisionEntity.open({
+      id: ids.next(),
+      planningId: planning.id,
+      number: latest.number + 1,
+      snapshot: await repository.capture(),
+      gridRules: latest.gridRules,
+      createdAt: clock.now(),
+      createdBy: actor.id,
+    }).snapshot();
+    await repository.save(planning, next);
+    await carryGrid(
+      { grids, clock, ids },
+      { from: latest, to: next, actor, origin: 'revisão ' + latest.number },
+    );
+    return saved(planning);
+  }
+}
+
+export type ReviewPlanningRevisionDependencies = Pick<PlanningsDependencies, 'repository'>;
+/** Registra as conferências de regras e de disponibilidade do rascunho. */
+export class ReviewPlanningRevision {
+  readonly #deps: ReviewPlanningRevisionDependencies;
+  constructor(deps: ReviewPlanningRevisionDependencies) {
+    this.#deps = deps;
+  }
   async execute(
     actor: Actor,
-    input: {
-      id: string;
-      version: number;
-      operation: 'draft' | 'review' | 'seal' | 'archive' | 'restore';
-      revisionId?: string | undefined;
+    input: RevisionRef & {
       rulesReviewed?: boolean | undefined;
       availabilityReviewed?: boolean | undefined;
     },
-  ) {
-    const { repository, grids, clock, ids, find, draft, requireCompleteGrid } = planningsContext(
-      this.#deps,
+  ): Promise<Planning> {
+    const { repository } = this.#deps;
+    requireRole(actor, WRITE_ROLES);
+    const { planning, latest } = await findCurrentRevision(repository, input);
+    PlanningEntity.reconstitute(planning).requireDraft(latest);
+    const reviewed = PlanningRevisionEntity.reconstitute(latest)
+      .review(input.rulesReviewed, input.availabilityReviewed)
+      .snapshot();
+    await repository.save(planning, reviewed);
+    return saved(planning);
+  }
+}
+
+export type SealPlanningRevisionDependencies = Pick<
+  PlanningsDependencies,
+  'repository' | 'grids' | 'clock'
+>;
+/** Conclui o rascunho conferido; a conclusão exige uma grade completa e sem problemas (ADR 0013). */
+export class SealPlanningRevision {
+  readonly #deps: SealPlanningRevisionDependencies;
+  constructor(deps: SealPlanningRevisionDependencies) {
+    this.#deps = deps;
+  }
+  async execute(actor: Actor, input: RevisionRef): Promise<Planning> {
+    const { repository, clock } = this.#deps;
+    requireRole(actor, WRITE_ROLES);
+    const { planning, latest } = await findCurrentRevision(repository, input);
+    PlanningEntity.reconstitute(planning).requireDraft(latest);
+    const revision = PlanningRevisionEntity.reconstitute(latest);
+    revision.requireReviewed();
+    await this.#requireCompleteGrid(latest);
+    await repository.save(planning, revision.seal(clock.now()).snapshot());
+    return saved(planning);
+  }
+
+  async #requireCompleteGrid(revision: PlanningRevision): Promise<void> {
+    const diagnosis = diagnoseGrid(
+      translateCatalog(revision.snapshot, revision.gridRules, revision.id),
+      await this.#deps.grids.placements(revision.id),
     );
-
-    requireRole(
-      actor,
-      input.operation === 'archive' || input.operation === 'restore' ? ADMIN_ROLES : WRITE_ROLES,
+    if (isGridComplete(diagnosis)) return;
+    const issues = [...diagnosis.model, ...diagnosis.problems, ...diagnosis.pending];
+    throw new PlanningError(
+      'planning.grid_incomplete',
+      'A grade precisa estar completa e sem problemas para concluir a revisão. ' +
+        (issues.length === 1
+          ? 'Há 1 pendência: '
+          : 'Há ' + issues.length + ' pendências; a primeira: ') +
+        (issues[0]?.message ?? ''),
     );
+  }
+}
 
-    let planning = await find(input.id, input.version);
+export type ArchivePlanningDependencies = Pick<PlanningsDependencies, 'repository' | 'clock'>;
+export class ArchivePlanning {
+  readonly #deps: ArchivePlanningDependencies;
+  constructor(deps: ArchivePlanningDependencies) {
+    this.#deps = deps;
+  }
+  async execute(actor: Actor, input: { id: string; version: number }): Promise<Planning> {
+    const { repository, clock } = this.#deps;
+    requireRole(actor, ADMIN_ROLES);
+    const planning = await findPlanning(repository, input.id, input.version);
+    const archived = PlanningEntity.reconstitute(planning).archive(clock.now()).snapshot();
+    await repository.save(archived);
+    return saved(archived);
+  }
+}
 
-    if (input.operation === 'archive' || input.operation === 'restore') {
-      const entity = PlanningEntity.reconstitute(planning);
-      planning = (
-        input.operation === 'archive' ? entity.archive(clock.now()) : entity.restore()
-      ).snapshot();
-      await repository.save(planning);
-    } else {
-      let latest = (await repository.revisions(planning.id)).at(-1);
-      if (!latest || latest.id !== input.revisionId)
-        throw new PlanningError(
-          'planning.revision_invalid',
-          'Atualize a página e selecione a revisão atual.',
-        );
-      if (planning.archivedAt)
-        throw new PlanningError('planning.archived', 'Restaure o planejamento antes de alterá-lo.');
-      if (input.operation === 'draft') {
-        if (!latest.sealedAt)
-          throw new PlanningError(
-            'planning.draft_exists',
-            'Conclua o rascunho atual antes de abrir outro.',
-          );
-        const next = draft(
-          planning.id,
-          latest.number + 1,
-          await repository.capture(),
-          latest.gridRules,
-          actor,
-        );
-        await repository.save(planning, next);
-        await carryGrid(
-          { grids, clock, ids },
-          { from: latest, to: next, actor, origin: 'revisão ' + latest.number },
-        );
-      } else {
-        PlanningEntity.reconstitute(planning).requireDraft(latest);
-        if (input.operation === 'review') {
-          latest = PlanningRevisionEntity.reconstitute(latest)
-            .review(input.rulesReviewed, input.availabilityReviewed)
-            .snapshot();
-        } else {
-          const entity = PlanningRevisionEntity.reconstitute(latest);
-          entity.requireReviewed();
-          await requireCompleteGrid(latest);
-          latest = entity.seal(clock.now()).snapshot();
-        }
-        await repository.save(planning, latest);
-      }
-    }
+export type RestorePlanningDependencies = Pick<PlanningsDependencies, 'repository'>;
+export class RestorePlanning {
+  readonly #deps: RestorePlanningDependencies;
+  constructor(deps: RestorePlanningDependencies) {
+    this.#deps = deps;
+  }
+  async execute(actor: Actor, input: { id: string; version: number }): Promise<Planning> {
+    const { repository } = this.#deps;
+    requireRole(actor, ADMIN_ROLES);
+    const planning = await findPlanning(repository, input.id, input.version);
+    const restored = PlanningEntity.reconstitute(planning).restore().snapshot();
+    await repository.save(restored);
+    return saved(restored);
+  }
+}
 
-    return { ...planning, version: planning.version + 1 };
+export type PlanningChangeOperation = 'draft' | 'review' | 'seal' | 'archive' | 'restore';
+
+/**
+ * Encaminha a operação pedida pelo contrato público (`operation`) ao caso de uso
+ * correspondente. A auditoria registra a operação como `planning.<operation>`.
+ */
+export class ChangePlanning {
+  readonly #operations: {
+    readonly [Operation in PlanningChangeOperation]: {
+      execute(actor: Actor, input: RevisionRef): Promise<Planning>;
+    };
+  };
+  constructor(deps: PlanningsDependencies) {
+    this.#operations = {
+      draft: new OpenPlanningDraft(deps),
+      review: new ReviewPlanningRevision(deps),
+      seal: new SealPlanningRevision(deps),
+      archive: new ArchivePlanning(deps),
+      restore: new RestorePlanning(deps),
+    };
+  }
+  execute(
+    actor: Actor,
+    input: RevisionRef & {
+      operation: PlanningChangeOperation;
+      rulesReviewed?: boolean | undefined;
+      availabilityReviewed?: boolean | undefined;
+    },
+  ): Promise<Planning> {
+    return this.#operations[input.operation].execute(actor, input);
   }
 }

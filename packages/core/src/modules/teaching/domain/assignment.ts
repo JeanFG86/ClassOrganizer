@@ -162,25 +162,3 @@ export class TeachingAssignmentEntity {
     return new TeachingAssignmentEntity(changeAssignmentState(this.#state, input));
   }
 }
-
-export function createAssignment(input: {
-  id: string;
-  classGroupId: string;
-  participants: readonly AssignmentParticipant[];
-  weeklyLessons: number;
-  resourceIds: readonly string[];
-  createdAt: Date;
-}): TeachingAssignment {
-  return TeachingAssignmentEntity.create(input).snapshot();
-}
-
-export function changeAssignment(
-  assignment: TeachingAssignment,
-  input: {
-    participants: readonly AssignmentParticipant[];
-    weeklyLessons: number;
-    resourceIds: readonly string[];
-  },
-): TeachingAssignment {
-  return TeachingAssignmentEntity.reconstitute(assignment).change(input).snapshot();
-}

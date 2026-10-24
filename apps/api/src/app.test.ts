@@ -11,8 +11,6 @@ import {
   SubjectNameAlreadyInUseError,
   SubjectNotFoundError,
   UnknownSubjectError,
-  createSubject,
-  createTeacher,
   type ArchiveSubject,
   type ArchiveTeacher,
   type ListSubjects,
@@ -23,6 +21,8 @@ import {
   type RestoreTeacher,
   type UpdateSubject,
   type UpdateTeacher,
+  SubjectEntity,
+  TeacherEntity,
 } from '@classorganizer/core';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -33,8 +33,13 @@ const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const archivedAt = new Date('2026-03-01T12:00:00.000Z');
 const MATH_ID = '11111111-1111-4111-8111-111111111111';
 const ANA_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const math = createSubject({ id: MATH_ID, name: 'Matemática', createdAt });
-const ana = createTeacher({ id: ANA_ID, name: 'Ana Souza', subjectIds: [MATH_ID], createdAt });
+const math = SubjectEntity.create({ id: MATH_ID, name: 'Matemática', createdAt }).snapshot();
+const ana = TeacherEntity.create({
+  id: ANA_ID,
+  name: 'Ana Souza',
+  subjectIds: [MATH_ID],
+  createdAt,
+}).snapshot();
 
 function makeApp(overrides: Partial<AppDeps> = {}): FastifyInstance {
   return buildTestApp({

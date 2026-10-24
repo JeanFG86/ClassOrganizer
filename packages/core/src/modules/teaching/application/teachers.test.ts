@@ -2,7 +2,7 @@ import { bindUseCase } from '../../../shared/use-case.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { StaleVersionError } from '../../../shared/versioning.ts';
 import { InMemoryAssignmentRepository } from '../../../testing/in-memory-repositories.ts';
-import { createAssignment } from '../domain/assignment.ts';
+import { TeachingAssignmentEntity } from '../domain/assignment.ts';
 import {
   QualificationInUseError,
   TeacherHasAssignmentsError,
@@ -13,10 +13,14 @@ import {
   type SubjectStatus,
   type Teacher,
 } from '../domain/teacher.ts';
-import { ArchiveTeacher, RestoreTeacher, UpdateTeacher } from './usecases/change-teacher.ts';
-import { ListTeachers } from './usecases/list-teachers.ts';
+import {
+  ArchiveTeacher,
+  ListTeachers,
+  RegisterTeacher,
+  RestoreTeacher,
+  UpdateTeacher,
+} from './usecases/teachers.ts';
 import type { SubjectLookup, TeacherRepository } from './ports/index.ts';
-import { RegisterTeacher } from './usecases/register-teacher.ts';
 
 class InMemoryTeacherRepository implements TeacherRepository {
   readonly items = new Map<string, Teacher>();
@@ -192,7 +196,7 @@ describe('professores', () => {
         subjectIds: [subjectId],
       });
       await assignments.add(
-        createAssignment({
+        TeachingAssignmentEntity.create({
           id: 'a-1',
           classGroupId: '6A',
           resourceIds: [],
@@ -202,7 +206,7 @@ describe('professores', () => {
           ],
           weeklyLessons: 5,
           createdAt: now,
-        }),
+        }).snapshot(),
       );
       return ana;
     }

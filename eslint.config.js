@@ -34,6 +34,7 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+      'no-duplicate-imports': ['error', { allowSeparateTypeImports: true }],
     },
   },
   {
