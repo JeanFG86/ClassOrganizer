@@ -64,13 +64,27 @@ Só o último rascunho pode receber alterações na grade. As revisões anterior
 
 ## Imprimir horários e salvar PDF
 
-Em **Planejamentos**, abra o planejamento e use **Imprimir revisão N** na revisão desejada. O link **Imprimir ou salvar PDF desta revisão**, na Grade, abre a mesma saída histórica.
+Em **Planejamentos**, abra o planejamento e use **Impressão, PDF e XLSX** na revisão desejada. O link **Imprimir ou salvar PDF desta revisão**, na Grade, abre a mesma saída histórica.
 
-Na página **Impressão e PDF**, escolha revisão, **Turma** ou **Professor**, e uma entidade ou todas. Confira a prévia e as pendências. O botão **Imprimir / salvar PDF** abre o diálogo do navegador; escolha a impressora ou **Salvar como PDF**. Use Chrome ou Edge atual, papel A4 em paisagem, escala padrão e sem cabeçalhos/rodapés adicionais do navegador. O relatório já repete sua identificação e numera as páginas.
+Na página **Impressão e exportação**, escolha revisão, **Turma** ou **Professor**, e uma entidade ou todas. Confira a prévia e as pendências. O botão **Imprimir / salvar PDF** abre o diálogo do navegador; escolha a impressora ou **Salvar como PDF**. Use Chrome ou Edge atual, papel A4 em paisagem, escala padrão e sem cabeçalhos/rodapés adicionais do navegador. O relatório já repete sua identificação e numera as páginas.
 
 Cada turma ou professor tem folhas próprias por turno. Folhas extensas continuam nas páginas seguintes. Os nomes e horários são os da revisão escolhida, mesmo que os cadastros tenham mudado depois. **RASCUNHO** indica uma revisão ainda não concluída; guardar ou imprimir não equivale a aprovar a grade.
 
 A prévia permanece estável enquanto está aberta. Use **Atualizar prévia** para carregar mudanças posteriores no rascunho. Os PDFs são salvos no destino escolhido no navegador e devem permanecer no ambiente de trabalho autorizado.
+
+## Baixar horários e cargas em XLSX
+
+Na mesma página, use **Baixar XLSX da revisão completa**. A planilha contém toda a revisão selecionada, mesmo quando a prévia de impressão está filtrada por uma turma ou professor. Todos os perfis podem baixar.
+
+- **Revisão:** identificação, situação, data da fotografia, versão e pendências. Rascunhos e revisões históricas ficam identificados em todas as abas.
+- **Horários:** uma linha por bloco alocado ou HA, com dia, turno, hora inicial/final, turma, disciplinas, professores, recursos e fixação. Um bloco compartilhado aparece uma vez com todos os participantes.
+- **Professores:** cargas de aulas cadastradas, exigidas e alocadas; HA exigidas e alocadas; carga máxima, quando informada.
+- **Turmas:** configuração dos horários e cargas cadastradas, exigidas e alocadas. Um bloco conta uma vez para a turma.
+- **Blocos:** todas as atribuições da fotografia, seus participantes, quantidade de aulas e situação de aplicação à grade. Blocos fora da modelagem permanecem visíveis aqui e na carga cadastrada.
+
+As cargas usam unidades de aula, inclusive quando os horários têm durações diferentes. Horas são valores de horário local da grade; datas de identificação estão em UTC. Filtros e cabeçalhos congelados ajudam a consultar os dados. Os valores são uma fotografia, sem fórmulas de recálculo. Alterar o XLSX não muda a grade nem os cadastros: o banco continua sendo a fonte oficial.
+
+Se o planejamento mudou desde a prévia, o download é recusado. Use **Atualizar prévia** e confira a revisão antes de baixar novamente. O arquivo é preparado no momento do download; não fica armazenado no servidor. Guarde-o no ambiente de trabalho autorizado.
 
 ## E2E
 

@@ -8,12 +8,14 @@ import type {
   RestorePlanningRevision,
   PreservePlanningRevision,
   GetTimetableReport,
+  ExportTimetableWorkbook,
 } from '@classorganizer/core';
 
 type WithoutActor<T> = T extends (actor: infer _Actor, ...args: infer Args) => infer Result
   ? (...args: Args) => Result
   : never;
 export interface PlanningOperations {
+  timetableWorkbook: WithoutActor<ExportTimetableWorkbook['execute']>;
   timetableReport: WithoutActor<GetTimetableReport['execute']>;
   preserveRevision: WithoutActor<PreservePlanningRevision['execute']>;
   listPlannings: WithoutActor<ListPlannings['execute']>;
@@ -28,6 +30,9 @@ export class PlanningController {
   readonly #operations: PlanningOperations;
   constructor(operations: PlanningOperations) {
     this.#operations = operations;
+  }
+  timetableWorkbook(...args: Parameters<PlanningOperations['timetableWorkbook']>) {
+    return this.#operations.timetableWorkbook(...args);
   }
   timetableReport(...args: Parameters<PlanningOperations['timetableReport']>) {
     return this.#operations.timetableReport(...args);

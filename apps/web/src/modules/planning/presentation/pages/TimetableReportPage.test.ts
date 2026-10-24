@@ -2,8 +2,11 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TimetableReportDto } from '@classorganizer/contracts';
-import type { TimetableReportsApi } from '../../application/timetable-reports-api.ts';
-import { timetableReportsApiKey } from '../timetable-reports-key.ts';
+import type {
+  TimetableReportsApi,
+  TimetableWorkbooksApi,
+} from '../../application/timetable-reports-api.ts';
+import { timetableReportsApiKey, timetableWorkbooksApiKey } from '../timetable-reports-key.ts';
 import { ApiRequestError } from '../../../../shared/application/api-error.ts';
 import TimetableReportPage from './TimetableReportPage.vue';
 
@@ -63,10 +66,12 @@ let wrapper: VueWrapper;
 afterEach(() => {
   wrapper?.unmount();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 async function render(
   api: TimetableReportsApi = { report: vi.fn(async () => fixture()) },
   query = '?revisao=revision',
+  workbooks: TimetableWorkbooksApi = { download: vi.fn() },
 ) {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -75,7 +80,13 @@ async function render(
   await router.push('/planejamentos/plan/impressoes' + query);
   await router.isReady();
   wrapper = mount(TimetableReportPage, {
-    global: { plugins: [router], provide: { [timetableReportsApiKey as symbol]: api } },
+    global: {
+      plugins: [router],
+      provide: {
+        [timetableReportsApiKey as symbol]: api,
+        [timetableWorkbooksApiKey as symbol]: workbooks,
+      },
+    },
   });
   await flushPromises();
   return { api, router };
@@ -87,6 +98,73 @@ async function button(label: string) {
   await flushPromises();
 }
 describe('impressão e PDF na interface', () => {
+  it('descarta o arquivo anterior quando a revisão muda durante o download', async () => {
+    let resolve: (blob: Blob) => void = () => {};
+    const download = vi.fn(
+      () =>
+        new Promise<Blob>((done) => {
+          resolve = done;
+        }),
+    );
+    const report = vi.fn(async () => fixture());
+    const create = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: create });
+    await render({ report }, undefined, { download });
+    await button('Baixar XLSX da revisão completa');
+    const latest = fixture();
+    latest.revision.id = 'latest';
+    latest.revision.number = 2;
+    report.mockResolvedValueOnce(latest);
+    await wrapper.get('#report-revision').setValue('latest');
+    await flushPromises();
+    resolve(new Blob(['arquivo anterior']));
+    await flushPromises();
+    expect(create).not.toHaveBeenCalled();
+  });
+  it('baixa toda a revisão da prévia, nomeia o arquivo e libera a URL temporária', async () => {
+    const download = vi.fn(async () => new Blob(['arquivo']));
+    const create = vi.fn(() => 'blob:teste');
+    const revoke = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: create, revokeObjectURL: revoke });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      expect(this.download).toBe('entreaulas-2027-plan-revisao-1-v3.xlsx');
+    });
+    await render(undefined, undefined, { download });
+    await button('Baixar XLSX da revisão completa');
+    expect(download).toHaveBeenCalledWith('plan', 'revision', 3);
+    expect(click).toHaveBeenCalledOnce();
+    expect(revoke).toHaveBeenCalledWith('blob:teste');
+    expect(wrapper.text()).toContain('Planilha XLSX baixada');
+  });
+  it('versão desatualizada orienta atualizar a prévia e permite repetir o download', async () => {
+    const download = vi.fn(async (): Promise<Blob> => {
+      throw new ApiRequestError('concurrency.stale', 'O planejamento mudou.', 409);
+    });
+    await render(undefined, undefined, { download });
+    await button('Baixar XLSX da revisão completa');
+    expect(wrapper.get('[role=alert]').text()).toContain('Use Atualizar prévia');
+    await button('Tentar baixar novamente');
+    expect(download).toHaveBeenCalledTimes(2);
+  });
+  it('descarta download que termina depois de sair da página', async () => {
+    let resolve: (blob: Blob) => void = () => {};
+    const download = vi.fn(
+      () =>
+        new Promise<Blob>((done) => {
+          resolve = done;
+        }),
+    );
+    const create = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: create });
+    await render(undefined, undefined, { download });
+    await button('Baixar XLSX da revisão completa');
+    wrapper.unmount();
+    resolve(new Blob(['arquivo']));
+    await flushPromises();
+    expect(create).not.toHaveBeenCalled();
+  });
   it('mostra identidade, avisos, dados históricos e texto escapado e aciona impressão', async () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => {});
     const { api } = await render();

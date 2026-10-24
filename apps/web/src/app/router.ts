@@ -38,7 +38,7 @@ export function createAppRouter(
       {
         path: '/planejamentos/:id/impressoes',
         component: () => import('../modules/planning/presentation/pages/TimetableReportPage.vue'),
-        meta: { title: 'Impressão e PDF', report: true },
+        meta: { title: 'Impressão e exportação', report: true },
       },
       {
         path: '/planejamentos/:id/geracao',

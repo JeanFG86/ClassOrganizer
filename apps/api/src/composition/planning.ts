@@ -19,12 +19,14 @@ import {
   RestorePlanningRevision,
   PreservePlanningRevision,
   GetTimetableReport,
+  ExportTimetableWorkbook,
   type GenerationSettings,
 } from '@classorganizer/core';
 import {
   PrismaGenerationRunRepository,
   PrismaGridRepository,
   PrismaPlanningRepository,
+  ExcelTimetableWorkbook,
   randomSeeds,
   sha256Digest,
   systemClock,
@@ -42,6 +44,14 @@ export function composePlanning(tx: PersistenceClient, settings: GenerationSetti
   const digest = sha256Digest;
   return {
     plannings: {
+      workbook: bindUseCase(
+        new ExportTimetableWorkbook({
+          plannings,
+          grids,
+          clock,
+          workbooks: new ExcelTimetableWorkbook(),
+        }),
+      ),
       report: bindUseCase(new GetTimetableReport({ plannings, grids, clock })),
       preserveRevision: bindUseCase(
         new PreservePlanningRevision({ repository: plannings, grids, clock, ids }),

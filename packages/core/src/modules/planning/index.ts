@@ -5,3 +5,4 @@ export * from './application/usecases/plannings.ts';
 export * from './application/usecases/revisions.ts';
 export * from './application/usecases/timetable-grid.ts';
 export * from './application/usecases/timetable-reports.ts';
+export * from './application/usecases/timetable-workbooks.ts';

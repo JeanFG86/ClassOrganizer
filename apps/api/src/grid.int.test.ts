@@ -152,6 +152,29 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
     await testDb?.stop();
   });
 
+  it('exporta XLSX para todos os perfis sem alterar versão, histórico ou auditoria', async () => {
+    await operate({ type: 'place', slot: lesson(1, 0) });
+    const before = await view();
+    const auditCount = await testDb.db.auditEvent.count();
+    const path = `plannings/${planningId}/workbook?revisionId=${revisionId}&version=${version}`;
+    for (const cookie of [viewerCookie, editorCookie, adminCookie]) {
+      const response = await call('GET', path, undefined, cookie);
+      expect(response.statusCode, response.body.slice(0, 100)).toBe(200);
+      expect(response.headers['content-type']).toBe(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      expect(response.headers['content-disposition']).toContain('-revisao-1-v' + version + '.xlsx');
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect([...response.rawPayload.subarray(0, 4)]).toEqual([80, 75, 3, 4]);
+    }
+    expect((await call('GET', path, undefined, '')).statusCode).toBe(401);
+    expect((await call('GET', path.replace(`version=${version}`, 'version=1'))).statusCode).toBe(
+      409,
+    );
+    expect((await call('GET', path.replace(revisionId, randomUUID()))).statusCode).toBe(404);
+    expect(await testDb.db.auditEvent.count()).toBe(auditCount);
+    expect(await view()).toEqual(before);
+  });
   it('consulta lê a grade; prévia e operações exigem perfil de edição', async () => {
     const grid = await view(viewerCookie);
     expect(grid.editable).toBe(true);

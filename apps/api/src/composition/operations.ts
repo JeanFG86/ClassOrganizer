@@ -94,6 +94,12 @@ export function composeOperations(
 
   return {
     catalog,
+    timetableWorkbook: protect(
+      READ_ROLES,
+      undefined,
+      (services, actor, input: Input<Services['plannings']['workbook']>) =>
+        services.plannings.workbook(actor, input),
+    ),
     timetableReport: protect(
       READ_ROLES,
       undefined,

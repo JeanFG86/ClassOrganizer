@@ -1,5 +1,6 @@
 import type { TimetableProposal, TimetableSnapshot } from '../modules/timetable/domain/model.ts';
 import type { Weekday } from '../shared/weekdays.ts';
+export { completeGrid, makeCatalogFixture } from './planning-fixture.ts';
 
 /** Dados inteiramente inventados para regressões; não representam uma escola. */
 export function makeTimetableFixture() {
