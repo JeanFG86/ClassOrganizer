@@ -1,0 +1,32 @@
+# ADR 0021 — Importação CSV dos cadastros
+
+- **Status:** aceita
+- **Data:** 24/10/2026
+- **Complementa:** ADRs 0005, 0006, 0007, 0008, 0009, 0011 e 0017
+
+## Contexto
+
+A E7 pede a importação de cadastros e cargas a partir de um modelo CSV, com prévia, validação, erros por linha e confirmação, sem gravação parcial quando o arquivo é inválido. A secretaria costuma manter esses dados em planilhas, salvas pelo Excel em português com ponto e vírgula e, às vezes, em Windows-1252. Os cadastros já têm regras próprias (nomes únicos, habilitações, turnos e aulas, blocos compartilhados) que a importação não pode contornar.
+
+## Decisão
+
+- **Um arquivo por tipo de cadastro**, importados nesta ordem: disciplinas, turmas, professores e atribuições. Turnos e horários continuam na tela de turnos, porque cada aula tem início e fim que não cabem bem numa linha. Cada tipo tem um modelo com cabeçalho e exemplos inventados, baixado da API (`GET /api/v1/catalog-imports/:kind/template`), em UTF-8 com BOM e separador ponto e vírgula.
+- **Colunas:**
+  - Disciplinas: `Disciplina`.
+  - Turmas: `Turma`, `Turno` e `Aulas do turno` (opcionais). A quantidade escolhe as primeiras aulas do turno; vazia, usa todas.
+  - Professores: `Professor`, `Disciplinas` (separadas por `|`), `Carga máxima` e `Hora-atividade` (opcionais).
+  - Atribuições: `Turma`, `Disciplina`, `Professor` e `Aulas por semana`, com `Bloco` e `Recursos` opcionais. Linhas da mesma turma com o mesmo código em `Bloco` formam um bloco de aulas simultâneas (ADR 0009); as aulas por semana precisam coincidir, e os recursos das linhas são somados.
+- **Leitura tolerante, cabeçalho estrito.** O domínio lê CSV no formato RFC 4180 (aspas, aspas duplicadas e quebras de linha dentro do valor), detecta `;`, `,` ou tabulação, ignora BOM e linhas vazias e numera as linhas físicas do arquivo. Títulos de coluna ignoram maiúsculas, acentos, `_` e `-` e aceitam sinônimos simples; colunas desconhecidas ou repetidas e obrigatórias ausentes impedem a leitura das linhas, para que um título digitado errado não descarte dados em silêncio. Valores fora das colunas do cabeçalho são erro da linha. O limite é de 1.000 linhas e 400 mil caracteres por arquivo. O navegador decodifica o arquivo como UTF-8 e, se não for válido, como Windows-1252.
+- **Somente acréscimo.** A importação cadastra o que é novo e mantém como está o que já existe com o mesmo nome (comparação de `normalizeName`). Alterar cadastros existentes continua nas telas, com a versão otimista de cada registro (ADR 0005). Quando o arquivo traz dados diferentes para um cadastro existente, a linha recebe um aviso. Nomes arquivados são erro, com a orientação de restaurar. Linhas repetidas no próprio arquivo são erro, para não esconder um nome trocado. Professores homônimos ativos tornam a atribuição ambígua e são erro nessa linha.
+- **Atribuições idempotentes.** Um bloco idêntico a outro já cadastrado (turma, participantes, aulas e recursos) é contado como existente, um a um; reimportar o mesmo arquivo não duplica as cargas. Blocos novos que repetem professor e disciplina já atribuídos na turma recebem aviso de que a carga será somada.
+- **Validação pelo próprio domínio.** `planCatalogImport` é uma função pura do novo módulo `catalog-import` do core: monta cada cadastro com `SubjectEntity`, `ClassGroupEntity`, `TeacherEntity` e `TeachingAssignmentEntity` e converte cada `DomainError` em mensagem da linha. As referências (turno, disciplinas, professor, turma e recursos) são resolvidas pelo nome contra os cadastros atuais, e cada linha recebe `create`, `existing` ou `invalid`, com erros e avisos.
+- **Prévia e confirmação.** `PreviewCatalogImport` devolve o plano sem gravar e um resumo (SHA-256, pela porta `Digest`) do resultado mostrado: tipo, colunas, problemas do arquivo e cada linha com valores, situação e mensagens. `ImportCatalog` recebe o mesmo conteúdo e esse resumo; dentro da transação que bloqueia `app_state`, refaz o plano sobre os cadastros atuais, recusa com `concurrency.stale` se o resumo não coincide, com `catalog_import.invalid` se houver qualquer erro e com `catalog_import.nothing_to_import` se nada for novo. Só então grava todas as linhas pelos repositórios existentes (turmas com turno são cadastradas e depois agendadas, como na tela). Qualquer falha desfaz a transação inteira.
+- **Acesso e auditoria.** O modelo está disponível aos três perfis; prévia e importação exigem perfil de edição. A importação é auditada como `catalog.import.<tipo>`, avança a versão do catálogo uma única vez e não altera planejamentos: as revisões existentes mantêm suas fotografias, e os novos cadastros entram nos rascunhos abertos depois.
+- **Interface.** A tela **Importar CSV** (`/importacao`) escolhe o tipo, baixa o modelo, lê o arquivo e mostra a prévia em tabela com linha, colunas lidas, situação e observações, com filtro de linhas com erro ou aviso. A confirmação só aparece sem erros e com linhas novas. Cadastros alterados depois da prévia orientam gerar a prévia de novo; respostas atrasadas são descartadas ao trocar o tipo, o arquivo ou a página.
+
+## Consequências
+
+- Não há migração nem dependência nova: o leitor de CSV é TypeScript do domínio. A rota aceita até 2 MiB de corpo JSON, acima do padrão do Fastify, para arquivos com acentos.
+- O plano é avaliado duas vezes (prévia e confirmação) e a confirmação compara o resultado, não a versão global do catálogo: alterações em cadastros que não mudam nenhuma linha (outra pessoa editando outro professor, por exemplo) não invalidam a prévia, enquanto qualquer mudança que altere uma linha, ou outro conteúdo de arquivo, a invalida. O resultado gravado é exatamente o mostrado, ou nada. A comparação pela versão global foi descartada porque a recusaria a cada edição concorrente sem relação com o arquivo.
+- A importação não atualiza cadastros nem disponibilidade, não cria turnos e não importa a grade. Se a escola pedir atualização em massa, ela exigirá outra decisão, com prévia das diferenças por campo.
+- Testes cobrem leitura do CSV, cabeçalhos e cada tipo de cadastro no domínio; prévia sem escrita, confirmação, arquivo inválido sem gravação, resultado alterado, alteração alheia aceita e reimportação nos casos de uso; rotas HTTP; integração no PostgreSQL com auditoria, versão do catálogo e permissões; tela com prévia, erros, confirmação e modelos; e E2E com os quatro tipos, arquivo Windows-1252, reimportação e largura de 375 px. Todos os dados de teste são inventados.

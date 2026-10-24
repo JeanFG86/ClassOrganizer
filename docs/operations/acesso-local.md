@@ -86,6 +86,17 @@ As cargas usam unidades de aula, inclusive quando os horários têm durações d
 
 Se o planejamento mudou desde a prévia, o download é recusado. Use **Atualizar prévia** e confira a revisão antes de baixar novamente. O arquivo é preparado no momento do download; não fica armazenado no servidor. Guarde-o no ambiente de trabalho autorizado.
 
+## Importar cadastros por CSV
+
+Use **Importar CSV** para cadastrar muitos itens de uma vez. Cadastre antes os turnos e horários na tela de turnos e importe nesta ordem: **Disciplinas**, **Turmas**, **Professores** e **Atribuições**, porque cada tipo usa os nomes dos anteriores.
+
+1. Escolha o tipo e use **Baixar modelo** para obter o cabeçalho e linhas de exemplo inventadas. Apague os exemplos e preencha uma linha por item.
+2. No Excel, salve com **Salvar como** e o tipo CSV. Ponto e vírgula, vírgula e tabulação são aceitos, em UTF-8 ou no formato antigo do Excel. Separe várias disciplinas ou recursos na mesma célula com `|`. Até 1.000 linhas por arquivo.
+3. Escolha o arquivo. A prévia mostra cada linha com a situação (**Será cadastrada**, **Já cadastrada** ou **Com erro**) e as observações. Avisos não impedem a importação; erros, sim.
+4. Corrija as linhas com erro na planilha e escolha o arquivo de novo. Com tudo certo, use **Importar**. Todas as linhas novas são gravadas juntas; se algo falhar, nada é gravado.
+
+A importação só acrescenta cadastros: um item que já existe com o mesmo nome fica como está, e as alterações continuam nas telas de cada cadastro. Em **Atribuições**, linhas da mesma turma com o mesmo código em **Bloco** formam aulas simultâneas; reimportar o mesmo arquivo não duplica as cargas. Se outra pessoa alterar os cadastros de forma que o resultado de alguma linha mude entre a prévia e a confirmação, a importação é recusada; use **Gerar a prévia novamente**. Somente perfis de edição importam; a importação aparece na auditoria e vale para os rascunhos de planejamento abertos depois dela.
+
 ## E2E
 
 Use banco de teste e dados inteiramente fictícios. Antes da primeira suíte, crie o administrador pela mesma CLI com usuário `e2e-admin` e senha `senha ficticia e2e 2026!`. Esses valores são fixtures públicas de teste, não credenciais para uma instalação real. Credenciais diferentes podem ser passadas por `E2E_USERNAME` e `E2E_PASSWORD`.

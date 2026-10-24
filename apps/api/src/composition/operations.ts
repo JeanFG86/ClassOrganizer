@@ -14,6 +14,7 @@ import {
 } from '@classorganizer/infrastructure';
 import { composeAccess, composeLogin } from './access.ts';
 import { CATALOG_ACCESS, composeCatalog, type CatalogServices } from './catalog.ts';
+import { composeCatalogImport } from './catalog-import.ts';
 import { composePlanning } from './planning.ts';
 
 /** Serviços disponíveis dentro de uma transação autorizada. */
@@ -24,6 +25,7 @@ function composeTransaction(
 ) {
   return {
     catalog: composeCatalog(tx),
+    catalogImport: composeCatalogImport(tx),
     ...composePlanning(tx, settings),
     ...composeAccess(tx, currentSession),
   };
@@ -92,8 +94,31 @@ export function composeOperations(
   type GenerationCommand = Input<Services['generation']['apply']> & { id: string };
   type ChangePlanningInput = Input<Services['plannings']['change']> & { id: string };
 
+  type CatalogImports = Services['catalogImport'];
+  type CatalogImportInput = Parameters<CatalogImports['apply']>[0];
+
   return {
     catalog,
+    catalogImportTemplate: protect(
+      READ_ROLES,
+      undefined,
+      async (services, _actor, input: Parameters<CatalogImports['template']>[0]) =>
+        services.catalogImport.template(input),
+    ),
+    // A prévia não grava nada: não bloqueia app_state nem gera auditoria.
+    previewCatalogImport: protect(
+      WRITE_ROLES,
+      undefined,
+      (services, _actor, input: Parameters<CatalogImports['preview']>[0]) =>
+        services.catalogImport.preview(input),
+    ),
+    // Grava todas as linhas ou nenhuma, avança a versão do catálogo e audita o tipo importado.
+    importCatalog: protect(
+      WRITE_ROLES,
+      (input: CatalogImportInput) => 'catalog.import.' + input.kind,
+      (services, _actor, input: CatalogImportInput) => services.catalogImport.apply(input),
+      true,
+    ),
     timetableWorkbook: protect(
       READ_ROLES,
       undefined,

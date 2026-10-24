@@ -6,7 +6,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 - **Produto:** organizador de aulas para a secretaria de uma escola. Distribui as cargas dos professores e monta a grade semanal.
 - **Plano completo:** [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md), com as entregas E0 a E9.
-- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0020).
+- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0021).
 - **Arquitetura atual:** [ADR 0017](docs/adr/0017-refatoracao-arquitetural.md), com um PR por etapa e casos de uso em classes com `execute`. As sete etapas estão implementadas; use as APIs públicas dos módulos e as classes com `execute`. Etapas dependentes podem usar a branch anterior como base, indicada no PR; o usuário continua responsável pelos merges.
 - **Como rodar:** [README.md](README.md).
 
@@ -55,6 +55,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ### Última entrega funcional
 
+- **E7, quarta parte — importação CSV:** tela `/importacao` com um arquivo por tipo (disciplinas, turmas, professores e atribuições, nessa ordem), modelo baixado da API, prévia linha a linha com erros e avisos e confirmação que refaz o plano, confere o resumo do resultado mostrado e grava todas as linhas novas ou nenhuma. Só acrescenta cadastros; os existentes com o mesmo nome ficam como estão, e blocos idênticos não são duplicados. Módulo `catalog-import` no core (`PreviewCatalogImport`, `ImportCatalog`), auditoria `catalog.import.<tipo>`; prévia e importação exigem perfil de edição. Sem migração (ADR 0021).
 - **E7, terceira parte — XLSX:** download da revisão completa na página de impressão e exportação, com cinco abas (Revisão, Horários, Professores, Turmas e Blocos), cargas cadastradas/exigidas/alocadas, HA, recursos e fixações. Usa somente a fotografia histórica e confere a versão da prévia; textos são strings sem fórmulas ou hyperlinks. Caso de uso `ExportTimetableWorkbook`, porta de escrita e adaptador ExcelJS na infraestrutura (ADR 0020). Disponível aos três perfis; sem migração.
 - **E7, segunda parte — impressão e PDF:** página `/planejamentos/:id/impressoes` com revisão explícita, filtro por turma/professor e saída de uma entidade ou todas; folhas por turno, dados históricos, identificação e aviso de rascunho. PDF via impressão nativa em Chrome/Edge atual, A4 paisagem, com cabeçalho/rodapé repetidos e numeração (ADR 0019). Somente leitura, disponível aos três perfis, sem migração ou dependência nova de produção.
 - **E7, primeira parte — versões do planejamento:** nome opcional por revisão, preservação de alternativas intermediárias, comparação e restauração em outro rascunho com fotografia, regras e fixações originais. Só o último rascunho é editável; o banco protege também os rascunhos históricos. Nomear, preservar e restaurar exigem perfil de edição, versão otimista e auditoria (ADR 0018).
@@ -83,7 +84,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ## 3. O que falta fazer (ordem sugerida)
 
-1. **E7, próximas partes:** importação CSV e ampliação do checklist de reaproveitamento anual. As versões estão na ADR 0018; impressão/PDF, na ADR 0019; XLSX, na ADR 0020.
+1. **E7, próxima parte:** ampliação do checklist de reaproveitamento anual. As versões estão na ADR 0018; impressão/PDF, na ADR 0019; XLSX, na ADR 0020; importação CSV, na ADR 0021.
 2. **E8:** piloto, backup e operação local.
 
 **Metas do motor:** a E6 adotou as metas técnicas provisórias como configuração, por decisão do usuário, e repetiu a prova localmente com as regras da E5 (ADR 0014). Pactuar as metas com a escola continua pendente. Para medir de novo, `privado/e2/e6-policies.mjs` gera as variantes de regras das entradas locais, e `privado/e2/e6b-preferences.mjs` acrescenta a elas as ordens de preferências (ADR 0015). Os relatórios de referência e crescimento ficam somente em `privado/e2/`; não publicar volumes nem resultados derivados da escola. O exemplo público é inteiramente fictício.
@@ -133,7 +134,7 @@ tests/e2e           Playwright contra o Compose completo
 
 **Padrões do domínio** (siga o código existente em `packages/core/src/modules`):
 
-- **Módulos:** `access`, `school-structure`, `teaching`, `planning`, `timetable` e `generation`. A web tem os módulos correspondentes às suas telas.
+- **Módulos:** `access`, `school-structure`, `teaching`, `planning`, `timetable`, `generation` e `catalog-import`. A web tem os módulos correspondentes às suas telas.
 - **Casos de uso:** uma classe com `execute` por operação, agrupadas por agregado em `application/usecases/<agregado>.ts`. O construtor recebe `deps: <CasoDeUso>Dependencies`, só com as portas usadas, guardado em `readonly #deps`. Apoio compartilhado entre casos de uso fica em `application/services`; consultas fora de um agregado, em `application/queries`. A composição dos apps usa `bindUseCase` para adaptar os métodos à fronteira de autorização. Funções puras de domínio continuam válidas.
 - **Portas:** são definidas em `application/ports` pelo módulo consumidor (por exemplo, `SubjectLookup` e `PeriodLookup` em `teaching/application/ports/repositories.ts`) e implementadas pelos adaptadores.
 - **APIs públicas:** outro módulo usa `index.ts`, `domain/index.ts` ou `application/ports/index.ts` conforme a camada. O domínio acessa somente o contrato de domínio do outro módulo. Imports internos entre módulos e atalhos pelo índice raiz do core são proibidos pelo dependency-cruiser.

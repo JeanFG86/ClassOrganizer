@@ -21,6 +21,11 @@
         turma e quantas aulas por semana.
       </li>
     </ol>
+    <p>
+      Com os dados em uma planilha, use <RouterLink to="/importacao">Importar CSV</RouterLink> para
+      cadastrar disciplinas, turmas, professores e atribuições de uma vez, com prévia antes de
+      gravar.
+    </p>
     <p class="actions">
       <RouterLink class="button" to="/disciplinas">Começar pelas disciplinas</RouterLink>
       <RouterLink class="button secondary" to="/atribuicoes">Ir para atribuições</RouterLink>

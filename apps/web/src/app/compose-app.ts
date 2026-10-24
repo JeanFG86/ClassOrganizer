@@ -5,6 +5,8 @@ import { createAuditApi } from '../modules/access/infra/audit-http-api.ts';
 import { createAuthenticationApi } from '../modules/access/infra/authentication-http-api.ts';
 import { accountsApiKey } from '../modules/access/presentation/accounts-key.ts';
 import { auditApiKey } from '../modules/access/presentation/audit-key.ts';
+import { createCatalogImportApi } from '../modules/catalog-import/infra/catalog-import-http-api.ts';
+import { catalogImportApiKey } from '../modules/catalog-import/presentation/catalog-import-key.ts';
 import { accessApiKey, createSessionStore } from '../modules/access/presentation/session-store.ts';
 import { createGenerationApi } from '../modules/generation/infra/generation-http-api.ts';
 import { generationApiKey } from '../modules/generation/presentation/generation-key.ts';
@@ -56,6 +58,7 @@ export function composeWebApp() {
     .provide(resourcesApiKey, createResourcesApi(client))
     .provide(teachersApiKey, createTeachersApi(client))
     .provide(assignmentsApiKey, createAssignmentsApi(client))
+    .provide(catalogImportApiKey, createCatalogImportApi(client))
     .provide(gridApiKey, createGridApi(client))
     .provide(timetableReportsApiKey, createTimetableReportsApi(client))
     .provide(timetableWorkbooksApiKey, createTimetableWorkbooksApi(client))

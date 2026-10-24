@@ -30,6 +30,7 @@ async function logout() {
       <RouterLink to="/professores">Professores</RouterLink>
       <RouterLink to="/disponibilidade">Disponibilidade</RouterLink>
       <RouterLink to="/atribuicoes">Atribuições</RouterLink>
+      <RouterLink to="/importacao">Importar CSV</RouterLink>
       <RouterLink to="/planejamentos">Planejamentos</RouterLink>
       <RouterLink v-if="api.session.value.user.role === 'admin'" to="/acessos">Acessos</RouterLink>
       <RouterLink v-if="api.session.value.user.role === 'admin'" to="/auditoria"
