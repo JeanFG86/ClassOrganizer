@@ -1,7 +1,10 @@
 import type { z } from 'zod';
-import type { changePlanningSchema } from '@classorganizer/contracts';
+import type {
+  changePlanningSchema,
+  PlanningDto,
+  PlanningDetailDto,
+} from '@classorganizer/contracts';
 
-import type { PlanningDto, PlanningDetailDto } from '@classorganizer/contracts';
 export interface PlanningsApi {
   plannings(): Promise<PlanningDto[]>;
   planning(id: string): Promise<PlanningDetailDto>;

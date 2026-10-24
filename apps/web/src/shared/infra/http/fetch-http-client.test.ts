@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { ApiRequestError } from '../../application/api-error.ts';
 import { FetchHttpClient } from './fetch-http-client.ts';
-import { SubjectsHttpApi } from '../../../modules/school-structure/infra/subjects-http-api.ts';
+import { createSubjectsApi } from '../../../modules/school-structure/infra/subjects-http-api.ts';
 import { httpCatalogApi } from './catalog-http-api.ts';
 
 describe('FetchHttpClient', () => {
@@ -33,7 +33,7 @@ describe('FetchHttpClient', () => {
         ],
       }),
     );
-    const api = new SubjectsHttpApi(new FetchHttpClient({ fetch: transport, baseUrl: '/example' }));
+    const api = createSubjectsApi(new FetchHttpClient({ fetch: transport, baseUrl: '/example' }));
     expect(await api.list()).toMatchObject([{ name: 'Oficina fictícia' }]);
     expect(transport).toHaveBeenCalledWith(
       '/example/subjects',

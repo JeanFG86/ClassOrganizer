@@ -1,7 +1,7 @@
 import {
   ClassGroupNameAlreadyInUseError,
   StaleVersionError,
-  createClassGroup,
+  ClassGroupEntity,
 } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startTestDatabase } from '../../testing/postgres-container.ts';
@@ -30,7 +30,7 @@ describe('PrismaClassGroupRepository (PostgreSQL)', () => {
   });
 
   it('grava, busca e lista a turma', async () => {
-    const turma = createClassGroup({ id: A, name: '6º ano A', createdAt });
+    const turma = ClassGroupEntity.create({ id: A, name: '6º ano A', createdAt }).snapshot();
 
     await repository.add(turma);
 
@@ -41,11 +41,13 @@ describe('PrismaClassGroupRepository (PostgreSQL)', () => {
   });
 
   it('nome duplicado vira erro de domínio, no cadastro e na renomeação', async () => {
-    await repository.add(createClassGroup({ id: A, name: '6º ano A', createdAt }));
-    const b = createClassGroup({ id: B, name: '6º ano B', createdAt });
+    await repository.add(
+      ClassGroupEntity.create({ id: A, name: '6º ano A', createdAt }).snapshot(),
+    );
+    const b = ClassGroupEntity.create({ id: B, name: '6º ano B', createdAt }).snapshot();
 
     await expect(
-      repository.add(createClassGroup({ id: B, name: '6º ANO A', createdAt })),
+      repository.add(ClassGroupEntity.create({ id: B, name: '6º ANO A', createdAt }).snapshot()),
     ).rejects.toThrow(ClassGroupNameAlreadyInUseError);
 
     await repository.add(b);
@@ -55,7 +57,7 @@ describe('PrismaClassGroupRepository (PostgreSQL)', () => {
   });
 
   it('atualiza com versão e rejeita versão antiga', async () => {
-    const turma = createClassGroup({ id: A, name: '6A', createdAt });
+    const turma = ClassGroupEntity.create({ id: A, name: '6A', createdAt }).snapshot();
     await repository.add(turma);
 
     const saved = await repository.update({ ...turma, archivedAt: createdAt });
@@ -66,7 +68,7 @@ describe('PrismaClassGroupRepository (PostgreSQL)', () => {
   });
 
   it('informa a situação da turma', async () => {
-    await repository.add(createClassGroup({ id: A, name: '6A', createdAt }));
+    await repository.add(ClassGroupEntity.create({ id: A, name: '6A', createdAt }).snapshot());
 
     expect(await repository.classGroupStatus(A)).toBe('active');
     expect(await repository.classGroupStatus(B)).toBeUndefined();

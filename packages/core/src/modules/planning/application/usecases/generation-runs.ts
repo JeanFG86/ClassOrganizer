@@ -17,16 +17,16 @@ import type { Placement } from '../../domain/grid.ts';
 import { PlanningError } from '../../domain/planning.ts';
 import {
   PREFERENCE_CRITERIA,
+  measurePreferences,
   type PreferenceCriterion,
   type TimetablePreferences,
 } from '../../../timetable/domain/index.ts';
-import { measurePreferences } from '../../../timetable/domain/index.ts';
-import { makeGridAccess } from '../grid-access.ts';
 import type {
   GenerationRunRepository,
   GridRepository,
   PlanningRepository,
 } from '../ports/index.ts';
+import { GridReader, GridWriter } from '../services/grid-access.ts';
 
 /** Limites da busca definidos pela configuração; a semente muda a cada solicitação. */
 export interface GenerationSettings {
@@ -66,76 +66,73 @@ export type GenerationRunsDependencies = {
   seeds: SeedGenerator;
   settings: GenerationSettings;
 };
-function generationRunsContext(deps: GenerationRunsDependencies) {
-  const { runs, clock, ids, digest, seeds, settings } = deps;
-  const access = makeGridAccess(deps);
-  function inputOf(translated: TranslatedCatalog, placements: readonly Placement[]) {
-    const { snapshot } = gridProposal(translated, placements);
-    return { snapshot, digest: digest.of(canonicalJson(snapshot)) };
-  }
-  async function owned(planningId: string, runId: string) {
-    const run = await runs.find(runId);
-    return run && run.planningId === planningId ? run : notFound();
-  }
-  function summary(run: GenerationRun, current: { revisionId: string; digest: string } | null) {
-    const { outcome } = run;
-    return {
-      id: run.id,
-      revisionId: run.revisionId,
-      status: run.status,
-      requestedAt: run.requestedAt,
-      requestedBy: run.requestedByUsername,
-      startedAt: run.startedAt,
-      finishedAt: run.finishedAt,
-      attempts: run.attempts,
-      cancelRequested: run.cancelRequestedAt !== null,
-      options: run.options,
-      reason: outcome?.reason ?? null,
-      diagnostics: outcome?.diagnostics ?? [],
-      warnings: outcome?.warnings ?? [],
-      metrics: outcome?.metrics ?? null,
-      appliedAt: run.appliedAt,
-      appliedBy: run.appliedByUsername,
-      stale:
-        current === null ||
-        current.revisionId !== run.revisionId ||
-        current.digest !== run.inputDigest,
-    };
-  }
-  async function currentDraft(planningId: string) {
-    const loaded = await access.load(planningId);
-    return loaded.editable
-      ? { revisionId: loaded.revision.id, ...inputOf(loaded.translated, loaded.placements) }
-      : null;
-  }
+
+/** Entrada do motor para a grade atual e o resumo que identifica a solicitação. */
+function inputOf(digest: Digest, translated: TranslatedCatalog, placements: readonly Placement[]) {
+  const { snapshot } = gridProposal(translated, placements);
+  return { snapshot, digest: digest.of(canonicalJson(snapshot)) };
+}
+async function owned(runs: GenerationRunRepository, planningId: string, runId: string) {
+  const run = await runs.find(runId);
+  return run && run.planningId === planningId ? run : notFound();
+}
+type CurrentDraft = { revisionId: string; digest: string } | null;
+/** Uma execução fica desatualizada quando o rascunho ou sua entrada mudaram. */
+function summary(run: GenerationRun, current: CurrentDraft) {
+  const { outcome } = run;
   return {
-    deps,
-    runs,
-    clock,
-    ids,
-    digest,
-    seeds,
-    settings,
-    access,
-    inputOf,
-    owned,
-    summary,
-    currentDraft,
+    id: run.id,
+    revisionId: run.revisionId,
+    status: run.status,
+    requestedAt: run.requestedAt,
+    requestedBy: run.requestedByUsername,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+    attempts: run.attempts,
+    cancelRequested: run.cancelRequestedAt !== null,
+    options: run.options,
+    reason: outcome?.reason ?? null,
+    diagnostics: outcome?.diagnostics ?? [],
+    warnings: outcome?.warnings ?? [],
+    metrics: outcome?.metrics ?? null,
+    appliedAt: run.appliedAt,
+    appliedBy: run.appliedByUsername,
+    stale:
+      current === null ||
+      current.revisionId !== run.revisionId ||
+      current.digest !== run.inputDigest,
   };
 }
+async function currentDraft(
+  reader: GridReader,
+  digest: Digest,
+  planningId: string,
+): Promise<CurrentDraft> {
+  const loaded = await reader.load(planningId);
+  return loaded.editable
+    ? { revisionId: loaded.revision.id, ...inputOf(digest, loaded.translated, loaded.placements) }
+    : null;
+}
+
+export type ListGenerationRunsDependencies = Pick<
+  GenerationRunsDependencies,
+  'plannings' | 'grids' | 'runs' | 'digest'
+>;
 export class ListGenerationRuns {
-  readonly #deps: GenerationRunsDependencies;
-  constructor(deps: GenerationRunsDependencies) {
+  readonly #deps: ListGenerationRunsDependencies;
+  readonly #reader: GridReader;
+  constructor(deps: ListGenerationRunsDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
   }
   async execute(actor: Actor, input: { id: string; revisionId?: string | undefined }) {
-    const { runs, access, summary, currentDraft } = generationRunsContext(this.#deps);
+    const { runs, digest } = this.#deps;
 
     requireRole(actor, READ_ROLES);
 
-    const loaded = await access.load(input.id, input.revisionId);
+    const loaded = await this.#reader.load(input.id, input.revisionId);
 
-    const current = await currentDraft(input.id);
+    const current = await currentDraft(this.#reader, digest, input.id);
 
     const active = await runs.active(input.id);
 
@@ -147,19 +144,25 @@ export class ListGenerationRuns {
     };
   }
 }
+export type GetGenerationRunDependencies = Pick<
+  GenerationRunsDependencies,
+  'plannings' | 'grids' | 'runs' | 'digest'
+>;
 export class GetGenerationRun {
-  readonly #deps: GenerationRunsDependencies;
-  constructor(deps: GenerationRunsDependencies) {
+  readonly #deps: GetGenerationRunDependencies;
+  readonly #reader: GridReader;
+  constructor(deps: GetGenerationRunDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
   }
   async execute(actor: Actor, input: { id: string; runId: string }) {
-    const { access, owned, summary, currentDraft } = generationRunsContext(this.#deps);
+    const { runs, digest } = this.#deps;
 
     requireRole(actor, READ_ROLES);
 
-    const run = await owned(input.id, input.runId);
+    const run = await owned(runs, input.id, input.runId);
 
-    const current = await currentDraft(input.id);
+    const current = await currentDraft(this.#reader, digest, input.id);
 
     const base = summary(run, current);
 
@@ -167,7 +170,7 @@ export class GetGenerationRun {
 
     if (!proposal) return { run: base, applicable: false, comparison: null };
 
-    const loaded = await access.load(input.id, run.revisionId);
+    const loaded = await this.#reader.load(input.id, run.revisionId);
 
     const { delta, kept } = compareGrids(loaded.placements, proposal);
 
@@ -193,8 +196,10 @@ export class GetGenerationRun {
 }
 export class RequestGeneration {
   readonly #deps: GenerationRunsDependencies;
+  readonly #reader: GridReader;
   constructor(deps: GenerationRunsDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
   }
   async execute(
     actor: Actor,
@@ -205,14 +210,13 @@ export class RequestGeneration {
       preferences: readonly string[];
     },
   ) {
-    const { runs, clock, ids, seeds, settings, access, inputOf, owned, summary } =
-      generationRunsContext(this.#deps);
+    const { runs, clock, ids, digest, seeds, settings } = this.#deps;
 
     requireRole(actor, WRITE_ROLES);
 
     const order = preferenceOrder(input.preferences);
 
-    const loaded = await access.loadDraft(input);
+    const loaded = await this.#reader.loadDraft(input);
 
     if (await runs.active(input.id))
       throw new PlanningError(
@@ -220,7 +224,7 @@ export class RequestGeneration {
         'Já há uma geração em andamento neste planejamento. Aguarde o resultado ou cancele.',
       );
 
-    const { snapshot, digest: inputDigest } = inputOf(loaded.translated, loaded.placements);
+    const { snapshot, digest: inputDigest } = inputOf(digest, loaded.translated, loaded.placements);
 
     const free = loaded.placements.filter((p) => !p.pinned && isKnownSlot(loaded.translated, p));
 
@@ -252,48 +256,65 @@ export class RequestGeneration {
 
     await runs.add(run, { ...snapshot, preferences });
 
-    return summary(await owned(input.id, run.id), {
+    return summary(await owned(runs, input.id, run.id), {
       revisionId: run.revisionId,
       digest: inputDigest,
     });
   }
 }
+export type CancelGenerationDependencies = Pick<
+  GenerationRunsDependencies,
+  'plannings' | 'grids' | 'runs' | 'clock' | 'digest'
+>;
 export class CancelGeneration {
-  readonly #deps: GenerationRunsDependencies;
-  constructor(deps: GenerationRunsDependencies) {
+  readonly #deps: CancelGenerationDependencies;
+  readonly #reader: GridReader;
+  constructor(deps: CancelGenerationDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
   }
   async execute(actor: Actor, input: { id: string; runId: string }) {
-    const { runs, clock, owned, summary, currentDraft } = generationRunsContext(this.#deps);
+    const { runs, clock, digest } = this.#deps;
 
     requireRole(actor, WRITE_ROLES);
 
-    const run = await owned(input.id, input.runId);
+    const run = await owned(runs, input.id, input.runId);
 
     if (!isRunActive(run.status))
       throw new PlanningError('generation.finished', 'Esta geração já terminou.');
 
     await runs.cancel(run.id, clock.now());
 
-    return summary(await owned(input.id, run.id), await currentDraft(input.id));
+    return summary(
+      await owned(runs, input.id, run.id),
+      await currentDraft(this.#reader, digest, input.id),
+    );
   }
 }
+export type ApplyGenerationDependencies = Pick<
+  GenerationRunsDependencies,
+  'plannings' | 'grids' | 'runs' | 'clock' | 'ids' | 'digest'
+>;
 export class ApplyGeneration {
-  readonly #deps: GenerationRunsDependencies;
-  constructor(deps: GenerationRunsDependencies) {
+  readonly #deps: ApplyGenerationDependencies;
+  readonly #reader: GridReader;
+  readonly #writer: GridWriter;
+  constructor(deps: ApplyGenerationDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
+    this.#writer = new GridWriter(deps);
   }
   async execute(
     actor: Actor,
     input: { id: string; version: number; revisionId: string; runId: string },
   ) {
-    const { runs, clock, access, inputOf, owned } = generationRunsContext(this.#deps);
+    const { runs, clock, digest } = this.#deps;
 
     requireRole(actor, WRITE_ROLES);
 
-    const loaded = await access.loadDraft(input);
+    const loaded = await this.#reader.loadDraft(input);
 
-    const run = await owned(input.id, input.runId);
+    const run = await owned(runs, input.id, input.runId);
 
     if (run.revisionId !== loaded.revision.id)
       throw new PlanningError(
@@ -312,7 +333,7 @@ export class ApplyGeneration {
         'Somente uma geração que encontrou uma grade completa pode ser aplicada.',
       );
 
-    if (inputOf(loaded.translated, loaded.placements).digest !== run.inputDigest)
+    if (inputOf(digest, loaded.translated, loaded.placements).digest !== run.inputDigest)
       throw new PlanningError(
         'generation.stale',
         'As aulas fixadas ou as regras mudaram desde a solicitação. Gere novamente.',
@@ -334,7 +355,7 @@ export class ApplyGeneration {
 
     const { delta, kept } = compareGrids(loaded.placements, proposal);
 
-    return access.commit(actor, loaded.planning, loaded.revision.id, {
+    return this.#writer.commit(actor, loaded.planning, loaded.revision.id, {
       kind: 'generation',
       summary:
         'Aplicou a geração automática: ' +

@@ -1,46 +1,61 @@
-import { Login, bindUseCase } from '@classorganizer/core';
+import {
+  ChangeAccount,
+  ChangePassword,
+  CreateAccount,
+  GetSession,
+  ListAccounts,
+  ListAudits,
+  Login,
+  Logout,
+  bindUseCase,
+} from '@classorganizer/core';
 import {
   PrismaAccountRepository,
+  PrismaAuditReader,
   PrismaLoginStore,
+  PrismaSessionRepository,
   hashPassword,
-  verifyPassword,
-  newToken,
   hashToken,
+  newToken,
   systemClock,
   uuidGenerator,
+  verifyPassword,
   type Database,
-} from '@classorganizer/infrastructure';
-import { composeManageAccounts } from './account-operations.ts';
-import { GetSession, Logout, ListAudits } from '@classorganizer/core';
-import {
-  PrismaSessionRepository,
-  PrismaAuditReader,
   type PersistenceClient,
 } from '@classorganizer/infrastructure';
 
-export function composeAccessServices(tx: PersistenceClient, currentSession: () => string | null) {
+const passwords = { hash: hashPassword, verify: verifyPassword };
+
+/** Contas, sessão atual e auditoria de uma transação. */
+export function composeAccess(tx: PersistenceClient, currentSession: () => string | null) {
+  const accounts = {
+    repository: new PrismaAccountRepository(tx),
+    passwords,
+    clock: systemClock,
+    ids: uuidGenerator,
+  };
   const sessions = new PrismaSessionRepository(tx);
-  const getSession = new GetSession(sessions);
-  const logout = new Logout(sessions);
-  const audits = new ListAudits(new PrismaAuditReader(tx));
+  const getSession = new GetSession({ sessions });
+  const logout = new Logout({ sessions });
   return {
-    accounts: composeManageAccounts({
-      repository: new PrismaAccountRepository(tx),
-      passwords: { hash: hashPassword, verify: verifyPassword },
-      clock: systemClock,
-      ids: uuidGenerator,
-    }),
+    accounts: {
+      list: bindUseCase(new ListAccounts(accounts)),
+      create: bindUseCase(new CreateAccount(accounts)),
+      change: bindUseCase(new ChangeAccount(accounts)),
+      changePassword: bindUseCase(new ChangePassword(accounts)),
+    },
     session: () => getSession.execute(currentSession()),
     logout: () => logout.execute(currentSession()),
-    audits: audits.execute.bind(audits),
+    audits: bindUseCase(new ListAudits({ audits: new PrismaAuditReader(tx) })),
   };
 }
 
+/** O login acontece antes de haver sessão, fora da fronteira autorizada. */
 export function composeLogin(db: Database) {
   return bindUseCase(
     new Login({
       store: new PrismaLoginStore(db),
-      passwords: { hash: hashPassword, verify: verifyPassword },
+      passwords,
       tokens: { create: newToken, hash: hashToken },
       clock: systemClock,
     }),

@@ -44,7 +44,8 @@ Executar `pnpm verify`, `pnpm build`, integração e E2E antes de cada entrega d
 | 4 — Domínio e aplicação | [#18](https://github.com/JeanFG86/ClassOrganizer/pull/18) | 380                   | 130        | 17  |
 | 5 — Worker              | [#19](https://github.com/JeanFG86/ClassOrganizer/pull/19) | 380                   | 130        | 17  |
 | 6 — Interface           | [#20](https://github.com/JeanFG86/ClassOrganizer/pull/20) | 384                   | 130        | 17  |
-| 7 — Consolidação        | PR desta entrega                                          | 391                   | 130        | 17  |
+| 7 — Consolidação        | [#21](https://github.com/JeanFG86/ClassOrganizer/pull/21) | 391                   | 130        | 17  |
+| Limpeza pós-revisão     | PR desta entrega                                          | 392                   | 130        | 17  |
 
 Na etapa 6, foram conferidas 13 telas a 375 px, incluindo grade e geração. O seletor de turmas em Turnos passou a respeitar a largura do card. Os componentes de grade, geração e atribuições preservam os testes de comportamento após extrair a coordenação para composables.
 
@@ -53,3 +54,5 @@ A etapa 7 inclui sete testes de fronteiras arquiteturais, executados com o depen
 Os PRs são encadeados: revisar e incorporar na ordem, atualizando a base para main conforme a etapa anterior for incorporada. O CI completo também é executado em cada PR.
 
 A consolidação final passou em formatação, lint, tipos, fronteiras, 391 testes em 39 arquivos, 130 testes de integração em 16 arquivos, build da interface e 17 E2E. As 13 telas foram conferidas novamente a 375 px. Os comandos de criação de cenário sintético e execução do motor também foram conferidos com a fixture pública inventada.
+
+A limpeza pós-revisão separou os casos de uso de planejamento, tornou explícita a classificação do catálogo na composição da API, removeu as funções paralelas às entidades e uniformizou arquivos e construtores ([ADR 0017](../adr/0017-refatoracao-arquitetural.md#consolidação-posterior)). Nenhuma tela mudou; o E2E rodou no Compose isolado `classorganizer-refactor`, na porta 8081.

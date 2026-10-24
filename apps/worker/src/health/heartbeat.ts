@@ -19,7 +19,7 @@ export class WorkerHeartbeat {
     this.#deps = deps;
   }
 
-  private async beat(): Promise<void> {
+  async #beat(): Promise<void> {
     try {
       await this.#deps.checkReadiness();
       await writeFile(this.#deps.path, new Date().toISOString());
@@ -29,9 +29,9 @@ export class WorkerHeartbeat {
   }
   async start(): Promise<void> {
     await this.#deps.checkReadiness();
-    await this.beat();
+    await this.#beat();
     this.#timer = setInterval(() => {
-      this.#pending ??= this.beat().finally(() => {
+      this.#pending ??= this.#beat().finally(() => {
         this.#pending = undefined;
       });
     }, this.#deps.intervalMs);

@@ -3,11 +3,11 @@ import {
   InvalidAssignmentReferenceError,
   QualificationInUseError,
   StaleVersionError,
-  createAssignment,
-  createClassGroup,
-  createSubject,
-  createResource,
-  createTeacher,
+  SubjectEntity,
+  TeacherEntity,
+  ClassGroupEntity,
+  ResourceEntity,
+  TeachingAssignmentEntity,
 } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startTestDatabase } from '../../testing/postgres-container.ts';
@@ -36,14 +36,14 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
   let teachers: PrismaTeacherRepository;
 
   const mathFor6A = () =>
-    createAssignment({
+    TeachingAssignmentEntity.create({
       id: A1,
       classGroupId: C6A,
       participants: [{ subjectId: MATH, teacherId: ANA }],
       weeklyLessons: 5,
       resourceIds: [],
       createdAt,
-    });
+    }).snapshot();
 
   async function loadAna() {
     const teacher = await teachers.findById(ANA);
@@ -65,18 +65,38 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
     await testDb.truncateAll();
     const subjects = new PrismaSubjectRepository(testDb.db);
     const classGroups = new PrismaClassGroupRepository(testDb.db);
-    await subjects.add(createSubject({ id: MATH, name: 'Matemática', createdAt }));
-    await subjects.add(createSubject({ id: HISTORY, name: 'História', createdAt }));
-    await classGroups.add(createClassGroup({ id: C6A, name: '6º ano A', createdAt }));
-    await classGroups.add(createClassGroup({ id: C6B, name: '6º ano B', createdAt }));
+    await subjects.add(
+      SubjectEntity.create({ id: MATH, name: 'Matemática', createdAt }).snapshot(),
+    );
+    await subjects.add(
+      SubjectEntity.create({ id: HISTORY, name: 'História', createdAt }).snapshot(),
+    );
+    await classGroups.add(
+      ClassGroupEntity.create({ id: C6A, name: '6º ano A', createdAt }).snapshot(),
+    );
+    await classGroups.add(
+      ClassGroupEntity.create({ id: C6B, name: '6º ano B', createdAt }).snapshot(),
+    );
     await teachers.add(
-      createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH, HISTORY], createdAt }),
+      TeacherEntity.create({
+        id: ANA,
+        name: 'Ana',
+        subjectIds: [MATH, HISTORY],
+        createdAt,
+      }).snapshot(),
     );
     const resources = new PrismaResourceRepository(testDb.db);
-    await resources.add(createResource({ id: LAB, name: 'Laboratório', createdAt }));
-    await resources.add(createResource({ id: COURT, name: 'Quadra', createdAt }));
+    await resources.add(
+      ResourceEntity.create({ id: LAB, name: 'Laboratório', createdAt }).snapshot(),
+    );
+    await resources.add(ResourceEntity.create({ id: COURT, name: 'Quadra', createdAt }).snapshot());
     await teachers.add(
-      createTeacher({ id: SECOND_TEACHER, name: 'Docente Beta', subjectIds: [HISTORY], createdAt }),
+      TeacherEntity.create({
+        id: SECOND_TEACHER,
+        name: 'Docente Beta',
+        subjectIds: [HISTORY],
+        createdAt,
+      }).snapshot(),
     );
   });
 

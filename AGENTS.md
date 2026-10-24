@@ -118,7 +118,7 @@ tests/e2e           Playwright contra o Compose completo
 - pnpm 10, TypeScript 6 estrito (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `erasableSyntaxOnly`: **sem `enum` e sem _parameter properties_**).
 - Fastify 5, Zod 4, Prisma 7 (gerador `prisma-client`, saída em `src/generated/prisma`), PostgreSQL 18, Vue 3.5, Vitest 4, Playwright 1.64.
 
-**Acesso e revisões:** a produção usa `createSecureApp`; todo caso de uso exposto é protegido por `makeAuthorizedOperation`. Escritas, versão do catálogo e auditoria usam a mesma transação e o bloqueio `app_state`. Repositórios aceitam cliente transacional. Cadastros são a base compartilhada; cada revisão guarda uma fotografia imutável. A grade (E5) segue o mesmo caminho: toda operação informa a versão do planejamento e a revisão, e o histórico da grade é somente de acréscimo.
+**Acesso e revisões:** a produção usa `createSecureApp`; todo caso de uso exposto é protegido por `makeAuthorizedOperation`. Uma operação nova do catálogo precisa ser classificada como leitura ou escrita em `CATALOG_ACCESS` (`apps/api/src/composition/catalog.ts`). Escritas, versão do catálogo e auditoria usam a mesma transação e o bloqueio `app_state`. Repositórios aceitam cliente transacional. Cadastros são a base compartilhada; cada revisão guarda uma fotografia imutável. A grade (E5) segue o mesmo caminho: toda operação informa a versão do planejamento e a revisão, e o histórico da grade é somente de acréscimo.
 
 **Camadas** (verificadas por `pnpm check:arch`):
 
@@ -130,10 +130,10 @@ tests/e2e           Playwright contra o Compose completo
 **Padrões do domínio** (siga o código existente em `packages/core/src/modules`):
 
 - **Módulos:** `access`, `school-structure`, `teaching`, `planning`, `timetable` e `generation`. A web tem os módulos correspondentes às suas telas.
-- **Casos de uso:** classes com `execute`, portas pelo construtor e campos explícitos. A composição dos apps usa `bindUseCase` para adaptar os métodos à fronteira de autorização. As fábricas antigas dos casos de uso foram removidas. Funções puras de domínio e fábricas de fixtures continuam válidas.
+- **Casos de uso:** uma classe com `execute` por operação, agrupadas por agregado em `application/usecases/<agregado>.ts`. O construtor recebe `deps: <CasoDeUso>Dependencies`, só com as portas usadas, guardado em `readonly #deps`. Apoio compartilhado entre casos de uso fica em `application/services`; consultas fora de um agregado, em `application/queries`. A composição dos apps usa `bindUseCase` para adaptar os métodos à fronteira de autorização. Funções puras de domínio continuam válidas.
 - **Portas:** são definidas em `application/ports` pelo módulo consumidor (por exemplo, `SubjectLookup` e `PeriodLookup` em `teaching/application/ports/repositories.ts`) e implementadas pelos adaptadores.
 - **APIs públicas:** outro módulo usa `index.ts`, `domain/index.ts` ou `application/ports/index.ts` conforme a camada. O domínio acessa somente o contrato de domínio do outro módulo. Imports internos entre módulos e atalhos pelo índice raiz do core são proibidos pelo dependency-cruiser.
-- **Entidades:** concentram transições e devolvem fotografias independentes por `snapshot()`. Reconstitua dados persistidos com `reconstitute`, preservando identidade, versão e datas. Os repositórios trocam estados serializáveis com os casos de uso.
+- **Entidades:** concentram transições e devolvem fotografias independentes por `snapshot()`. Reconstitua dados persistidos com `reconstitute`, preservando identidade, versão e datas. Os repositórios trocam estados serializáveis com os casos de uso. Não crie funções paralelas às transições (como `createX(...)`); testes e fixtures usam `XEntity.create(...).snapshot()`.
 - **Erros:** `DomainError` tem `code` estável e `kind` (`validation`, `conflict`, `not_found`, `unauthorized`, `forbidden` ou `rate_limit`), que a API traduz para 400, 409, 404, 401, 403 ou 429. As mensagens são para a secretaria, em português.
 - **Concorrência otimista:** todo cadastro tem `version`. A gravação usa `updateMany WHERE id AND version` e, se nada mudar, lança `StaleVersionError` (409 `concurrency.stale`). A tela recarrega.
 - **Arquivar em vez de excluir** (`archivedAt`), com restaurar.
@@ -158,7 +158,7 @@ tests/e2e           Playwright contra o Compose completo
 **Web:**
 
 - **Dependências injetadas:** `app/compose-app.ts` monta cliente HTTP, serviços, sessão e router e chama `provide`; páginas e composables usam `injectRequired(key)`. `main.ts` inicia a aplicação. Os testes fornecem _fakes_.
-- **Clientes HTTP:** implementações em `modules/<module>/infra`, interfaces em `application` e chaves em `presentation`. Recebem `HttpClient` explicitamente e validam respostas com os schemas de `contracts`. A apresentação usa portas e a API pública do outro módulo; componentes compartilhados recebem permissões por props.
+- **Clientes HTTP:** fábricas `create<Serviço>Api(client)` em `modules/<module>/infra`, interfaces em `application` e chaves em `presentation`. Recebem `HttpClient` explicitamente e validam respostas com os schemas de `contracts`. A apresentação usa portas e a API pública do outro módulo; componentes compartilhados recebem permissões por props.
 - **Estado de página:** coordenação de grade, geração e atribuições fica em composables de apresentação; a sessão pertence ao módulo de acesso e é injetada no router. Páginas remontam quando o caminho muda; o acompanhamento da geração não agenda chamadas após desmontar.
 - **Suporte de teste:** `testing` é consumido apenas por testes. As regras arquiteturais têm testes que exercitam imports aceitos e proibidos.
 - **Estados de tela:** carregando, vazio, erro com "Tentar novamente", e retorno com `role="status"` ou `role="alert"`.

@@ -1,8 +1,8 @@
 import {
   StaleVersionError,
   UnknownSubjectError,
-  createSubject,
-  createTeacher,
+  SubjectEntity,
+  TeacherEntity,
 } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startTestDatabase } from '../../testing/postgres-container.ts';
@@ -33,12 +33,21 @@ describe('PrismaTeacherRepository (PostgreSQL)', () => {
 
   beforeEach(async () => {
     await testDb.truncateAll();
-    await subjects.add(createSubject({ id: MATH, name: 'Matemática', createdAt }));
-    await subjects.add(createSubject({ id: HISTORY, name: 'História', createdAt }));
+    await subjects.add(
+      SubjectEntity.create({ id: MATH, name: 'Matemática', createdAt }).snapshot(),
+    );
+    await subjects.add(
+      SubjectEntity.create({ id: HISTORY, name: 'História', createdAt }).snapshot(),
+    );
   });
 
   it('grava e recupera o professor com as habilitações na ordem informada', async () => {
-    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [HISTORY, MATH], createdAt });
+    const teacher = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [HISTORY, MATH],
+      createdAt,
+    }).snapshot();
 
     await teachers.add(teacher);
 
@@ -48,14 +57,24 @@ describe('PrismaTeacherRepository (PostgreSQL)', () => {
   });
 
   it('não grava nada quando uma disciplina não existe (atomicidade)', async () => {
-    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH, MISSING], createdAt });
+    const teacher = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [MATH, MISSING],
+      createdAt,
+    }).snapshot();
 
     await expect(teachers.add(teacher)).rejects.toThrow(UnknownSubjectError);
     expect(await teachers.listAll()).toEqual([]);
   });
 
   it('substitui dados e habilitações incrementando a versão', async () => {
-    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    const teacher = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [MATH],
+      createdAt,
+    }).snapshot();
     await teachers.add(teacher);
 
     const saved = await teachers.update({
@@ -70,7 +89,12 @@ describe('PrismaTeacherRepository (PostgreSQL)', () => {
   });
 
   it('rejeita versão antiga sem tocar nas habilitações', async () => {
-    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    const teacher = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [MATH],
+      createdAt,
+    }).snapshot();
     await teachers.add(teacher);
     await teachers.update({ ...teacher, subjectIds: [HISTORY] });
 
@@ -81,7 +105,12 @@ describe('PrismaTeacherRepository (PostgreSQL)', () => {
   });
 
   it('desfaz a atualização inteira se uma habilitação for inválida', async () => {
-    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    const teacher = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [MATH],
+      createdAt,
+    }).snapshot();
     await teachers.add(teacher);
 
     await expect(
@@ -91,7 +120,12 @@ describe('PrismaTeacherRepository (PostgreSQL)', () => {
   });
 
   it('em gravações simultâneas da mesma versão, só uma vence', async () => {
-    const teacher = createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt });
+    const teacher = TeacherEntity.create({
+      id: ANA,
+      name: 'Ana',
+      subjectIds: [MATH],
+      createdAt,
+    }).snapshot();
     await teachers.add(teacher);
 
     const results = await Promise.allSettled([
@@ -107,7 +141,9 @@ describe('PrismaTeacherRepository (PostgreSQL)', () => {
   });
 
   it('o banco impede excluir disciplina usada em habilitação', async () => {
-    await teachers.add(createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt }));
+    await teachers.add(
+      TeacherEntity.create({ id: ANA, name: 'Ana', subjectIds: [MATH], createdAt }).snapshot(),
+    );
 
     await expect(testDb.db.subject.delete({ where: { id: MATH } })).rejects.toThrow();
   });

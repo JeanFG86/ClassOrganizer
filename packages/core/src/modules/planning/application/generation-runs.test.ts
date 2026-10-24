@@ -8,11 +8,11 @@ import {
   makeInMemoryPlanningStore,
 } from '../../../testing/planning-fixture.ts';
 
-import { createGenerationTestOperations } from '../../../testing/use-case-operations.ts';
-
-import { createPlanningTestOperations } from '../../../testing/use-case-operations.ts';
-
-import { createGridTestOperations } from '../../../testing/use-case-operations.ts';
+import {
+  createGenerationTestOperations,
+  createPlanningTestOperations,
+  createGridTestOperations,
+} from '../../../testing/use-case-operations.ts';
 
 const editor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
 const viewer: Actor = { ...editor, role: 'viewer' };

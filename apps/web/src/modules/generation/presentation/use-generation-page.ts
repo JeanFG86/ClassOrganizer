@@ -10,9 +10,13 @@ import type {
 import { useAccess } from '../../access/index.ts';
 import { errorMessage, isOutdatedError } from '../../../shared/presentation/feedback.ts';
 import { generationApiKey } from './generation-key.ts';
-import { gridApiKey } from '../../planning/index.ts';
-import { type GridRef } from '../../planning/index.ts';
-import { gridLookup, placementKey, type GridItem } from '../../planning/index.ts';
+import {
+  gridApiKey,
+  type GridRef,
+  gridLookup,
+  placementKey,
+  type GridItem,
+} from '../../planning/index.ts';
 import { injectRequired } from '../../../shared/presentation/inject-required.ts';
 export function useGenerationPage() {
   /** Intervalo de acompanhamento enquanto houver uma geração ativa. */

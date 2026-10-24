@@ -1,9 +1,9 @@
-import { validateTimetableModel } from '../../../timetable/domain/index.ts';
 import {
+  validateTimetableModel,
   measureTeacherIdleMinutes,
   validateTimetableProposal,
+  measurePreferences,
 } from '../../../timetable/domain/index.ts';
-import { measurePreferences } from '../../../timetable/domain/index.ts';
 import type { TimetableIssue, TimetableSnapshot } from '../../../timetable/domain/index.ts';
 import type {
   EngineSearchResult,

@@ -138,19 +138,3 @@ export class ClassGroupEntity {
     return new ClassGroupEntity({ ...this.#state, archivedAt: null });
   }
 }
-
-export function createClassGroup(input: { id: string; name: string; createdAt: Date }): ClassGroup {
-  return ClassGroupEntity.create(input).snapshot();
-}
-
-export function renameClassGroup(classGroup: ClassGroup, name: string): ClassGroup {
-  return ClassGroupEntity.reconstitute(classGroup).rename(name).snapshot();
-}
-
-export function scheduleClassGroup(
-  classGroup: ClassGroup,
-  shift: Shift | null,
-  periodIds: readonly string[],
-): ClassGroup {
-  return ClassGroupEntity.reconstitute(classGroup).schedule(shift, periodIds).snapshot();
-}

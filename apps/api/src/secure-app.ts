@@ -10,8 +10,8 @@ import { registerGenerationRoutes } from './http/generation-routes.ts';
 import { registerAuditRoutes } from './http/audit-routes.ts';
 /** Metas provisórias da busca, enquanto não houver metas pactuadas (ADR 0014). */
 export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
-  timeLimitMs: 30000,
-  nodeLimit: 2000000,
+  timeLimitMs: 30_000,
+  nodeLimit: 2_000_000,
   memoryLimitMb: 256,
 };
 export function createSecureApp(

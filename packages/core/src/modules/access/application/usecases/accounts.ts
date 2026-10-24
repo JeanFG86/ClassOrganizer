@@ -3,11 +3,6 @@ import type {
   AccountRepository,
   PasswordService,
 } from '../ports/account-repository.ts';
-export type {
-  StoredUser,
-  AccountRepository,
-  PasswordService,
-} from '../ports/account-repository.ts';
 
 import { StaleVersionError } from '../../../../shared/versioning.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';

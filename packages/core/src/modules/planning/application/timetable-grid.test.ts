@@ -4,9 +4,10 @@ import type { GridOperation, GridSlot, Placement } from '../domain/grid.ts';
 import type { Weekday } from '../../../shared/weekdays.ts';
 import { makeInMemoryPlanningStore } from '../../../testing/planning-fixture.ts';
 
-import { createPlanningTestOperations } from '../../../testing/use-case-operations.ts';
-
-import { createGridTestOperations } from '../../../testing/use-case-operations.ts';
+import {
+  createPlanningTestOperations,
+  createGridTestOperations,
+} from '../../../testing/use-case-operations.ts';
 
 const editor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
 const viewer: Actor = { ...editor, role: 'viewer' };

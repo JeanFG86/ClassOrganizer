@@ -10,9 +10,9 @@ import {
   InvalidAssignmentResourcesError,
   InvalidWeeklyLessonsError,
   TeacherNotQualifiedError,
-  createAssignment,
+  TeachingAssignmentEntity,
 } from '../domain/assignment.ts';
-import { createTeacher, type Teacher } from '../domain/teacher.ts';
+import { TeacherEntity, type Teacher } from '../domain/teacher.ts';
 import {
   AssignTeaching,
   ChangeAssignment,
@@ -29,7 +29,7 @@ const valid = { classGroupId: '6A', participants: [first], weeklyLessons: 5 };
 
 function teacher(id: string, subjectIds: string[], archived = false): Teacher {
   return {
-    ...createTeacher({ id, name: id, subjectIds, createdAt: now }),
+    ...TeacherEntity.create({ id, name: id, subjectIds, createdAt: now }).snapshot(),
     archivedAt: archived ? now : null,
   };
 }
@@ -205,13 +205,13 @@ describe('atribuições em blocos de aulas', () => {
   });
   it('não retém referências mutáveis da entrada', () => {
     const participants = [{ ...first }];
-    const assignment = createAssignment({
+    const assignment = TeachingAssignmentEntity.create({
       ...valid,
       id: 'a1',
       participants,
       resourceIds: [],
       createdAt: now,
-    });
+    }).snapshot();
     if (participants[0]) participants[0].teacherId = 'changed';
     participants.push(second);
     expect(assignment.participants).toEqual([first]);

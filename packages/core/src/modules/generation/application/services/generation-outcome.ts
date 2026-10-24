@@ -1,14 +1,6 @@
-export type { ClaimedGeneration, GenerationQueue } from './ports/generation-queue.ts';
-import { proposalPlacements, type GenerationOutcome } from '../../planning/domain/index.ts';
-import type { TimetableSnapshot } from '../../timetable/domain/index.ts';
-import type { GenerationResult } from './ports/engine.ts';
-
-/** Execução reservada por um worker, com a entrada gravada na solicitação. */
-
-/**
- * Fila durável das execuções (ADR 0014). A reserva tem prazo: um worker interrompido perde
- * a execução, que volta a ser reservada até o limite de tentativas.
- */
+import { proposalPlacements, type GenerationOutcome } from '../../../planning/domain/index.ts';
+import type { TimetableSnapshot } from '../../../timetable/domain/index.ts';
+import type { GenerationResult } from '../ports/engine.ts';
 
 /** Resultado conferido do motor, no formato guardado pela execução. */
 export function outcomeOf(

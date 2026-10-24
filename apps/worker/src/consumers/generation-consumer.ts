@@ -9,7 +9,7 @@ export interface QueueRunnerOptions {
   readonly pollMs: number;
   readonly maxAttempts: number;
 }
-export interface GenerationConsumerDeps {
+export interface GenerationConsumerDependencies {
   queue: GenerationQueue;
   executor: GenerationExecutor;
   logger: GenerationLogger;
@@ -17,10 +17,10 @@ export interface GenerationConsumerDeps {
 }
 /** Consome uma execução por vez e mantém reserva e cancelamento (ADR 0014). */
 export class GenerationConsumer {
-  readonly #deps: GenerationConsumerDeps;
+  readonly #deps: GenerationConsumerDependencies;
   readonly #stopping = new AbortController();
   #loop: Promise<void> | null = null;
-  constructor(deps: GenerationConsumerDeps) {
+  constructor(deps: GenerationConsumerDependencies) {
     this.#deps = deps;
   }
   /** Processa a próxima execução da fila; devolve `false` se não havia nenhuma. */
@@ -75,7 +75,7 @@ export class GenerationConsumer {
     return true;
   }
 
-  private async poll(): Promise<void> {
+  async #poll(): Promise<void> {
     const { logger, options } = this.#deps;
     const stopping = this.#stopping;
     while (!stopping.signal.aborted) {
@@ -91,7 +91,7 @@ export class GenerationConsumer {
   }
 
   start() {
-    this.#loop ??= this.poll();
+    this.#loop ??= this.#poll();
   }
   async stop() {
     this.#stopping.abort();

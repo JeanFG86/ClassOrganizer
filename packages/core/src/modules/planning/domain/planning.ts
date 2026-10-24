@@ -57,7 +57,7 @@ export class PlanningEntity {
   }): PlanningEntity {
     return new PlanningEntity({
       ...input,
-      name: validatePlanningInput(input.name, input.year),
+      name: validName(input.name, input.year),
       archivedAt: null,
       version: 1,
     });
@@ -68,8 +68,15 @@ export class PlanningEntity {
   restore(): PlanningEntity {
     return new PlanningEntity({ ...this.#state, archivedAt: null });
   }
+  /** Alterações valem só para uma revisão aberta de um planejamento ativo. */
   requireDraft(revision: PlanningRevision): void {
-    requireDraft(this.#state, revision);
+    if (this.#state.archivedAt)
+      throw new PlanningError('planning.archived', 'Restaure o planejamento antes de alterá-lo.');
+    if (revision.sealedAt)
+      throw new PlanningError(
+        'planning.sealed',
+        'Esta revisão está concluída. Abra um novo rascunho.',
+      );
   }
   snapshot(): Planning {
     return structuredClone(this.#state);
@@ -83,6 +90,27 @@ export class PlanningRevisionEntity {
   }
   static reconstitute(state: PlanningRevision): PlanningRevisionEntity {
     return new PlanningRevisionEntity(state);
+  }
+  /** Abre um rascunho com a fotografia e as regras informadas, ainda sem conferências. */
+  static open(input: {
+    id: string;
+    planningId: string;
+    number: number;
+    snapshot: CatalogSnapshot;
+    gridRules: GridRules;
+    createdAt: Date;
+    createdBy: string;
+  }): PlanningRevisionEntity {
+    return new PlanningRevisionEntity({
+      ...input,
+      rulesReviewed: false,
+      availabilityReviewed: false,
+      sealedAt: null,
+    });
+  }
+  /** Regras novas precisam ser conferidas de novo antes da conclusão. */
+  changeRules(gridRules: GridRules): PlanningRevisionEntity {
+    return new PlanningRevisionEntity({ ...this.#state, gridRules, rulesReviewed: false });
   }
   review(
     rulesReviewed: boolean | undefined,
@@ -111,7 +139,7 @@ export class PlanningRevisionEntity {
     return structuredClone(this.#state);
   }
 }
-export function validatePlanningInput(name: string, year: number): string {
+function validName(name: string, year: number): string {
   const trimmed = name.trim();
   if (
     trimmed.length < 1 ||
@@ -126,13 +154,4 @@ export function validatePlanningInput(name: string, year: number): string {
       'validation',
     );
   return trimmed;
-}
-export function requireDraft(planning: Planning, revision: PlanningRevision): void {
-  if (planning.archivedAt)
-    throw new PlanningError('planning.archived', 'Restaure o planejamento antes de alterá-lo.');
-  if (revision.sealedAt)
-    throw new PlanningError(
-      'planning.sealed',
-      'Esta revisão está concluída. Abra um novo rascunho.',
-    );
 }

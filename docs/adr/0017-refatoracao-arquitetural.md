@@ -67,3 +67,14 @@ As fábricas e os reexports temporários usados durante a migração foram remov
 - Controllers e transporte HTTP não acessam infraestrutura nem composição. Os controllers dos cadastros traduzem explicitamente os estados para DTOs; as rotas validam e traduzem entradas.
 - Código de produção não depende de `testing`. Testes com projetos temporários provam que imports proibidos falham e contratos públicos são aceitos.
 - Fotografias das entidades são cópias independentes; contratos públicos e migrações permanecem compatíveis.
+
+## Consolidação posterior
+
+Uma revisão depois das sete etapas encontrou partes migradas só na forma. A entrega seguinte ajustou:
+
+- **Planejamento:** as classes deixaram de reconstruir a antiga fábrica a cada `execute`. `ChangePlanning` encaminha `operation` para `OpenPlanningDraft`, `ReviewPlanningRevision`, `SealPlanningRevision`, `ArchivePlanning` e `RestorePlanning`; a leitura e a gravação da grade ficam em `GridReader` e `GridWriter`. Cada caso de uso recebe só as portas que usa.
+- **Composição da API:** os serviços da transação têm tipo nomeado, os repositórios de planejamento são criados uma vez por transação e a classificação leitura/escrita do catálogo é explícita em `CATALOG_ACCESS`, sem convenção de nome nem composição fora da transação.
+- **Domínio:** as funções paralelas às entidades (`createSubject`, `setUnavailability`, `requireDraft` e semelhantes) foram removidas; a revisão do planejamento ganhou `open` e `changeRules`.
+- **Padrões:** casos de uso agrupados por agregado em `usecases`, apoio em `services`, dependências em `#deps`, clientes HTTP da web como fábricas e índices explícitos na infraestrutura. O ESLint passou a recusar imports repetidos do mesmo módulo.
+
+Contratos públicos, códigos de erro, auditoria e migrações não mudaram.

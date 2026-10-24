@@ -1,4 +1,3 @@
-import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { READ_ROLES, WRITE_ROLES, requireRole, type Actor } from '../../../access/domain/index.ts';
 import type { TimetableIssue } from '../../../timetable/domain/index.ts';
 import type { TranslatedCatalog } from '../../domain/catalog-translation.ts';
@@ -13,9 +12,14 @@ import {
   type Placement,
 } from '../../domain/grid.ts';
 import { describeOperation } from '../../domain/grid-summary.ts';
-import { PlanningError } from '../../domain/planning.ts';
-import { makeGridAccess, undoTarget } from '../grid-access.ts';
-import type { GridRepository, PlanningRepository } from '../ports/index.ts';
+import { PlanningError, PlanningRevisionEntity } from '../../domain/planning.ts';
+import {
+  GridReader,
+  GridWriter,
+  undoTarget,
+  type GridReaderDependencies,
+  type GridWriterDependencies,
+} from '../services/grid-access.ts';
 
 export interface GridEvaluation {
   accepted: boolean;
@@ -56,53 +60,40 @@ function rejected(evaluation: GridEvaluation): never {
       (others > 0 ? ' Há mais ' + others + (others === 1 ? ' problema.' : ' problemas.') : ''),
   );
 }
-export type TimetableGridDependencies = {
-  plannings: PlanningRepository;
-  grids: GridRepository;
-  clock: Clock;
-  ids: IdGenerator;
-};
-function timetableGridContext(deps: TimetableGridDependencies) {
-  const { plannings, grids } = deps;
-  const { load, loadDraft, commit } = makeGridAccess(deps);
-  async function prepare(
-    actor: Actor,
-    input: { id: string; version: number; revisionId: string; operation: GridOperation },
-  ) {
-    requireRole(actor, WRITE_ROLES);
-    const loaded = await loadDraft(input);
-    const delta = operationDelta(loaded.placements, input.operation);
-    const evaluation = evaluate(
-      loaded.translated,
-      loaded.placements,
-      applyDelta(loaded.placements, delta),
-      describeOperation(loaded.translated, input.operation),
-    );
-    return { loaded, delta, evaluation };
-  }
-  return { deps, plannings, grids, load, loadDraft, commit, prepare };
+/** Dependências de todas as operações da grade, usadas pela composição. */
+export type TimetableGridDependencies = GridWriterDependencies;
+
+type GridCommand = { id: string; version: number; revisionId: string; operation: GridOperation };
+
+/** Calcula a alteração de uma operação sobre o rascunho atual e a avalia sem gravar. */
+async function prepare(reader: GridReader, actor: Actor, input: GridCommand) {
+  requireRole(actor, WRITE_ROLES);
+  const loaded = await reader.loadDraft(input);
+  const delta = operationDelta(loaded.placements, input.operation);
+  const evaluation = evaluate(
+    loaded.translated,
+    loaded.placements,
+    applyDelta(loaded.placements, delta),
+    describeOperation(loaded.translated, input.operation),
+  );
+  return { loaded, delta, evaluation };
 }
+
+export type ViewTimetableGridDependencies = GridReaderDependencies;
 export class ViewTimetableGrid {
-  readonly #deps: TimetableGridDependencies;
-  constructor(deps: TimetableGridDependencies) {
+  readonly #deps: ViewTimetableGridDependencies;
+  readonly #reader: GridReader;
+  constructor(deps: ViewTimetableGridDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
   }
   async execute(actor: Actor, input: { id: string; revisionId?: string | undefined }) {
-    const { grids, load } = timetableGridContext(this.#deps);
-
     requireRole(actor, READ_ROLES);
-
-    const { planning, revisions, revision, placements, translated, editable } = await load(
-      input.id,
-      input.revisionId,
-    );
-
-    const history = await grids.history(revision.id);
-
+    const { planning, revisions, revision, placements, translated, editable } =
+      await this.#reader.load(input.id, input.revisionId);
+    const history = await this.#deps.grids.history(revision.id);
     const reverted = new Set(history.flatMap((c) => (c.revertsId ? [c.revertsId] : [])));
-
     const target = editable ? undoTarget(history) : null;
-
     return {
       planning,
       revision: {
@@ -132,36 +123,31 @@ export class ViewTimetableGrid {
     };
   }
 }
-export class PreviewTimetableGrid {
-  readonly #deps: TimetableGridDependencies;
-  constructor(deps: TimetableGridDependencies) {
-    this.#deps = deps;
-  }
-  async execute(
-    actor: Actor,
-    input: { id: string; version: number; revisionId: string; operation: GridOperation },
-  ): Promise<GridEvaluation> {
-    const { prepare } = timetableGridContext(this.#deps);
 
-    return (await prepare(actor, input)).evaluation;
+export type PreviewTimetableGridDependencies = GridReaderDependencies;
+/** A prévia não grava nada. */
+export class PreviewTimetableGrid {
+  readonly #reader: GridReader;
+  constructor(deps: PreviewTimetableGridDependencies) {
+    this.#reader = new GridReader(deps);
+  }
+  async execute(actor: Actor, input: GridCommand): Promise<GridEvaluation> {
+    return (await prepare(this.#reader, actor, input)).evaluation;
   }
 }
+
+export type ApplyTimetableGridDependencies = GridWriterDependencies;
 export class ApplyTimetableGrid {
-  readonly #deps: TimetableGridDependencies;
-  constructor(deps: TimetableGridDependencies) {
-    this.#deps = deps;
+  readonly #reader: GridReader;
+  readonly #writer: GridWriter;
+  constructor(deps: ApplyTimetableGridDependencies) {
+    this.#reader = new GridReader(deps);
+    this.#writer = new GridWriter(deps);
   }
-  async execute(
-    actor: Actor,
-    input: { id: string; version: number; revisionId: string; operation: GridOperation },
-  ) {
-    const { commit, prepare } = timetableGridContext(this.#deps);
-
-    const { loaded, delta, evaluation } = await prepare(actor, input);
-
+  async execute(actor: Actor, input: GridCommand) {
+    const { loaded, delta, evaluation } = await prepare(this.#reader, actor, input);
     if (!evaluation.accepted) rejected(evaluation);
-
-    return commit(actor, loaded.planning, loaded.revision.id, {
+    return this.#writer.commit(actor, loaded.planning, loaded.revision.id, {
       kind: 'operation',
       summary: evaluation.summary,
       delta,
@@ -169,35 +155,32 @@ export class ApplyTimetableGrid {
     });
   }
 }
+
+export type UndoTimetableGridDependencies = GridWriterDependencies;
 export class UndoTimetableGrid {
-  readonly #deps: TimetableGridDependencies;
-  constructor(deps: TimetableGridDependencies) {
+  readonly #deps: UndoTimetableGridDependencies;
+  readonly #reader: GridReader;
+  readonly #writer: GridWriter;
+  constructor(deps: UndoTimetableGridDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
+    this.#writer = new GridWriter(deps);
   }
   async execute(actor: Actor, input: { id: string; version: number; revisionId: string }) {
-    const { grids, loadDraft, commit } = timetableGridContext(this.#deps);
-
     requireRole(actor, WRITE_ROLES);
-
-    const loaded = await loadDraft(input);
-
-    const target = undoTarget(await grids.history(loaded.revision.id));
-
+    const loaded = await this.#reader.loadDraft(input);
+    const target = undoTarget(await this.#deps.grids.history(loaded.revision.id));
     if (!target)
       throw new PlanningError('grid.undo_unavailable', 'Não há alteração para desfazer.');
-
     const delta = invertDelta(target.delta);
-
     const evaluation = evaluate(
       loaded.translated,
       loaded.placements,
       applyDelta(loaded.placements, delta),
       'Desfez: ' + target.summary,
     );
-
     if (!evaluation.accepted) rejected(evaluation);
-
-    return commit(actor, loaded.planning, loaded.revision.id, {
+    return this.#writer.commit(actor, loaded.planning, loaded.revision.id, {
       kind: 'undo',
       summary: evaluation.summary,
       delta,
@@ -205,27 +188,28 @@ export class UndoTimetableGrid {
     });
   }
 }
+
+export type ChangeGridRulesDependencies = GridReaderDependencies;
+/** Regras novas exigem nova conferência das regras antes da conclusão. */
 export class ChangeGridRules {
-  readonly #deps: TimetableGridDependencies;
-  constructor(deps: TimetableGridDependencies) {
+  readonly #deps: ChangeGridRulesDependencies;
+  readonly #reader: GridReader;
+  constructor(deps: ChangeGridRulesDependencies) {
     this.#deps = deps;
+    this.#reader = new GridReader(deps);
   }
   async execute(
     actor: Actor,
     input: { id: string; version: number; revisionId: string; rules: GridRules },
   ) {
-    const { plannings, loadDraft } = timetableGridContext(this.#deps);
-
     requireRole(actor, WRITE_ROLES);
-
-    const { planning, revision } = await loadDraft(input);
-
-    await plannings.save(planning, {
-      ...revision,
-      gridRules: validateGridRules(input.rules),
-      rulesReviewed: false,
-    });
-
+    const { planning, revision } = await this.#reader.loadDraft(input);
+    await this.#deps.plannings.save(
+      planning,
+      PlanningRevisionEntity.reconstitute(revision)
+        .changeRules(validateGridRules(input.rules))
+        .snapshot(),
+    );
     return { id: planning.id, version: planning.version + 1 };
   }
 }

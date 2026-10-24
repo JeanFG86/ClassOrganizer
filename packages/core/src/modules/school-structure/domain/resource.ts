@@ -94,11 +94,3 @@ export class ResourceEntity {
     return new ResourceEntity({ ...this.#state, archivedAt: null });
   }
 }
-
-export function createResource(input: { id: string; name: string; createdAt: Date }): Resource {
-  return ResourceEntity.create(input).snapshot();
-}
-
-export function renameResource(resource: Resource, name: string): Resource {
-  return ResourceEntity.reconstitute(resource).rename(name).snapshot();
-}

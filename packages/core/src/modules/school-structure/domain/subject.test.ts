@@ -2,47 +2,58 @@ import { describe, expect, it } from 'vitest';
 import {
   InvalidSubjectNameError,
   SUBJECT_NAME_MAX_LENGTH,
-  createSubject,
-  normalizeSubjectName,
+  SubjectName,
   SubjectEntity,
 } from './subject.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00Z');
 
-describe('createSubject', () => {
+describe('SubjectEntity.create', () => {
   it('limpa espaços extras do nome', () => {
-    const subject = createSubject({ id: 's1', name: '  Língua   Portuguesa ', createdAt });
+    const subject = SubjectEntity.create({
+      id: 's1',
+      name: '  Língua   Portuguesa ',
+      createdAt,
+    }).snapshot();
 
     expect(subject.name).toBe('Língua Portuguesa');
   });
 
   it('gera chave normalizada sem acentos nem maiúsculas', () => {
-    const subject = createSubject({ id: 's1', name: 'Educação Física', createdAt });
+    const subject = SubjectEntity.create({
+      id: 's1',
+      name: 'Educação Física',
+      createdAt,
+    }).snapshot();
 
     expect(subject.normalizedName).toBe('educacao fisica');
   });
 
   it.each(['', '   '])('rejeita nome vazio (%j)', (name) => {
-    expect(() => createSubject({ id: 's1', name, createdAt })).toThrow(InvalidSubjectNameError);
+    expect(() => SubjectEntity.create({ id: 's1', name, createdAt }).snapshot()).toThrow(
+      InvalidSubjectNameError,
+    );
   });
 
   it('aceita nome no limite de tamanho', () => {
     const name = 'a'.repeat(SUBJECT_NAME_MAX_LENGTH);
 
-    expect(createSubject({ id: 's1', name, createdAt }).name).toBe(name);
+    expect(SubjectEntity.create({ id: 's1', name, createdAt }).snapshot().name).toBe(name);
   });
 
   it('rejeita nome acima do limite de tamanho', () => {
     const name = 'a'.repeat(SUBJECT_NAME_MAX_LENGTH + 1);
 
-    expect(() => createSubject({ id: 's1', name, createdAt })).toThrow(InvalidSubjectNameError);
+    expect(() => SubjectEntity.create({ id: 's1', name, createdAt }).snapshot()).toThrow(
+      InvalidSubjectNameError,
+    );
   });
 });
 
 describe('SubjectEntity', () => {
   it('reconstitui uma fotografia sem redefinir identidade, versão ou datas', () => {
     const state = {
-      ...createSubject({ id: 's1', name: 'Oficina fictícia', createdAt }),
+      ...SubjectEntity.create({ id: 's1', name: 'Oficina fictícia', createdAt }).snapshot(),
       version: 7,
       archivedAt: createdAt,
     };
@@ -64,8 +75,10 @@ describe('SubjectEntity', () => {
   });
 });
 
-describe('normalizeSubjectName', () => {
+describe('SubjectName', () => {
   it('considera equivalentes nomes que só diferem em acento, caixa e espaços', () => {
-    expect(normalizeSubjectName(' MATEMÁTICA ')).toBe(normalizeSubjectName('matematica'));
+    expect(new SubjectName(' MATEMÁTICA ').normalized).toBe(
+      new SubjectName('matematica').normalized,
+    );
   });
 });

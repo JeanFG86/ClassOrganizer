@@ -39,8 +39,6 @@ export class SubjectNotFoundError extends NotFoundError {
   }
 }
 
-export const normalizeSubjectName = normalizeName;
-
 function validName(raw: string): Pick<Subject, 'name' | 'normalizedName'> {
   const name = cleanName(raw);
 
@@ -106,20 +104,4 @@ export class SubjectEntity {
   snapshot(): Subject {
     return structuredClone(this.#state);
   }
-}
-
-export function createSubject(input: { id: string; name: string; createdAt: Date }): Subject {
-  return SubjectEntity.create(input).snapshot();
-}
-
-export function renameSubject(subject: Subject, name: string): Subject {
-  return SubjectEntity.reconstitute(subject).rename(name).snapshot();
-}
-
-export function archiveSubject(subject: Subject, at: Date): Subject {
-  return SubjectEntity.reconstitute(subject).archive(at).snapshot();
-}
-
-export function restoreSubject(subject: Subject): Subject {
-  return SubjectEntity.reconstitute(subject).restore().snapshot();
 }

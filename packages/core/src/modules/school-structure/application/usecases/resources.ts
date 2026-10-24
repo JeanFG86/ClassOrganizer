@@ -1,12 +1,14 @@
 import type { ResourceRepository } from '../ports/resource-repository.ts';
-export type { ResourceRepository } from '../ports/resource-repository.ts';
-import { ResourceEntity } from '../../domain/resource.ts';
+import {
+  ResourceEntity,
+  ResourceNameAlreadyInUseError,
+  ResourceNotFoundError,
+} from '../../domain/resource.ts';
 
 import { compareNames } from '../../../../shared/names.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { assertVersion } from '../../../../shared/versioning.ts';
 import type { VersionedRef } from '../../../../shared/versioning.ts';
-import { ResourceNameAlreadyInUseError, ResourceNotFoundError } from '../../domain/resource.ts';
 import type { Resource } from '../../domain/resource.ts';
 
 async function loadForChange(resources: ResourceRepository, ref: VersionedRef) {

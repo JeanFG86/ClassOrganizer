@@ -1,6 +1,5 @@
-import { bindUseCase } from '@classorganizer/core';
+import { bindUseCase, GenerateTimetable, validateTimetableProposal } from '@classorganizer/core';
 import { describe, expect, it } from 'vitest';
-import { GenerateTimetable, validateTimetableProposal } from '@classorganizer/core';
 import type { GenerationOptions, TimetableSnapshot } from '@classorganizer/core';
 import { makeTimetableFixture } from '@classorganizer/core/testing';
 import { solveReference } from './reference-engine.ts';

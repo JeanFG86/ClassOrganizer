@@ -1,5 +1,5 @@
 import { FetchHttpClient } from '../shared/infra/http/fetch-http-client.ts';
-import { AuthenticationHttpApi } from '../modules/access/infra/authentication-http-api.ts';
+import { createAuthenticationApi } from '../modules/access/infra/authentication-http-api.ts';
 import { createSessionStore } from '../modules/access/presentation/session-store.ts';
 import { createAccountsApi } from '../modules/access/infra/accounts-http-api.ts';
 import { createPlanningsApi } from '../modules/planning/infra/plannings-http-api.ts';
@@ -13,7 +13,7 @@ export {
 export function createAccessApi() {
   const client = new FetchHttpClient();
   return {
-    ...createSessionStore(new AuthenticationHttpApi(client)),
+    ...createSessionStore(createAuthenticationApi(client)),
     ...createAccountsApi(client),
     ...createPlanningsApi(client),
     ...createAuditApi(client),

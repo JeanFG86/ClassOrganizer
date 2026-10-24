@@ -226,18 +226,3 @@ export class ShiftEntity {
     return new ShiftEntity({ ...this.#state, archivedAt: null });
   }
 }
-
-export function createShift(
-  input: { id: string; name: string; periods: readonly PeriodInput[]; createdAt: Date },
-  ids: IdGenerator,
-): Shift {
-  return ShiftEntity.create(input, ids).snapshot();
-}
-
-export function changeShift(
-  shift: Shift,
-  input: { name: string; periods: readonly PeriodInput[] },
-  ids: IdGenerator,
-): Shift {
-  return ShiftEntity.reconstitute(shift).change(input, ids).snapshot();
-}

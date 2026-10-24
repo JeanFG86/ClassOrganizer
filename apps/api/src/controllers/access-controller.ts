@@ -3,8 +3,9 @@ import type {
   CreateAccount,
   ChangeAccount,
   ChangePassword,
+  SessionView,
+  LoginResult,
 } from '@classorganizer/core';
-import type { SessionView, LoginResult } from '@classorganizer/core';
 type WithoutActor<T> = T extends (actor: infer _Actor, ...args: infer Args) => infer Result
   ? (...args: Args) => Result
   : never;

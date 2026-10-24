@@ -1,7 +1,7 @@
 // Repositórios em memória para testes do core. Imitam o comportamento relevante dos
 // adaptadores reais (versão otimista e unicidade); não são usados em produção.
-import type { ClassGroupRepository } from '../modules/school-structure/application/usecases/class-groups.ts';
-import type { ResourceRepository } from '../modules/school-structure/application/usecases/resources.ts';
+import type { ClassGroupRepository } from '../modules/school-structure/application/ports/class-group-repository.ts';
+import type { ResourceRepository } from '../modules/school-structure/application/ports/resource-repository.ts';
 import type { ShiftRepository } from '../modules/school-structure/application/ports/shift-repository.ts';
 import type { Resource } from '../modules/school-structure/domain/resource.ts';
 import type { ClassGroup } from '../modules/school-structure/domain/class-group.ts';

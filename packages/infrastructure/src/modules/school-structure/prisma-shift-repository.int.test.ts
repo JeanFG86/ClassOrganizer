@@ -3,9 +3,8 @@ import {
   PeriodInUseError,
   ShiftNameAlreadyInUseError,
   StaleVersionError,
-  createClassGroup,
-  createShift,
-  scheduleClassGroup,
+  ClassGroupEntity,
+  ShiftEntity,
 } from '@classorganizer/core';
 import type { Shift } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -32,7 +31,7 @@ function sequence(ids: readonly string[]) {
 }
 
 function morning(): Shift {
-  return createShift(
+  return ShiftEntity.create(
     {
       id: MORNING,
       name: 'Manhã',
@@ -44,7 +43,7 @@ function morning(): Shift {
       createdAt,
     },
     sequence(periodIds),
-  );
+  ).snapshot();
 }
 
 describe('PrismaShiftRepository e turno da turma (PostgreSQL)', () => {
@@ -110,11 +109,13 @@ describe('PrismaShiftRepository e turno da turma (PostgreSQL)', () => {
   it('liga a turma ao turno, troca as aulas e tira do turno', async () => {
     const shift = morning();
     await shifts.add(shift);
-    const turma = createClassGroup({ id: C6A, name: '6º A', createdAt });
+    const turma = ClassGroupEntity.create({ id: C6A, name: '6º A', createdAt }).snapshot();
     await classGroups.add(turma);
     const [p1, p2, p3] = shift.periods.map((p) => p.id);
 
-    const scheduled = scheduleClassGroup(turma, shift, [p3 ?? '', p1 ?? '']);
+    const scheduled = ClassGroupEntity.reconstitute(turma)
+      .schedule(shift, [p3 ?? '', p1 ?? ''])
+      .snapshot();
     await classGroups.update(scheduled);
     expect(await classGroups.findById(C6A)).toEqual({
       ...scheduled,
@@ -124,11 +125,15 @@ describe('PrismaShiftRepository e turno da turma (PostgreSQL)', () => {
     expect((await classGroups.findByShift(MORNING)).map((c) => c.id)).toEqual([C6A]);
 
     const reloaded = (await classGroups.findById(C6A)) ?? turma;
-    await classGroups.update(scheduleClassGroup(reloaded, shift, [p2 ?? '']));
+    await classGroups.update(
+      ClassGroupEntity.reconstitute(reloaded)
+        .schedule(shift, [p2 ?? ''])
+        .snapshot(),
+    );
     expect((await classGroups.findById(C6A))?.periodIds).toEqual([p2]);
 
     const again = (await classGroups.findById(C6A)) ?? turma;
-    await classGroups.update(scheduleClassGroup(again, null, []));
+    await classGroups.update(ClassGroupEntity.reconstitute(again).schedule(null, []).snapshot());
     expect(await classGroups.findById(C6A)).toMatchObject({
       shiftId: null,
       periodIds: [],
@@ -140,23 +145,28 @@ describe('PrismaShiftRepository e turno da turma (PostgreSQL)', () => {
   it('troca a turma de turno em uma única gravação', async () => {
     const shift = morning();
     await shifts.add(shift);
-    const afternoon = createShift(
+    const afternoon = ShiftEntity.create(
       { id: AFTERNOON, name: 'Tarde', periods: [{ startMinute: 780, endMinute: 830 }], createdAt },
       sequence([periodIds[4] ?? '']),
-    );
+    ).snapshot();
     await shifts.add(afternoon);
-    const turma = createClassGroup({ id: C6A, name: '6º A', createdAt });
+    const turma = ClassGroupEntity.create({ id: C6A, name: '6º A', createdAt }).snapshot();
     await classGroups.add(turma);
     await classGroups.update(
-      scheduleClassGroup(
-        turma,
-        shift,
-        shift.periods.map((p) => p.id),
-      ),
+      ClassGroupEntity.reconstitute(turma)
+        .schedule(
+          shift,
+          shift.periods.map((p) => p.id),
+        )
+        .snapshot(),
     );
 
     const current = (await classGroups.findById(C6A)) ?? turma;
-    await classGroups.update(scheduleClassGroup(current, afternoon, [periodIds[4] ?? '']));
+    await classGroups.update(
+      ClassGroupEntity.reconstitute(current)
+        .schedule(afternoon, [periodIds[4] ?? ''])
+        .snapshot(),
+    );
 
     expect(await classGroups.findById(C6A)).toMatchObject({
       shiftId: AFTERNOON,
@@ -167,14 +177,15 @@ describe('PrismaShiftRepository e turno da turma (PostgreSQL)', () => {
   it('o banco impede remover aula marcada numa turma, sem passar pelo caso de uso', async () => {
     const shift = morning();
     await shifts.add(shift);
-    const turma = createClassGroup({ id: C6A, name: '6º A', createdAt });
+    const turma = ClassGroupEntity.create({ id: C6A, name: '6º A', createdAt }).snapshot();
     await classGroups.add(turma);
     await classGroups.update(
-      scheduleClassGroup(
-        turma,
-        shift,
-        shift.periods.map((p) => p.id),
-      ),
+      ClassGroupEntity.reconstitute(turma)
+        .schedule(
+          shift,
+          shift.periods.map((p) => p.id),
+        )
+        .snapshot(),
     );
 
     await expect(shifts.update({ ...shift, periods: shift.periods.slice(0, 2) })).rejects.toThrow(
@@ -186,12 +197,12 @@ describe('PrismaShiftRepository e turno da turma (PostgreSQL)', () => {
   it('o banco impede marcar na turma uma aula de outro turno', async () => {
     const shift = morning();
     await shifts.add(shift);
-    const afternoon = createShift(
+    const afternoon = ShiftEntity.create(
       { id: AFTERNOON, name: 'Tarde', periods: [{ startMinute: 780, endMinute: 830 }], createdAt },
       sequence([periodIds[4] ?? '']),
-    );
+    ).snapshot();
     await shifts.add(afternoon);
-    const turma = createClassGroup({ id: C6A, name: '6º A', createdAt });
+    const turma = ClassGroupEntity.create({ id: C6A, name: '6º A', createdAt }).snapshot();
     await classGroups.add(turma);
 
     // Burla a validação do domínio: turno da manhã com uma aula da tarde.

@@ -1,15 +1,14 @@
 import type { ClassGroupRepository } from '../ports/class-group-repository.ts';
-export type { ClassGroupRepository } from '../ports/class-group-repository.ts';
-import { ClassGroupEntity } from '../../domain/class-group.ts';
+import {
+  ClassGroupEntity,
+  ClassGroupNameAlreadyInUseError,
+  ClassGroupNotFoundError,
+} from '../../domain/class-group.ts';
 
 import { compareNames } from '../../../../shared/names.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { assertVersion } from '../../../../shared/versioning.ts';
 import type { VersionedRef } from '../../../../shared/versioning.ts';
-import {
-  ClassGroupNameAlreadyInUseError,
-  ClassGroupNotFoundError,
-} from '../../domain/class-group.ts';
 import type { ClassGroup } from '../../domain/class-group.ts';
 import { ShiftNotFoundError } from '../../domain/shift.ts';
 import type { ShiftRepository } from '../ports/shift-repository.ts';

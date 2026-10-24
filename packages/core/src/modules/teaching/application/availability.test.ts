@@ -9,9 +9,8 @@ import {
   type SubjectStatus,
   type Teacher,
 } from '../domain/teacher.ts';
-import { ChangeTeacherAvailability, UpdateTeacher } from './usecases/change-teacher.ts';
+import { ChangeTeacherAvailability, RegisterTeacher, UpdateTeacher } from './usecases/teachers.ts';
 import type { PeriodLookup, TeacherRepository } from './ports/index.ts';
-import { RegisterTeacher } from './usecases/register-teacher.ts';
 
 class InMemoryTeacherRepository implements TeacherRepository {
   readonly items = new Map<string, Teacher>();

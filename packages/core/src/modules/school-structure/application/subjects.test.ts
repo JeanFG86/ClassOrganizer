@@ -7,9 +7,13 @@ import {
   SubjectNotFoundError,
   type Subject,
 } from '../domain/subject.ts';
-import { ArchiveSubject, RestoreSubject, UpdateSubject } from './usecases/change-subject.ts';
-import { ListSubjects } from './queries/list-subjects.ts';
-import { RegisterSubject } from './usecases/register-subject.ts';
+import {
+  ArchiveSubject,
+  ListSubjects,
+  RegisterSubject,
+  RestoreSubject,
+  UpdateSubject,
+} from './usecases/subjects.ts';
 import type { SubjectRepository } from './ports/subject-repository.ts';
 
 class InMemorySubjectRepository implements SubjectRepository {

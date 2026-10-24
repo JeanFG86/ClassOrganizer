@@ -1,15 +1,15 @@
-import { TeacherEntity } from '../../domain/teacher.ts';
-
-import type { Clock } from '../../../../shared/ports.ts';
-import { assertVersion } from '../../../../shared/versioning.ts';
-import type { VersionedRef } from '../../../../shared/versioning.ts';
+import { compareNames } from '../../../../shared/names.ts';
+import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
+import { assertVersion, type VersionedRef } from '../../../../shared/versioning.ts';
 import {
   QualificationInUseError,
+  TeacherEntity,
   TeacherHasAssignmentsError,
   TeacherNotFoundError,
   assertQualificationsAllowed,
+  type Teacher,
+  type WorkloadInput,
 } from '../../domain/teacher.ts';
-import type { Teacher, WorkloadInput } from '../../domain/teacher.ts';
 import type {
   AssignmentRepository,
   PeriodLookup,
@@ -24,6 +24,53 @@ async function loadForChange(teachers: TeacherRepository, ref: VersionedRef): Pr
   }
   assertVersion(teacher.version, ref.version);
   return teacher;
+}
+
+export type RegisterTeacherDependencies = {
+  teachers: TeacherRepository;
+  subjects: SubjectLookup;
+  clock: Clock;
+  ids: IdGenerator;
+};
+export class RegisterTeacher {
+  readonly #deps: RegisterTeacherDependencies;
+  constructor(deps: RegisterTeacherDependencies) {
+    this.#deps = deps;
+  }
+  async execute(
+    input: { name: string; subjectIds: readonly string[] } & WorkloadInput,
+  ): Promise<Teacher> {
+    const { teachers, subjects, clock, ids } = this.#deps;
+
+    const teacher = TeacherEntity.create({
+      ...input,
+      id: ids.next(),
+      createdAt: clock.now(),
+    }).snapshot();
+
+    const statuses = await subjects.subjectStatuses(teacher.subjectIds);
+
+    assertQualificationsAllowed(teacher.subjectIds, [], statuses);
+
+    await teachers.add(teacher);
+
+    return teacher;
+  }
+}
+
+export type ListTeachersDependencies = { teachers: TeacherRepository };
+export class ListTeachers {
+  readonly #deps: ListTeachersDependencies;
+  constructor(deps: ListTeachersDependencies) {
+    this.#deps = deps;
+  }
+  async execute(): Promise<Teacher[]> {
+    const { teachers } = this.#deps;
+
+    const all = await teachers.listAll();
+
+    return all.toSorted((a, b) => compareNames(a.name, b.name));
+  }
 }
 
 export type UpdateTeacherDependencies = {

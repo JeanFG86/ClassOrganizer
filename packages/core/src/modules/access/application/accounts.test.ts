@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { type AccountRepository, type StoredUser } from './usecases/accounts.ts';
+import type { AccountRepository, StoredUser } from './ports/index.ts';
 import { createAccountTestOperations } from '../../../testing/use-case-operations.ts';
 const user: StoredUser = {
   id: 'account-a',

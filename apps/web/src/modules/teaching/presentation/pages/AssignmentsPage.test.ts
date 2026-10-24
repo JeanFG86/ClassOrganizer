@@ -11,9 +11,11 @@ import { ApiRequestError } from '../../../../shared/application/api-error.ts';
 import { assignmentsApiKey } from '../assignments-key.ts';
 import { type AssignmentsApi } from '../../application/assignments-api.ts';
 import type { CatalogApi } from '../../../../shared/application/catalog-api.ts';
-import { classGroupsApiKey } from '../../../school-structure/index.ts';
-import { resourcesApiKey } from '../../../school-structure/index.ts';
-import { subjectsApiKey } from '../../../school-structure/index.ts';
+import {
+  classGroupsApiKey,
+  resourcesApiKey,
+  subjectsApiKey,
+} from '../../../school-structure/index.ts';
 import { teachersApiKey } from '../teachers-key.ts';
 import { type TeachersApi } from '../../application/teachers-api.ts';
 import AssignmentsPage from './AssignmentsPage.vue';

@@ -1,18 +1,18 @@
-import { ShiftEntity } from '../../domain/shift.ts';
-
-import { compareNames } from '../../../../shared/names.ts';
-import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
-import { assertVersion } from '../../../../shared/versioning.ts';
-import type { VersionedRef } from '../../../../shared/versioning.ts';
 import {
+  ShiftEntity,
   PeriodInUseError,
   ShiftInUseError,
   ShiftNameAlreadyInUseError,
   ShiftNotFoundError,
   removedPeriodIds,
 } from '../../domain/shift.ts';
+
+import { compareNames } from '../../../../shared/names.ts';
+import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
+import { assertVersion } from '../../../../shared/versioning.ts';
+import type { VersionedRef } from '../../../../shared/versioning.ts';
 import type { PeriodInput, Shift } from '../../domain/shift.ts';
-import type { ClassGroupRepository } from './class-groups.ts';
+import type { ClassGroupRepository } from '../ports/class-group-repository.ts';
 import type { ShiftRepository } from '../ports/shift-repository.ts';
 
 async function loadForChange(shifts: ShiftRepository, ref: VersionedRef): Promise<Shift> {

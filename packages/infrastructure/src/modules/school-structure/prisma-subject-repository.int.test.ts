@@ -1,13 +1,13 @@
 import {
   StaleVersionError,
   SubjectNameAlreadyInUseError,
-  createSubject,
+  SubjectEntity,
 } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { startTestDatabase } from '../testing/postgres-container.ts';
-import type { TestDatabase } from '../testing/postgres-container.ts';
-import { checkDatabase } from './database.ts';
-import { PrismaSubjectRepository } from '../modules/school-structure/prisma-subject-repository.ts';
+import { startTestDatabase } from '../../testing/postgres-container.ts';
+import type { TestDatabase } from '../../testing/postgres-container.ts';
+import { checkDatabase } from '../../persistence/database.ts';
+import { PrismaSubjectRepository } from './prisma-subject-repository.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const MATH = '0b9d3a52-5c39-4a7e-9a34-1f0a51a8f0c1';
@@ -35,7 +35,7 @@ describe('PrismaSubjectRepository (PostgreSQL)', () => {
   });
 
   it('grava e recupera a disciplina com todos os campos', async () => {
-    const subject = createSubject({ id: MATH, name: 'Matemática', createdAt });
+    const subject = SubjectEntity.create({ id: MATH, name: 'Matemática', createdAt }).snapshot();
 
     await repository.add(subject);
 
@@ -47,16 +47,18 @@ describe('PrismaSubjectRepository (PostgreSQL)', () => {
   });
 
   it('traduz violação de unicidade em erro de domínio', async () => {
-    await repository.add(createSubject({ id: MATH, name: 'História', createdAt }));
+    await repository.add(
+      SubjectEntity.create({ id: MATH, name: 'História', createdAt }).snapshot(),
+    );
 
     await expect(
-      repository.add(createSubject({ id: HISTORY, name: 'HISTORIA', createdAt })),
+      repository.add(SubjectEntity.create({ id: HISTORY, name: 'HISTORIA', createdAt }).snapshot()),
     ).rejects.toThrow(SubjectNameAlreadyInUseError);
     expect(await repository.listAll()).toHaveLength(1);
   });
 
   it('atualiza nome e arquivamento incrementando a versão', async () => {
-    const subject = createSubject({ id: MATH, name: 'Matematica', createdAt });
+    const subject = SubjectEntity.create({ id: MATH, name: 'Matematica', createdAt }).snapshot();
     await repository.add(subject);
     const archivedAt = new Date('2026-03-01T00:00:00.000Z');
 
@@ -72,7 +74,7 @@ describe('PrismaSubjectRepository (PostgreSQL)', () => {
   });
 
   it('rejeita gravação baseada em versão antiga', async () => {
-    const subject = createSubject({ id: MATH, name: 'Matemática', createdAt });
+    const subject = SubjectEntity.create({ id: MATH, name: 'Matemática', createdAt }).snapshot();
     await repository.add(subject);
     await repository.update({ ...subject, name: 'Matemática I' });
 
@@ -81,7 +83,7 @@ describe('PrismaSubjectRepository (PostgreSQL)', () => {
   });
 
   it('em gravações simultâneas da mesma versão, só uma vence', async () => {
-    const subject = createSubject({ id: MATH, name: 'Matemática', createdAt });
+    const subject = SubjectEntity.create({ id: MATH, name: 'Matemática', createdAt }).snapshot();
     await repository.add(subject);
 
     const results = await Promise.allSettled([
@@ -97,8 +99,10 @@ describe('PrismaSubjectRepository (PostgreSQL)', () => {
   });
 
   it('renomear para nome já usado vira erro de domínio', async () => {
-    await repository.add(createSubject({ id: MATH, name: 'Matemática', createdAt }));
-    const history = createSubject({ id: HISTORY, name: 'História', createdAt });
+    await repository.add(
+      SubjectEntity.create({ id: MATH, name: 'Matemática', createdAt }).snapshot(),
+    );
+    const history = SubjectEntity.create({ id: HISTORY, name: 'História', createdAt }).snapshot();
     await repository.add(history);
 
     await expect(
@@ -107,9 +111,11 @@ describe('PrismaSubjectRepository (PostgreSQL)', () => {
   });
 
   it('informa a situação das disciplinas, tolerando ids inválidos', async () => {
-    const math = createSubject({ id: MATH, name: 'Matemática', createdAt });
+    const math = SubjectEntity.create({ id: MATH, name: 'Matemática', createdAt }).snapshot();
     await repository.add(math);
-    await repository.add(createSubject({ id: HISTORY, name: 'História', createdAt }));
+    await repository.add(
+      SubjectEntity.create({ id: HISTORY, name: 'História', createdAt }).snapshot(),
+    );
     await repository.update({ ...math, archivedAt: createdAt });
 
     const statuses = await repository.subjectStatuses([
