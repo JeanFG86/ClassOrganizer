@@ -162,6 +162,15 @@ export type {
   TimetableSnapshot,
   TimetableIssue,
 } from './modules/timetable/domain/model.ts';
+export { PREFERENCE_CRITERIA } from './modules/timetable/domain/model.ts';
+export type {
+  PreferenceCriterion,
+  TimetablePreferences,
+} from './modules/timetable/domain/model.ts';
+export {
+  measurePreferences,
+  type PreferenceMetrics,
+} from './modules/timetable/domain/preferences.ts';
 export { validateTimetableModel } from './modules/timetable/domain/validate-model.ts';
 export {
   validateTimetableProposal,

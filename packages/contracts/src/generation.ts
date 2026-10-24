@@ -6,6 +6,16 @@ const periodPlacement = { weekday: day, periodId: id };
 const lesson = z.object({ assignmentId: id, ...periodPlacement });
 const planning = z.object({ teacherId: id, ...periodPlacement });
 const named = z.object({ id, name: z.string().min(1).max(200) });
+export const preferenceCriterionSchema = z.enum([
+  'keep_current',
+  'teacher_windows',
+  'daily_spread',
+]);
+export const preferenceMetricsSchema = z.object({
+  changes: z.number().int().nonnegative(),
+  teacherWindows: z.number().int().nonnegative(),
+  dailySpread: z.number().int().nonnegative(),
+});
 export const timetableSnapshotSchema = z.object({
   modelVersion: z.literal(1),
   sourceRevision: z.string().min(1).max(200),
@@ -45,6 +55,12 @@ export const timetableSnapshotSchema = z.object({
   ),
   fixedLessons: z.array(lesson),
   fixedPlanning: z.array(planning),
+  preferences: z
+    .object({
+      order: z.array(preferenceCriterionSchema).max(3),
+      reference: z.object({ lessons: z.array(lesson), planning: z.array(planning) }),
+    })
+    .optional(),
 });
 export const generationOptionsSchema = z.object({
   timeLimitMs: z.number().int().min(1).max(300000),
@@ -77,6 +93,7 @@ export const generationResultSchema = z
     diagnostics: z.array(issue),
     sourceRevision: z.string(),
     teacherIdleMinutes: z.number().nonnegative().nullable(),
+    preferences: preferenceMetricsSchema.nullable(),
     warnings: z.array(issue),
     elapsedMs: z.number().nonnegative(),
     visitedNodes: z.number().int().nonnegative(),

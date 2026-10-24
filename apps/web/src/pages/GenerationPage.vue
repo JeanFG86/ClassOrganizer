@@ -6,6 +6,7 @@ import type {
   GenerationListDto,
   GenerationRunDto,
   GridViewDto,
+  PreferenceCriterionDto,
 } from '@classorganizer/contracts';
 import GridMatrix from '../components/GridMatrix.vue';
 import { useAccess } from '../services/access-api.ts';
@@ -25,7 +26,7 @@ const STATUS_TEXT: Record<GenerationRunDto['status'], { title: string; text: str
   },
   feasible: {
     title: 'Grade completa encontrada',
-    text: 'A proposta cumpre todas as regras obrigatórias e mantém as aulas fixadas. Ela não é necessariamente a melhor possível.',
+    text: 'A proposta cumpre todas as regras obrigatórias e mantém as aulas fixadas.',
   },
   infeasible: {
     title: 'Não há grade possível com estes dados',
@@ -44,6 +45,34 @@ const STATUS_TEXT: Record<GenerationRunDto['status'], { title: string; text: str
     title: 'Falha técnica',
     text: 'A geração não terminou por um erro técnico. A grade atual foi preservada.',
   },
+};
+/** Critérios da ADR 0015, na ordem do plano: manter a grade vem antes das demais melhorias. */
+const CRITERIA: Record<PreferenceCriterionDto, { title: string; text: string }> = {
+  keep_current: {
+    title: 'Manter a grade atual',
+    text: 'Muda o mínimo possível das aulas já colocadas que não estão fixadas.',
+  },
+  teacher_windows: {
+    title: 'Evitar janelas dos professores',
+    text: 'Reduz as aulas vagas entre duas atividades do professor no mesmo turno e dia.',
+  },
+  daily_spread: {
+    title: 'Distribuir cada disciplina pelos dias',
+    text: 'Evita repetir a disciplina da turma num dia quando havia outro dia livre para ela. Desmarque se a escola prefere aulas geminadas.',
+  },
+};
+const DEFAULT_ORDER: PreferenceCriterionDto[] = ['keep_current', 'teacher_windows', 'daily_spread'];
+/** Por que uma geração viável parou de melhorar a grade. */
+const STOP_TEXT: Record<string, string> = {
+  solution:
+    'Nenhuma preferência foi marcada: esta é a primeira grade válida encontrada, não necessariamente a melhor.',
+  preferences_met: 'As preferências marcadas foram atendidas por completo.',
+  local_optimum:
+    'A melhoria parou quando deixou de encontrar trocas que melhorassem as preferências, na ordem escolhida. Outra geração pode encontrar uma grade melhor.',
+  time_limit:
+    'A melhoria parou no limite de tempo, com a melhor grade encontrada até ali. Outra geração pode encontrar uma grade melhor.',
+  node_limit:
+    'A melhoria parou no limite de tentativas, com a melhor grade encontrada até ali. Outra geração pode encontrar uma grade melhor.',
 };
 
 const gridApi = injectRequired(gridApiKey);
@@ -66,6 +95,9 @@ const mode = ref<'class' | 'teacher'>('class');
 const classGroupId = ref('');
 const teacherId = ref('');
 const now = ref(Date.now());
+/** Ordem exibida dos critérios; os marcados seguem para a solicitação nessa ordem. */
+const criteria = ref(DEFAULT_ORDER.map((criterion) => ({ criterion, enabled: true })));
+let criteriaFromHistory = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
 const interactive = computed(() => Boolean(view.value?.editable && canWrite.value));
@@ -113,6 +145,7 @@ async function load() {
   try {
     await loadView();
     list.value = await api.list(planningId.value);
+    rememberCriteria(list.value);
     const finished = list.value.runs.find((r) => r.id !== list.value?.active?.id);
     const target = selectedId.value ?? finished?.id;
     if (target && target !== list.value.active?.id) await loadDetail(target);
@@ -122,6 +155,34 @@ async function load() {
     loadError.value = errorMessage(cause);
     loadState.value = 'error';
   }
+}
+/** Começa pelas prioridades da última solicitação desta revisão, se houver. */
+function rememberCriteria(current: GenerationListDto) {
+  const last = current.runs[0]?.options.preferences;
+  if (criteriaFromHistory || !last) return;
+  criteriaFromHistory = true;
+  criteria.value = [
+    ...last.map((criterion) => ({ criterion, enabled: true })),
+    ...DEFAULT_ORDER.filter((c) => !last.includes(c)).map((criterion) => ({
+      criterion,
+      enabled: false,
+    })),
+  ];
+}
+async function moveCriterion(index: number, offset: -1 | 1) {
+  const next = [...criteria.value];
+  const [item] = next.splice(index, 1);
+  if (!item) return;
+  next.splice(index + offset, 0, item);
+  criteria.value = next;
+  await nextTick();
+  document.getElementById('criterion-' + item.criterion)?.focus();
+}
+const chosenOrder = computed(() => criteria.value.filter((c) => c.enabled).map((c) => c.criterion));
+function orderText(order: readonly PreferenceCriterionDto[]) {
+  return order.length
+    ? order.map((c, index) => index + 1 + '. ' + CRITERIA[c].title).join('; ')
+    : 'nenhuma';
 }
 function schedule() {
   clearTimeout(timer);
@@ -157,7 +218,7 @@ async function request() {
   error.value = '';
   status.value = '';
   try {
-    await api.request(current);
+    await api.request(current, chosenOrder.value);
     status.value = 'Geração solicitada. Acompanhe o andamento nesta tela.';
     list.value = await api.list(planningId.value);
     schedule();
@@ -308,6 +369,49 @@ onUnmounted(() => clearTimeout(timer));
           }}
         </p>
         <p v-else-if="!canWrite" class="hint">Seu perfil permite apenas acompanhar as gerações.</p>
+        <fieldset v-if="interactive" class="generation-criteria">
+          <legend>Prioridades da geração</legend>
+          <p class="hint">
+            As regras obrigatórias e as aulas fixadas vêm sempre antes. Depois, cada critério
+            marcado só desempata os anteriores: nenhuma melhora num critério de baixo compensa
+            piorar um de cima.
+          </p>
+          <ol>
+            <li v-for="(item, index) in criteria" :key="item.criterion">
+              <div>
+                <label class="check">
+                  <input
+                    :id="'criterion-' + item.criterion"
+                    v-model="item.enabled"
+                    type="checkbox"
+                  />
+                  {{ CRITERIA[item.criterion].title }}
+                </label>
+                <p class="hint">{{ CRITERIA[item.criterion].text }}</p>
+              </div>
+              <span class="actions">
+                <button
+                  type="button"
+                  class="small ghost"
+                  :disabled="index === 0"
+                  :aria-label="'Subir a prioridade de ' + CRITERIA[item.criterion].title"
+                  @click="moveCriterion(index, -1)"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  class="small ghost"
+                  :disabled="index === criteria.length - 1"
+                  :aria-label="'Descer a prioridade de ' + CRITERIA[item.criterion].title"
+                  @click="moveCriterion(index, 1)"
+                >
+                  ↓
+                </button>
+              </span>
+            </li>
+          </ol>
+        </fieldset>
         <div v-if="interactive" class="actions">
           <button type="button" :disabled="busy || Boolean(active)" @click="request">
             Gerar grade
@@ -335,6 +439,10 @@ onUnmounted(() => clearTimeout(timer));
       <section v-if="detail" class="card grid-panel" aria-labelledby="generation-result-title">
         <h2 id="generation-result-title">{{ STATUS_TEXT[detail.run.status].title }}</h2>
         <p>{{ STATUS_TEXT[detail.run.status].text }}</p>
+        <p v-if="detail.run.status === 'feasible' && STOP_TEXT[detail.run.reason ?? '']">
+          {{ STOP_TEXT[detail.run.reason ?? ''] }}
+        </p>
+        <p class="muted">Prioridades: {{ orderText(detail.run.options.preferences) }}.</p>
         <p class="muted">
           Solicitada por {{ detail.run.requestedBy }} em {{ date(detail.run.requestedAt) }}
           <template v-if="detail.run.metrics">
@@ -381,12 +489,24 @@ onUnmounted(() => clearTimeout(timer));
             </div>
             <div>
               <dt>Janelas de professores</dt>
-              <dd>{{ comparison.currentWindows }} → {{ comparison.proposalWindows }}</dd>
+              <dd>
+                {{ comparison.preferences.current.teacherWindows }} →
+                {{ comparison.preferences.proposal.teacherWindows }}
+              </dd>
+            </div>
+            <div>
+              <dt>Disciplinas repetidas no dia</dt>
+              <dd>
+                {{ comparison.preferences.current.dailySpread }} →
+                {{ comparison.preferences.proposal.dailySpread }}
+              </dd>
             </div>
           </dl>
           <p class="hint">
-            Janelas são aulas vagas entre duas atividades do professor no mesmo turno e dia; a
-            geração ainda não as otimiza.
+            Os números vão da grade atual para a proposta; quanto menor, melhor. Janelas são aulas
+            vagas entre duas atividades do professor no mesmo turno e dia. Repetições contam as
+            aulas de uma disciplina da turma que caem num dia já usado por ela quando havia outro
+            dia livre.
           </p>
           <div v-if="interactive && detail.applicable && !confirming" class="actions">
             <button type="button" :disabled="busy" @click="startApply">Aplicar proposta</button>

@@ -39,6 +39,7 @@ import {
   gridRulesChangeSchema,
   gridUndoSchema,
   generationCommandSchema,
+  generationRequestCommandSchema,
   generationParamsSchema,
 } from '@classorganizer/contracts';
 import { buildApp, type AppOptions } from './app.ts';
@@ -243,7 +244,8 @@ export function createSecureApp(
   const requestGeneration = protect(
     WRITE_ROLES,
     'planning.generationRequest',
-    (services, actor, input: GenerationCommand) => services.generation.request(actor, input),
+    (services, actor, input: z.infer<typeof generationRequestCommandSchema> & { id: string }) =>
+      services.generation.request(actor, input),
   );
   const cancelGeneration = protect(
     WRITE_ROLES,
@@ -379,7 +381,7 @@ export function createSecureApp(
         app.post('/api/v1/plannings/:id/generations', async (request, reply) =>
           reply.code(201).send(
             await requestGeneration({
-              ...parseRequest(generationCommandSchema, request.body),
+              ...parseRequest(generationRequestCommandSchema, request.body),
               ...parseRequest(idParamsSchema, request.params),
             }),
           ),

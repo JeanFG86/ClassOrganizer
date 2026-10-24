@@ -89,6 +89,7 @@ if (
         backtracks: result.backtracks,
         restarts: result.restarts,
         teacherIdleMinutes: result.teacherIdleMinutes,
+        preferences: result.preferences,
         independentlyValidated: result.status === 'feasible' && validationErrors.length === 0,
         diagnostics: [...result.diagnostics, ...validationErrors],
       });

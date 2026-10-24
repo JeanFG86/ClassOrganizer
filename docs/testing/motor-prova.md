@@ -53,7 +53,7 @@ As medições completas do cenário fictício estão em [engine-synthetic-report
 
 A duração de busca não inclui a inicialização do Node nem a validação final. O tempo total inclui o processo isolado e a conferência do coordenador. A aprovação do benchmark exige sucesso nas três execuções, duração dentro do limite, tempo total até o limite mais dois segundos e RSS dentro do orçamento. RSS indisponível ou zero não é aceito como medição válida.
 
-O objetivo da prova é correção e viabilidade dentro dos limites. Não houve otimização de janelas: os minutos vagos são apenas medidos. Não se deve usar o cenário fictício como afirmação de que uma grade escolar específica está homologada.
+O objetivo da prova é correção e viabilidade dentro dos limites. Não houve otimização de janelas: os minutos vagos são apenas medidos. Não se deve usar o cenário fictício como afirmação de que uma grade escolar específica está homologada. Depois da E2, a [ADR 0015](../adr/0015-preferencias-na-geracao.md) acrescentou a melhoria de janelas e da distribuição das disciplinas pelos dias, com critérios em ordem de prioridade.
 
 ## Testes e limites
 

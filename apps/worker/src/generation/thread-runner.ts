@@ -22,6 +22,7 @@ export async function runGeneration(
     sourceRevision,
     warnings: [],
     teacherIdleMinutes: null,
+    preferences: null,
     elapsedMs: performance.now() - started,
     visitedNodes: 0,
     backtracks: 0,

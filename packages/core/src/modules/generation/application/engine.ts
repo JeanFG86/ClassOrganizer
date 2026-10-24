@@ -3,6 +3,7 @@ import type {
   TimetableProposal,
   TimetableSnapshot,
 } from '../../timetable/domain/model.ts';
+import type { PreferenceMetrics } from '../../timetable/domain/preferences.ts';
 
 export interface GenerationOptions {
   readonly timeLimitMs: number;
@@ -32,5 +33,7 @@ export interface TimetableEngine {
 export interface GenerationResult extends EngineSearchResult {
   readonly sourceRevision: string;
   readonly teacherIdleMinutes: number | null;
+  /** Medidas pelo validador, não pela busca; `null` sem proposta. */
+  readonly preferences: PreferenceMetrics | null;
   readonly warnings: readonly TimetableIssue[];
 }

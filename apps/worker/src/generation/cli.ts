@@ -35,6 +35,7 @@ function inputFailure(reason: string, message: string, paths: string[] = []): vo
       diagnostics: [{ code: 'input.' + reason, message, entityIds: paths }],
       sourceRevision: '',
       teacherIdleMinutes: null,
+      preferences: null,
       warnings: [],
       elapsedMs: 0,
       visitedNodes: 0,

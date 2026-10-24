@@ -26,7 +26,13 @@ const run = (overrides: Partial<NewGenerationRun> = {}): NewGenerationRun => ({
   requestedBy: USER,
   requestedAt: at,
   status: 'queued',
-  options: { timeLimitMs: 30000, nodeLimit: 2000000, seed: 11, memoryLimitMb: 256 },
+  options: {
+    timeLimitMs: 30000,
+    nodeLimit: 2000000,
+    seed: 11,
+    memoryLimitMb: 256,
+    preferences: ['teacher_windows'],
+  },
   inputDigest: 'a'.repeat(64),
   attempts: 0,
   cancelRequestedAt: null,
@@ -39,7 +45,13 @@ const feasible: GenerationOutcome = {
   placements: [{ kind: 'lesson', entityId: BLOCK, weekday: 1, periodId: PERIOD, pinned: false }],
   diagnostics: [],
   warnings: [],
-  metrics: { elapsedMs: 15, visitedNodes: 3, backtracks: 0, restarts: 0 },
+  metrics: {
+    elapsedMs: 15,
+    visitedNodes: 3,
+    backtracks: 0,
+    restarts: 0,
+    preferences: { changes: 0, teacherWindows: 1, dailySpread: 0 },
+  },
 };
 
 describe('execuções e fila da geração (PostgreSQL)', () => {
@@ -107,6 +119,21 @@ describe('execuções e fila da geração (PostgreSQL)', () => {
       input,
     );
     expect((await runs.list(REVISION, 20)).map((r) => r.id)).toEqual([RUN]);
+  });
+
+  it('lê execuções gravadas antes das preferências sem critérios nem métricas', async () => {
+    const legacy: Record<string, unknown> = { ...run().options };
+    delete legacy['preferences'];
+    await runs.add({ ...run(), options: legacy as never }, input);
+    const claimed = await queue.claim('worker-a', 30000, 3);
+    expect(claimed?.options.preferences).toEqual([]);
+    const metrics: Record<string, unknown> = { ...feasible.metrics };
+    delete metrics['preferences'];
+    await queue.finish(RUN, 'worker-a', { ...feasible, metrics: metrics as never });
+    expect(await runs.find(RUN)).toMatchObject({
+      options: { preferences: [] },
+      outcome: { metrics: { preferences: null } },
+    });
   });
 
   it('impede uma revisão de outro planejamento', async () => {

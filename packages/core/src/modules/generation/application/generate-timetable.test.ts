@@ -26,6 +26,8 @@ describe('fronteira confiável da geração', () => {
       status: 'feasible',
       sourceRevision: 'fixture-1',
       teacherIdleMinutes: 45,
+      // O bloco repete a disciplina no mesmo dia, embora houvesse outro dia livre.
+      preferences: { changes: 0, teacherWindows: expect.any(Number), dailySpread: 1 },
     });
   });
   it.each([null, { lessons: [], planning: [] }])(

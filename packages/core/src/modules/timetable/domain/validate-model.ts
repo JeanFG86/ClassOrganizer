@@ -1,4 +1,4 @@
-import type { TimetableIssue, TimetableSnapshot } from './model.ts';
+import { PREFERENCE_CRITERIA, type TimetableIssue, type TimetableSnapshot } from './model.ts';
 
 /**
  * Valida referências e a modelagem; não decide se há uma grade viável. Os limites de tamanho
@@ -161,6 +161,24 @@ export function validateTimetableModel(
       !periods.has(f.periodId)
     )
       fail('A fixação de hora-atividade possui referência inválida.', f.teacherId);
+  }
+  const { preferences } = snapshot;
+  if (preferences) {
+    const { order, reference } = preferences;
+    if (
+      !unique(order) ||
+      order.some((c) => !(PREFERENCE_CRITERIA as readonly string[]).includes(c))
+    )
+      fail('Informe critérios de preferência conhecidos, sem repetição.');
+    const known = (weekday: number, periodId: string) =>
+      snapshot.weekdays.some((d) => d === weekday) && periods.has(periodId);
+    if (
+      reference.lessons.some(
+        (l) => !assignments.has(l.assignmentId) || !known(l.weekday, l.periodId),
+      ) ||
+      reference.planning.some((p) => !teachers.has(p.teacherId) || !known(p.weekday, p.periodId))
+    )
+      fail('A grade de referência das preferências possui referência inválida.');
   }
   return issues;
 }

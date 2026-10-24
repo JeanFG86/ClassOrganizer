@@ -237,7 +237,13 @@ export function makeInMemoryGenerationRuns() {
             placements: null,
             diagnostics: [],
             warnings: [],
-            metrics: { elapsedMs: 0, visitedNodes: 0, backtracks: 0, restarts: 0 },
+            metrics: {
+              elapsedMs: 0,
+              visitedNodes: 0,
+              backtracks: 0,
+              restarts: 0,
+              preferences: null,
+            },
           },
         });
       else if (run?.status === 'running') update(id, { cancelRequestedAt: at });
@@ -258,7 +264,13 @@ export function makeInMemoryGenerationRuns() {
       outcome: {
         ...outcome,
         warnings: [],
-        metrics: { elapsedMs: 120, visitedNodes: 40, backtracks: 2, restarts: 0 },
+        metrics: {
+          elapsedMs: 120,
+          visitedNodes: 40,
+          backtracks: 2,
+          restarts: 0,
+          preferences: null,
+        },
       },
     });
   }

@@ -105,11 +105,20 @@ test('geração automática: solicitar, acompanhar, comparar e aplicar mantendo 
   ).toBeVisible();
   await expect(page.getByText('Nenhuma geração solicitada nesta revisão.')).toBeVisible();
 
+  const criteria = page.getByRole('group', { name: 'Prioridades da geração' });
+  await criteria.getByLabel('Distribuir cada disciplina pelos dias', { exact: true }).uncheck();
+  await criteria
+    .getByRole('button', { name: 'Descer a prioridade de Manter a grade atual' })
+    .click();
   await page.getByRole('button', { name: 'Gerar grade' }).click();
   await expect(page.getByRole('status').first()).toContainText(/Geração (solicitada|terminada)/);
   const result = page.getByRole('region', { name: 'Grade completa encontrada' });
   await expect(result).toBeVisible({ timeout: 90_000 });
   await expect(result).toContainText('Mantidas no lugar');
+  await expect(result).toContainText(
+    'Prioridades: 1. Evitar janelas dos professores; 2. Manter a grade atual.',
+  );
+  await expect(result).toContainText('Disciplinas repetidas no dia');
 
   await result.getByLabel('Turma', { exact: true }).selectOption({ label: turma });
   const proposal = result.getByRole('table', { name: 'Proposta para a turma ' + turma });
@@ -124,6 +133,7 @@ test('geração automática: solicitar, acompanhar, comparar e aplicar mantendo 
   );
 
   await page.getByRole('link', { name: '← Grade' }).click();
+  await expect(page.getByRole('heading', { name: `Grade · ${planningName} · 2027` })).toBeVisible();
   await page.getByLabel('Turma', { exact: true }).selectOption({ label: turma });
   const grid = page.getByRole('table', { name: 'Grade da turma ' + turma, exact: true });
   await expect(
