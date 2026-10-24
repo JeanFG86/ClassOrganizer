@@ -55,24 +55,71 @@ function validName(raw: string): Pick<Subject, 'name' | 'normalizedName'> {
   return { name, normalizedName: normalizeName(name) };
 }
 
+export class SubjectName {
+  readonly value: string;
+  readonly normalized: string;
+
+  constructor(raw: string) {
+    const valid = validName(raw);
+    this.value = valid.name;
+    this.normalized = valid.normalizedName;
+  }
+}
+
+/** Comportamento da disciplina; o estado serializável preserva as fotografias históricas. */
+export class SubjectEntity {
+  readonly #state: Subject;
+
+  private constructor(state: Subject) {
+    this.#state = { ...state };
+  }
+
+  static create(input: { id: string; name: string; createdAt: Date }): SubjectEntity {
+    const name = new SubjectName(input.name);
+    return new SubjectEntity({
+      id: input.id,
+      name: name.value,
+      normalizedName: name.normalized,
+      createdAt: input.createdAt,
+      archivedAt: null,
+      version: 1,
+    });
+  }
+
+  static reconstitute(state: Subject): SubjectEntity {
+    return new SubjectEntity(state);
+  }
+
+  rename(raw: string): SubjectEntity {
+    const name = new SubjectName(raw);
+    return new SubjectEntity({ ...this.#state, name: name.value, normalizedName: name.normalized });
+  }
+
+  archive(at: Date): SubjectEntity {
+    return this.#state.archivedAt ? this : new SubjectEntity({ ...this.#state, archivedAt: at });
+  }
+
+  restore(): SubjectEntity {
+    return new SubjectEntity({ ...this.#state, archivedAt: null });
+  }
+
+  snapshot(): Subject {
+    return { ...this.#state };
+  }
+}
+
 export function createSubject(input: { id: string; name: string; createdAt: Date }): Subject {
-  return {
-    id: input.id,
-    ...validName(input.name),
-    createdAt: input.createdAt,
-    archivedAt: null,
-    version: 1,
-  };
+  return SubjectEntity.create(input).snapshot();
 }
 
 export function renameSubject(subject: Subject, name: string): Subject {
-  return { ...subject, ...validName(name) };
+  return SubjectEntity.reconstitute(subject).rename(name).snapshot();
 }
 
 export function archiveSubject(subject: Subject, at: Date): Subject {
-  return subject.archivedAt ? subject : { ...subject, archivedAt: at };
+  return SubjectEntity.reconstitute(subject).archive(at).snapshot();
 }
 
 export function restoreSubject(subject: Subject): Subject {
-  return { ...subject, archivedAt: null };
+  return SubjectEntity.reconstitute(subject).restore().snapshot();
 }

@@ -38,11 +38,15 @@ const ana = createTeacher({ id: ANA_ID, name: 'Ana Souza', subjectIds: [MATH_ID]
 
 function makeApp(overrides: Partial<AppDeps> = {}): FastifyInstance {
   return buildTestApp({
-    registerSubject: vi.fn<RegisterSubject>(async () => math),
-    listSubjects: vi.fn<ListSubjects>(async () => [math]),
-    updateSubject: vi.fn<UpdateSubject>(async () => ({ ...math, version: 2 })),
-    archiveSubject: vi.fn<ArchiveSubject>(async () => ({ ...math, archivedAt, version: 2 })),
-    restoreSubject: vi.fn<RestoreSubject>(async () => ({ ...math, version: 3 })),
+    registerSubject: vi.fn<RegisterSubject['execute']>(async () => math),
+    listSubjects: vi.fn<ListSubjects['execute']>(async () => [math]),
+    updateSubject: vi.fn<UpdateSubject['execute']>(async () => ({ ...math, version: 2 })),
+    archiveSubject: vi.fn<ArchiveSubject['execute']>(async () => ({
+      ...math,
+      archivedAt,
+      version: 2,
+    })),
+    restoreSubject: vi.fn<RestoreSubject['execute']>(async () => ({ ...math, version: 3 })),
     registerTeacher: vi.fn<RegisterTeacher>(async () => ana),
     listTeachers: vi.fn<ListTeachers>(async () => [ana]),
     updateTeacher: vi.fn<UpdateTeacher>(async () => ({ ...ana, version: 2 })),
@@ -107,7 +111,7 @@ describe('API HTTP', () => {
     });
 
     it('cadastra e responde 201', async () => {
-      const registerSubject = vi.fn<RegisterSubject>(async () => math);
+      const registerSubject = vi.fn<RegisterSubject['execute']>(async () => math);
       app = makeApp({ registerSubject });
 
       const response = await app.inject({
@@ -122,7 +126,7 @@ describe('API HTTP', () => {
     });
 
     it('rejeita corpo fora do contrato sem chamar o caso de uso', async () => {
-      const registerSubject = vi.fn<RegisterSubject>();
+      const registerSubject = vi.fn<RegisterSubject['execute']>();
       app = makeApp({ registerSubject });
 
       const response = await app.inject({
@@ -159,7 +163,7 @@ describe('API HTTP', () => {
     });
 
     it('PUT renomeia repassando id, nome e versão', async () => {
-      const updateSubject = vi.fn<UpdateSubject>(async () => ({ ...math, version: 2 }));
+      const updateSubject = vi.fn<UpdateSubject['execute']>(async () => ({ ...math, version: 2 }));
       app = makeApp({ updateSubject });
 
       const response = await app.inject({
@@ -174,7 +178,7 @@ describe('API HTTP', () => {
     });
 
     it('PUT exige a versão no corpo', async () => {
-      const updateSubject = vi.fn<UpdateSubject>();
+      const updateSubject = vi.fn<UpdateSubject['execute']>();
       app = makeApp({ updateSubject });
 
       const response = await app.inject({
@@ -188,7 +192,7 @@ describe('API HTTP', () => {
     });
 
     it('rejeita id que não é UUID', async () => {
-      const archiveSubject = vi.fn<ArchiveSubject>();
+      const archiveSubject = vi.fn<ArchiveSubject['execute']>();
       app = makeApp({ archiveSubject });
 
       const response = await app.inject({
@@ -202,12 +206,15 @@ describe('API HTTP', () => {
     });
 
     it('arquiva e restaura com a versão informada', async () => {
-      const archiveSubject = vi.fn<ArchiveSubject>(async () => ({
+      const archiveSubject = vi.fn<ArchiveSubject['execute']>(async () => ({
         ...math,
         archivedAt,
         version: 2,
       }));
-      const restoreSubject = vi.fn<RestoreSubject>(async () => ({ ...math, version: 3 }));
+      const restoreSubject = vi.fn<RestoreSubject['execute']>(async () => ({
+        ...math,
+        version: 3,
+      }));
       app = makeApp({ archiveSubject, restoreSubject });
 
       const archived = await app.inject({
