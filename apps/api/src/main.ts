@@ -6,6 +6,11 @@ const db = createDatabase(config.DATABASE_URL);
 const app = createSecureApp(db, {
   logger: loggerOptions('api', config.LOG_LEVEL),
   origin: config.APP_ORIGIN,
+  generation: {
+    timeLimitMs: config.GENERATION_TIME_LIMIT_MS,
+    nodeLimit: config.GENERATION_NODE_LIMIT,
+    memoryLimitMb: config.GENERATION_MEMORY_LIMIT_MB,
+  },
 });
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'encerrando a API');

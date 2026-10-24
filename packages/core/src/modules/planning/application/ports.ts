@@ -1,4 +1,6 @@
+import type { GenerationRun, NewGenerationRun } from '../domain/generation-run.ts';
 import type { GridDelta, Placement } from '../domain/grid.ts';
+import type { TimetableSnapshot } from '../../timetable/domain/model.ts';
 import type { CatalogSnapshot, Planning, PlanningRevision } from '../domain/planning.ts';
 
 export interface PlanningRepository {
@@ -15,8 +17,11 @@ export interface GridChange {
   sequence: number;
   actorId: string;
   occurredAt: Date;
-  /** `import` registra a grade trazida de outra revisão; só `operation` pode ser desfeita. */
-  kind: 'operation' | 'undo' | 'import';
+  /**
+   * `import` registra a grade trazida de outra revisão; `generation`, a aplicação de uma
+   * proposta automática. Só `operation` e `generation` podem ser desfeitas.
+   */
+  kind: 'operation' | 'undo' | 'import' | 'generation';
   summary: string;
   delta: GridDelta;
   revertsId: string | null;
@@ -30,4 +35,18 @@ export interface GridRepository {
   history(revisionId: string): Promise<GridHistoryEntry[]>;
   apply(revisionId: string, delta: GridDelta): Promise<void>;
   record(change: GridChange): Promise<void>;
+}
+
+/** Execuções da geração automática de um planejamento (ADR 0014). */
+export interface GenerationRunRepository {
+  /** Grava a solicitação e a entrada do motor; recusa uma segunda execução ativa. */
+  add(run: NewGenerationRun, input: TimetableSnapshot): Promise<void>;
+  find(id: string): Promise<GenerationRun | null>;
+  /** Execuções da revisão, da mais recente para a mais antiga. */
+  list(revisionId: string, limit: number): Promise<GenerationRun[]>;
+  active(planningId: string): Promise<GenerationRun | null>;
+  /** Na fila, cancela na hora; em execução, pede o cancelamento ao worker. */
+  cancel(id: string, at: Date): Promise<void>;
+  /** Marca a proposta como aplicada uma única vez; devolve `false` se já estava. */
+  markApplied(id: string, actorId: string, at: Date): Promise<boolean>;
 }

@@ -53,6 +53,9 @@ services:
       DATABASE_URL: *database-url
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      GENERATION_TIME_LIMIT_MS: ${GENERATION_TIME_LIMIT_MS:-30000}
+      GENERATION_NODE_LIMIT: ${GENERATION_NODE_LIMIT:-2000000}
+      GENERATION_MEMORY_LIMIT_MB: ${GENERATION_MEMORY_LIMIT_MB:-256}
     depends_on:
       migrate: { condition: service_completed_successfully }
     deploy:
@@ -64,6 +67,8 @@ services:
     build: { <<: *app-build, target: worker }
     init: true
     restart: unless-stopped
+    # Tempo para a busca em andamento voltar à fila ao parar o container (ADR 0014).
+    stop_grace_period: 20s
     environment:
       DATABASE_URL: *database-url
       LOG_LEVEL: ${LOG_LEVEL:-info}

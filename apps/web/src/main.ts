@@ -8,6 +8,7 @@ import { httpSubjectsApi, subjectsApiKey } from './services/subjects-api.ts';
 import { httpTeachersApi, teachersApiKey } from './services/teachers-api.ts';
 import { accessApiKey, httpAccessApi } from './services/access-api.ts';
 import { gridApiKey, httpGridApi } from './services/grid-api.ts';
+import { generationApiKey, httpGenerationApi } from './services/generation-api.ts';
 import './styles.css';
 window.addEventListener('session-expired', () => {
   httpAccessApi.session.value = null;
@@ -23,4 +24,5 @@ createApp(App)
   .provide(teachersApiKey, httpTeachersApi)
   .provide(assignmentsApiKey, httpAssignmentsApi)
   .provide(gridApiKey, httpGridApi)
+  .provide(generationApiKey, httpGenerationApi)
   .mount('#app');

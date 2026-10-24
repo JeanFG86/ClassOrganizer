@@ -4,7 +4,7 @@ export { PrismaTeacherRepository } from './persistence/prisma-teacher-repository
 export { PrismaClassGroupRepository } from './persistence/prisma-class-group-repository.ts';
 export { PrismaShiftRepository } from './persistence/prisma-shift-repository.ts';
 export { PrismaAssignmentRepository } from './persistence/prisma-assignment-repository.ts';
-export { systemClock, uuidGenerator } from './system/system-ports.ts';
+export { randomSeeds, sha256Digest, systemClock, uuidGenerator } from './system/system-ports.ts';
 export {
   LOG_LEVELS,
   createLogger,
@@ -26,3 +26,7 @@ export {
 export { hashToken } from './access/passwords.ts';
 export { PrismaPlanningRepository } from './persistence/prisma-planning-repository.ts';
 export { PrismaGridRepository } from './persistence/prisma-grid-repository.ts';
+export {
+  PrismaGenerationQueue,
+  PrismaGenerationRunRepository,
+} from './persistence/prisma-generation-repository.ts';

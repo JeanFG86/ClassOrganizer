@@ -1,9 +1,7 @@
 import type { Clock, IdGenerator } from '../../../shared/ports.ts';
-import { NotFoundError } from '../../../shared/domain-error.ts';
-import { StaleVersionError } from '../../../shared/versioning.ts';
 import { READ_ROLES, WRITE_ROLES, requireRole, type Actor } from '../../access/domain/access.ts';
 import type { TimetableIssue } from '../../timetable/domain/model.ts';
-import { translateCatalog, type TranslatedCatalog } from '../domain/catalog-translation.ts';
+import type { TranslatedCatalog } from '../domain/catalog-translation.ts';
 import { diagnoseGrid, issuesAdded, type GridDiagnosis } from '../domain/diagnosis.ts';
 import {
   applyDelta,
@@ -15,8 +13,9 @@ import {
   type Placement,
 } from '../domain/grid.ts';
 import { describeOperation } from '../domain/grid-summary.ts';
-import { PlanningError, requireDraft, type Planning } from '../domain/planning.ts';
-import type { GridChange, GridHistoryEntry, GridRepository, PlanningRepository } from './ports.ts';
+import { PlanningError } from '../domain/planning.ts';
+import { makeGridAccess, undoTarget } from './grid-access.ts';
+import type { GridRepository, PlanningRepository } from './ports.ts';
 
 export interface GridEvaluation {
   accepted: boolean;
@@ -57,61 +56,14 @@ function rejected(evaluation: GridEvaluation): never {
       (others > 0 ? ' Há mais ' + others + (others === 1 ? ' problema.' : ' problemas.') : ''),
   );
 }
-/** Desfaz a alteração mais recente ainda não desfeita; desfazer não tem refazer. */
-function undoTarget(history: readonly GridHistoryEntry[]): GridHistoryEntry | null {
-  const reverted = new Set(history.flatMap((c) => (c.revertsId ? [c.revertsId] : [])));
-  return history.findLast((c) => c.kind === 'operation' && !reverted.has(c.id)) ?? null;
-}
-
 export function makeTimetableGrid(deps: {
   plannings: PlanningRepository;
   grids: GridRepository;
   clock: Clock;
   ids: IdGenerator;
 }) {
-  const { plannings, grids, clock, ids } = deps;
-  async function load(id: string, revisionId?: string, version?: number) {
-    const planning = await plannings.find(id);
-    if (!planning) throw new NotFoundError('planning.not_found', 'Planejamento não encontrado.');
-    if (version !== undefined && planning.version !== version) throw new StaleVersionError();
-    const revisions = await plannings.revisions(id);
-    const revision = revisionId ? revisions.find((r) => r.id === revisionId) : revisions.at(-1);
-    if (!revision)
-      throw new NotFoundError('planning.revision_not_found', 'Revisão não encontrada.');
-    const placements = await grids.placements(revision.id);
-    const translated = translateCatalog(revision.snapshot, revision.gridRules, revision.id);
-    return { planning, revisions, revision, placements, translated };
-  }
-  /** Escritas valem só para o rascunho atual de um planejamento ativo. */
-  async function loadDraft(input: { id: string; version: number; revisionId: string }) {
-    const loaded = await load(input.id, input.revisionId, input.version);
-    if (loaded.revisions.at(-1)?.id !== loaded.revision.id)
-      throw new PlanningError(
-        'planning.revision_invalid',
-        'Atualize a página e selecione a revisão atual.',
-      );
-    requireDraft(loaded.planning, loaded.revision);
-    return loaded;
-  }
-  async function commit(
-    actor: Actor,
-    planning: Planning,
-    revisionId: string,
-    change: Pick<GridChange, 'kind' | 'summary' | 'delta' | 'revertsId'>,
-  ) {
-    await plannings.save(planning);
-    await grids.apply(revisionId, change.delta);
-    const sequence = ((await grids.history(revisionId)).at(-1)?.sequence ?? 0) + 1;
-    await grids.record({
-      ...change,
-      id: ids.next(),
-      revisionId,
-      sequence,
-      actorId: actor.id,
-      occurredAt: clock.now(),
-    });
-    return { id: planning.id, version: planning.version + 1, summary: change.summary };
-  }
+  const { plannings, grids } = deps;
+  const { load, loadDraft, commit } = makeGridAccess(deps);
   async function prepare(
     actor: Actor,
     input: { id: string; version: number; revisionId: string; operation: GridOperation },
@@ -130,14 +82,12 @@ export function makeTimetableGrid(deps: {
   return {
     async view(actor: Actor, input: { id: string; revisionId?: string | undefined }) {
       requireRole(actor, READ_ROLES);
-      const { planning, revisions, revision, placements, translated } = await load(
+      const { planning, revisions, revision, placements, translated, editable } = await load(
         input.id,
         input.revisionId,
       );
       const history = await grids.history(revision.id);
       const reverted = new Set(history.flatMap((c) => (c.revertsId ? [c.revertsId] : [])));
-      const editable =
-        revisions.at(-1)?.id === revision.id && !revision.sealedAt && !planning.archivedAt;
       const target = editable ? undoTarget(history) : null;
       return {
         planning,

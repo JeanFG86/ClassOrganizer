@@ -696,3 +696,30 @@ button.grid-empty:hover:not(:disabled) {
   display: inline;
   font-size: 1.1rem;
 }
+.grid-item.changed {
+  border-width: 2px;
+  border-color: var(--accent);
+}
+.grid-swatch.changed {
+  border-color: var(--accent);
+}
+.generation-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.generation-summary div {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+.generation-summary dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.generation-summary dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}

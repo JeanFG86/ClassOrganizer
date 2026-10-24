@@ -1,5 +1,16 @@
-import type { GridRepository, PlanningRepository } from '../modules/planning/application/ports.ts';
+import type {
+  GenerationRunRepository,
+  GridRepository,
+  PlanningRepository,
+} from '../modules/planning/application/ports.ts';
+import {
+  isRunActive,
+  type GenerationOutcome,
+  type GenerationRun,
+} from '../modules/planning/domain/generation-run.ts';
 import { applyDelta, type Placement } from '../modules/planning/domain/grid.ts';
+import { PlanningError } from '../modules/planning/domain/planning-error.ts';
+import type { TimetableSnapshot } from '../modules/timetable/domain/model.ts';
 import type {
   CatalogSnapshot,
   Planning,
@@ -176,6 +187,82 @@ export function makeInMemoryPlanningStore(capture: () => CatalogSnapshot = makeC
     },
   };
   return { plannings, revisions, placements, history, repository, grids };
+}
+
+/** Execuções em memória; `finish` faz o papel do worker. */
+export function makeInMemoryGenerationRuns() {
+  const runs: GenerationRun[] = [];
+  const inputs = new Map<string, TimetableSnapshot>();
+  const update = (id: string, change: Partial<GenerationRun>) => {
+    const index = runs.findIndex((r) => r.id === id);
+    const current = runs[index];
+    if (!current) throw new Error('execução inexistente');
+    runs[index] = { ...current, ...change };
+  };
+  const repository: GenerationRunRepository = {
+    add: async (run, input) => {
+      if (runs.some((r) => r.planningId === run.planningId && isRunActive(r.status)))
+        throw new PlanningError('generation.active', 'Já há uma geração em andamento.');
+      runs.push({
+        ...structuredClone(run),
+        requestedByUsername: 'editor-test',
+        appliedByUsername: null,
+        outcome: null,
+        startedAt: null,
+        finishedAt: null,
+      });
+      inputs.set(run.id, structuredClone(input));
+    },
+    find: async (id) => structuredClone(runs.find((r) => r.id === id) ?? null),
+    list: async (revisionId, limit) =>
+      structuredClone(
+        runs
+          .filter((r) => r.revisionId === revisionId)
+          .toReversed()
+          .slice(0, limit),
+      ),
+    active: async (planningId) =>
+      structuredClone(
+        runs.find((r) => r.planningId === planningId && isRunActive(r.status)) ?? null,
+      ),
+    cancel: async (id, at) => {
+      const run = runs.find((r) => r.id === id);
+      if (run?.status === 'queued')
+        update(id, {
+          status: 'cancelled',
+          finishedAt: at,
+          outcome: {
+            status: 'cancelled',
+            reason: 'cancelled',
+            placements: null,
+            diagnostics: [],
+            warnings: [],
+            metrics: { elapsedMs: 0, visitedNodes: 0, backtracks: 0, restarts: 0 },
+          },
+        });
+      else if (run?.status === 'running') update(id, { cancelRequestedAt: at });
+    },
+    markApplied: async (id, _actorId, at) => {
+      const run = runs.find((r) => r.id === id);
+      if (!run || run.appliedAt) return false;
+      update(id, { appliedAt: at, appliedByUsername: 'editor-test' });
+      return true;
+    },
+  };
+  function finish(id: string, outcome: Omit<GenerationOutcome, 'metrics' | 'warnings'>) {
+    update(id, {
+      status: outcome.status,
+      attempts: 1,
+      startedAt: new Date('2026-01-01T00:00:01.000Z'),
+      finishedAt: new Date('2026-01-01T00:00:02.000Z'),
+      outcome: {
+        ...outcome,
+        warnings: [],
+        metrics: { elapsedMs: 120, visitedNodes: 40, backtracks: 2, restarts: 0 },
+      },
+    });
+  }
+  return { runs, inputs, repository, finish, update };
 }
 
 /** Grade completa e válida para a fotografia inventada. */

@@ -305,6 +305,11 @@ onMounted(load);
           aula para trocar as duas. Em um horário livre sem seleção, escolha o que inserir. Toda
           alteração mostra o diagnóstico antes da confirmação.
         </p>
+        <p v-if="view.revisions.at(-1)?.id === view.revision.id">
+          <RouterLink :to="'/planejamentos/' + view.planning.id + '/geracao'"
+            >Geração automática</RouterLink
+          >: monta uma proposta completa respeitando as aulas fixadas.
+        </p>
       </div>
 
       <dl class="grid-legend" aria-label="Legenda">
