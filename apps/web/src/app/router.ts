@@ -94,6 +94,13 @@ export function createAppRouter(
         component: () => import('../modules/teaching/presentation/pages/AssignmentsPage.vue'),
         meta: { title: 'Atribuições' },
       },
+      {
+        path: '/importacao',
+        name: 'catalog-import',
+        component: () =>
+          import('../modules/catalog-import/presentation/pages/CatalogImportPage.vue'),
+        meta: { title: 'Importar cadastros' },
+      },
     ],
   });
 

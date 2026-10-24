@@ -6,7 +6,13 @@ import type { ShiftRepository } from '../modules/school-structure/application/po
 import type { Resource } from '../modules/school-structure/domain/resource.ts';
 import type { ClassGroup } from '../modules/school-structure/domain/class-group.ts';
 import type { Shift } from '../modules/school-structure/domain/shift.ts';
-import type { AssignmentRepository } from '../modules/teaching/application/ports/index.ts';
+import type { SubjectRepository } from '../modules/school-structure/application/ports/subject-repository.ts';
+import type { Subject } from '../modules/school-structure/domain/subject.ts';
+import type {
+  AssignmentRepository,
+  TeacherRepository,
+} from '../modules/teaching/application/ports/index.ts';
+import type { Teacher } from '../modules/teaching/domain/teacher.ts';
 import { type TeachingAssignment } from '../modules/teaching/domain/assignment.ts';
 import { StaleVersionError } from '../shared/versioning.ts';
 
@@ -141,5 +147,49 @@ export class InMemoryAssignmentRepository implements AssignmentRepository {
         .filter((p) => p.teacherId === teacherId)
         .map((p) => p.subjectId),
     );
+  }
+}
+
+export class InMemorySubjectRepository implements SubjectRepository {
+  readonly store = new VersionedStore<Subject>();
+
+  async findById(id: string) {
+    return this.store.get(id);
+  }
+
+  async findByNormalizedName(normalizedName: string) {
+    return this.store.values().find((s) => s.normalizedName === normalizedName) ?? null;
+  }
+
+  async add(subject: Subject) {
+    this.store.items.set(subject.id, subject);
+  }
+
+  async update(subject: Subject) {
+    return this.store.save(subject);
+  }
+
+  async listAll() {
+    return this.store.values();
+  }
+}
+
+export class InMemoryTeacherRepository implements TeacherRepository {
+  readonly store = new VersionedStore<Teacher>();
+
+  async findById(id: string) {
+    return this.store.get(id);
+  }
+
+  async add(teacher: Teacher) {
+    this.store.items.set(teacher.id, teacher);
+  }
+
+  async update(teacher: Teacher) {
+    return this.store.save(teacher);
+  }
+
+  async listAll() {
+    return this.store.values();
   }
 }

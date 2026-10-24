@@ -8,6 +8,7 @@ import { registerPlanningRoutes } from './http/planning-routes.ts';
 import { registerGridRoutes } from './http/grid-routes.ts';
 import { registerGenerationRoutes } from './http/generation-routes.ts';
 import { registerAuditRoutes } from './http/audit-routes.ts';
+import { registerCatalogImportRoutes } from './http/catalog-import-routes.ts';
 /** Metas provisórias da busca, enquanto não houver metas pactuadas (ADR 0014). */
 export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   timeLimitMs: 30_000,
@@ -33,6 +34,7 @@ export function createSecureApp(
         registerGridRoutes(app, operations);
         registerGenerationRoutes(app, operations);
         registerAuditRoutes(app, operations);
+        registerCatalogImportRoutes(app, operations);
       },
     },
   );

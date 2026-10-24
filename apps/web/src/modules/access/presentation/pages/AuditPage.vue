@@ -33,6 +33,10 @@ const actions: Record<string, string> = {
   'planning.generationRequest': 'Solicitação de geração automática',
   'planning.generationCancel': 'Cancelamento de geração automática',
   'planning.generationApply': 'Aplicação de proposta gerada',
+  'catalog.import.subjects': 'Importação de disciplinas (CSV)',
+  'catalog.import.classGroups': 'Importação de turmas (CSV)',
+  'catalog.import.teachers': 'Importação de professores (CSV)',
+  'catalog.import.assignments': 'Importação de atribuições (CSV)',
 };
 const catalogActions: Record<string, string> = {
   registerSubject: 'Cadastro de disciplina',

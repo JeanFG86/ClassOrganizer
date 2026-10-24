@@ -12,3 +12,4 @@ export * from './modules/teaching/index.ts';
 export * from './modules/planning/index.ts';
 export * from './modules/timetable/index.ts';
 export * from './modules/generation/index.ts';
+export * from './modules/catalog-import/index.ts';
