@@ -76,6 +76,7 @@ export class PrismaPlanningRepository implements PlanningRepository {
           where: { id: revision.id, planningId: planning.id },
           create: revisionData(revision),
           update: {
+            name: revision.name,
             gridRules: revision.gridRules as unknown as Prisma.InputJsonObject,
             rulesReviewed: revision.rulesReviewed,
             availabilityReviewed: revision.availabilityReviewed,

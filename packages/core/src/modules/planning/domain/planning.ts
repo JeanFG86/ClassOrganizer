@@ -19,6 +19,8 @@ export interface CatalogSnapshot {
 }
 export interface PlanningRevision {
   id: string;
+  name: string | null;
+  restoredFromId: string | null;
   planningId: string;
   number: number;
   createdAt: Date;
@@ -103,10 +105,42 @@ export class PlanningRevisionEntity {
   }): PlanningRevisionEntity {
     return new PlanningRevisionEntity({
       ...input,
+      name: null,
+      restoredFromId: null,
       rulesReviewed: false,
       availabilityReviewed: false,
       sealedAt: null,
     });
+  }
+  /** Restaura em outra revisão, preservando os dados originais e exigindo nova conferência. */
+  static restore(
+    input: Pick<PlanningRevision, 'id' | 'planningId' | 'number' | 'createdAt' | 'createdBy'>,
+    source: PlanningRevision,
+  ): PlanningRevisionEntity {
+    if (source.planningId !== input.planningId)
+      throw new PlanningError(
+        'planning.revision_invalid',
+        'A revisão pertence a outro planejamento.',
+      );
+    return new PlanningRevisionEntity({
+      ...PlanningRevisionEntity.open({
+        ...input,
+        snapshot: source.snapshot,
+        gridRules: source.gridRules,
+      }).snapshot(),
+      restoredFromId: source.id,
+    });
+  }
+  /** O nome é metadado; pode identificar também uma revisão já concluída. */
+  rename(name: string): PlanningRevisionEntity {
+    const trimmed = name.trim();
+    if (trimmed.length > 100)
+      throw new PlanningError(
+        'planning.revision_name_invalid',
+        'Use até 100 caracteres no nome da revisão.',
+        'validation',
+      );
+    return new PlanningRevisionEntity({ ...this.#state, name: trimmed || null });
   }
   /** Regras novas precisam ser conferidas de novo antes da conclusão. */
   changeRules(gridRules: GridRules): PlanningRevisionEntity {

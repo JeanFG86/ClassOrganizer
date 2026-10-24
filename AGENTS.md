@@ -6,7 +6,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 - **Produto:** organizador de aulas para a secretaria de uma escola. Distribui as cargas dos professores e monta a grade semanal.
 - **Plano completo:** [docs/product/PLANO_DESENVOLVIMENTO.md](docs/product/PLANO_DESENVOLVIMENTO.md), com as entregas E0 a E9.
-- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0017).
+- **Decisões técnicas:** [docs/adr/](docs/adr/) (ADRs 0001 a 0018).
 - **Arquitetura atual:** [ADR 0017](docs/adr/0017-refatoracao-arquitetural.md), com um PR por etapa e casos de uso em classes com `execute`. As sete etapas estão implementadas; use as APIs públicas dos módulos e as classes com `execute`. Etapas dependentes podem usar a branch anterior como base, indicada no PR; o usuário continua responsável pelos merges.
 - **Como rodar:** [README.md](README.md).
 
@@ -55,6 +55,7 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ### Última entrega funcional
 
+- **E7, primeira parte — versões do planejamento:** nome opcional por revisão, preservação de alternativas intermediárias, comparação e restauração em outro rascunho com fotografia, regras e fixações originais. Só o último rascunho é editável; o banco protege também os rascunhos históricos. Nomear, preservar e restaurar exigem perfil de edição, versão otimista e auditoria (ADR 0018).
 - **Recursos especiais opcionais** (PR #14, incorporado na `main`): cadastro de recursos (quadra, laboratório) com arquivar e restaurar; cada bloco de aulas reserva até 5 recursos; a fotografia da revisão leva os recursos ativos ao validador e ao motor, que já tratavam a exclusividade; a grade acusa `conflict.resource`. Sem recursos cadastrados, nada muda. Veja a [ADR 0016](docs/adr/0016-recursos-especiais.md). O primeiro acesso continua em [acesso local](docs/operations/acesso-local.md).
 
 ### Situação da E0 (levantamento)
@@ -80,7 +81,8 @@ Este arquivo explica a um agente (Codex, Claude Code ou outro) como continuar o 
 
 ## 3. O que falta fazer (ordem sugerida)
 
-1. **E7 e E8** conforme o plano: versões e saídas (PDF, XLSX, CSV); piloto, backup e operação local.
+1. **E7, próximas partes:** impressão/PDF, XLSX, importação CSV e ampliação do checklist de reaproveitamento anual. A primeira parte já permite nomear, preservar, comparar e restaurar revisões (ADR 0018).
+2. **E8:** piloto, backup e operação local.
 
 **Metas do motor:** a E6 adotou as metas técnicas provisórias como configuração, por decisão do usuário, e repetiu a prova localmente com as regras da E5 (ADR 0014). Pactuar as metas com a escola continua pendente. Para medir de novo, `privado/e2/e6-policies.mjs` gera as variantes de regras das entradas locais, e `privado/e2/e6b-preferences.mjs` acrescenta a elas as ordens de preferências (ADR 0015). Os relatórios de referência e crescimento ficam somente em `privado/e2/`; não publicar volumes nem resultados derivados da escola. O exemplo público é inteiramente fictício.
 

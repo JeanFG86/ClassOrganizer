@@ -65,7 +65,8 @@ jobs:
         run: >
           printf '%s' '{"username":"e2e-admin","password":"senha ficticia e2e 2026!"}' |
           docker compose exec -T api node apps/api/src/bootstrap-admin.ts
-      - run: pnpm install --frozen-lockfile --filter @classorganizer/e2e
+      # Inclui os contratos e suas dependências usados para validar respostas no E2E.
+      - run: pnpm install --frozen-lockfile --filter @classorganizer/e2e...
       # A imagem oficial já traz o Chromium e as bibliotecas de sistema, evitando o
       # `playwright install --with-deps` (apt-get leva ~10 min no runner).
       # A tag precisa acompanhar a versão de @playwright/test em tests/e2e/package.json.

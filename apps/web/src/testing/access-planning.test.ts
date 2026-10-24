@@ -34,6 +34,14 @@ const planning: PlanningDetailDto = {
   revisions: [
     {
       id: 'revision-id',
+      name: null,
+      restoredFromId: null,
+      gridRules: {
+        formatVersion: 1,
+        planningPeriods: 'any_shift',
+        daily: { maxPerDay: 2, consecutive: true },
+        dailyExceptions: [],
+      },
       planningId: 'planning-id',
       number: 1,
       createdAt: date,

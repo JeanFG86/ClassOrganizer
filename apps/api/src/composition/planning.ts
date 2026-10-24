@@ -14,6 +14,10 @@ import {
   UndoTimetableGrid,
   ViewTimetableGrid,
   bindUseCase,
+  ComparePlanningRevisions,
+  RenamePlanningRevision,
+  RestorePlanningRevision,
+  PreservePlanningRevision,
   type GenerationSettings,
 } from '@classorganizer/core';
 import {
@@ -37,10 +41,18 @@ export function composePlanning(tx: PersistenceClient, settings: GenerationSetti
   const digest = sha256Digest;
   return {
     plannings: {
+      preserveRevision: bindUseCase(
+        new PreservePlanningRevision({ repository: plannings, grids, clock, ids }),
+      ),
       list: bindUseCase(new ListPlannings({ repository: plannings })),
       detail: bindUseCase(new GetPlanning({ repository: plannings })),
       create: bindUseCase(new CreatePlanning({ repository: plannings, grids, clock, ids })),
       change: bindUseCase(new ChangePlanning({ repository: plannings, grids, clock, ids })),
+      compareRevisions: bindUseCase(new ComparePlanningRevisions({ repository: plannings, grids })),
+      renameRevision: bindUseCase(new RenamePlanningRevision({ repository: plannings })),
+      restoreRevision: bindUseCase(
+        new RestorePlanningRevision({ repository: plannings, grids, clock, ids }),
+      ),
     },
     grid: {
       view: bindUseCase(new ViewTimetableGrid({ plannings, grids })),

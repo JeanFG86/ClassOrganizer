@@ -5,6 +5,7 @@ import { classGroupSchema } from '../school-structure/class-groups.ts';
 import { assignmentSchema } from '../teaching/assignments.ts';
 import { shiftSchema } from '../school-structure/shifts.ts';
 import { resourceSchema } from '../school-structure/resources.ts';
+import { gridRulesSchema } from './grid-rules.ts';
 
 export const planningSchema = z.object({
   id: z.uuid(),
@@ -39,11 +40,14 @@ export const catalogSnapshotSchema = z.object({
 
 export const revisionSchema = z.object({
   id: z.uuid(),
+  name: z.string().nullable(),
+  restoredFromId: z.uuid().nullable(),
   planningId: z.uuid(),
   number: z.number().int().positive(),
   createdAt: z.iso.datetime(),
   createdBy: z.uuid(),
   snapshot: catalogSnapshotSchema,
+  gridRules: gridRulesSchema,
   rulesReviewed: z.boolean(),
   availabilityReviewed: z.boolean(),
   sealedAt: z.iso.datetime().nullable(),
@@ -77,3 +81,45 @@ export type PlanningDto = z.infer<typeof planningSchema>;
 export type PlanningDetailDto = z.infer<typeof planningDetailSchema>;
 
 export type RevisionDto = z.infer<typeof revisionSchema>;
+
+export const renameRevisionSchema = z.object({
+  version: z.number().int().positive(),
+  name: z.string().trim().max(100),
+});
+export const restoreRevisionSchema = z.object({ version: z.number().int().positive() });
+export const compareRevisionsSchema = z.object({
+  fromRevisionId: z.uuid(),
+  toRevisionId: z.uuid(),
+});
+export const revisionResultSchema = z.object({
+  id: z.uuid(),
+  version: z.number().int().positive(),
+});
+export const revisionRestoreResultSchema = revisionResultSchema.extend({ revisionId: z.uuid() });
+const comparisonRevisionSchema = z.object({
+  id: z.uuid(),
+  number: z.number().int().positive(),
+  name: z.string().nullable(),
+});
+const comparisonPlacementSchema = z.object({
+  label: z.string(),
+  time: z.string(),
+  pinned: z.boolean(),
+});
+export const revisionComparisonSchema = z.object({
+  version: z.number().int().positive(),
+  from: comparisonRevisionSchema,
+  to: comparisonRevisionSchema,
+  kept: z.number().int().nonnegative(),
+  removed: z.array(comparisonPlacementSchema),
+  added: z.array(comparisonPlacementSchema),
+  rulesChanged: z.boolean(),
+  catalogChanges: z.array(
+    z.object({
+      category: z.string(),
+      label: z.string(),
+      kind: z.enum(['added', 'removed', 'changed']),
+    }),
+  ),
+});
+export type RevisionComparisonDto = z.infer<typeof revisionComparisonSchema>;

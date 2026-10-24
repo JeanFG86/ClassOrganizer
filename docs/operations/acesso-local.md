@@ -52,6 +52,16 @@ Para incorporar alterações posteriores dos cadastros, conclua a revisão atual
 
 **Auditoria** apresenta as ações, responsáveis e registros, com paginação. Somente administradores acessam essa tela. Ela não oferece edição nem exclusão do histórico.
 
+### Guardar e recuperar alternativas da grade
+
+Abra um planejamento e use **Versões do planejamento**. Escolha a revisão de origem para nomeá-la, compará-la com outra ou restaurá-la. O nome é opcional e também pode identificar uma revisão concluída.
+
+- **Preservar revisão e continuar** guarda o rascunho atual no histórico e abre uma cópia para continuar os ajustes. Não exige grade completa e não conclui a revisão. Salve o nome antes, se desejar identificar a alternativa guardada.
+- **Comparar revisões** mostra o que saiu, entrou e permaneceu na grade, além das mudanças nos cadastros e regras. Trocas de horário e fixação aparecem como remoção e inclusão. Consulte os dados de cada revisão abaixo para conferir detalhes de cargas, disponibilidade e regras.
+- **Restaurar revisão** pede confirmação e abre um novo rascunho com os dados, regras e grade originais. O rascunho anterior continua no histórico. A restauração não usa os cadastros atuais, não altera a revisão original e exige nova conferência.
+
+Só o último rascunho pode receber alterações na grade. As revisões anteriores continuam disponíveis para consulta, comparação e restauração. Todos os perfis podem comparar; somente administrador e editor podem nomear, preservar e restaurar revisões de planejamentos ativos.
+
 ## E2E
 
 Use banco de teste e dados inteiramente fictícios. Antes da primeira suíte, crie o administrador pela mesma CLI com usuário `e2e-admin` e senha `senha ficticia e2e 2026!`. Esses valores são fixtures públicas de teste, não credenciais para uma instalação real. Credenciais diferentes podem ser passadas por `E2E_USERNAME` e `E2E_PASSWORD`.

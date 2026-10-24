@@ -270,6 +270,10 @@ model Planning {
 }
 model PlanningRevision {
   id String @id @db.Uuid
+  name String? @db.VarChar(100)
+  restoredFromId String? @map("restored_from_id") @db.Uuid
+  restoredFrom PlanningRevision? @relation("revision_restore", fields: [restoredFromId, planningId], references: [id, planningId], onDelete: Restrict, onUpdate: Restrict)
+  restorations PlanningRevision[] @relation("revision_restore")
   planningId String @map("planning_id") @db.Uuid
   number Int
   createdAt DateTime @map("created_at") @db.Timestamptz(3)

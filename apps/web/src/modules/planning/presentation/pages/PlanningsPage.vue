@@ -6,6 +6,7 @@ import { accessApiKey } from '../../../access/index.ts';
 import { injectRequired } from '../../../../shared/presentation/inject-required.ts';
 import { errorMessage } from '../../../../shared/presentation/feedback.ts';
 import PlanningSnapshotView from '../components/PlanningSnapshotView.vue';
+import PlanningVersionsPanel from '../components/PlanningVersionsPanel.vue';
 const api = injectRequired(planningsApiKey);
 const access = injectRequired(accessApiKey);
 const canWrite = computed(
@@ -49,6 +50,11 @@ async function open(id: string) {
   } finally {
     busy.value = false;
   }
+}
+async function refreshDetail() {
+  const id = detail.value?.id;
+  if (id) await open(id);
+  await load();
 }
 function copy(item: PlanningDto) {
   source.value = item;
@@ -190,6 +196,7 @@ onMounted(load);
       <p v-if="detail.copiedFromId" class="muted">
         Criado a partir de uma cópia. As conferências são independentes da origem.
       </p>
+      <PlanningVersionsPanel :planning="detail" :can-write="canWrite" @changed="refreshDetail" />
       <article
         v-for="revision in detail.revisions"
         :key="revision.id"
@@ -197,6 +204,26 @@ onMounted(load);
         :aria-label="'Revisão ' + revision.number"
       >
         <h3>Revisão {{ revision.number }} · {{ revision.sealedAt ? 'Concluída' : 'Rascunho' }}</h3>
+        <p v-if="revision.name">
+          <strong>{{ revision.name }}</strong>
+        </p>
+        <p v-if="revision.restoredFromId">
+          Restaurada da revisão
+          {{ detail.revisions.find((r) => r.id === revision.restoredFromId)?.number }}.
+        </p>
+        <p v-if="revision.id !== latest?.id && !revision.sealedAt" class="muted">
+          Rascunho preservado no histórico; disponível somente para consulta ou restauração.
+        </p>
+        <p>
+          Hora-atividade:
+          {{
+            revision.gridRules.planningPeriods === 'any_shift'
+              ? 'qualquer turno'
+              : 'turnos com aulas do professor'
+          }}. Limite diário: {{ revision.gridRules.daily.maxPerDay }} aula(s) da mesma disciplina{{
+            revision.gridRules.daily.consecutive ? ', consecutivas' : ''
+          }}. {{ revision.gridRules.dailyExceptions.length }} exceção(ões).
+        </p>
         <p>
           Capturada em {{ date(revision.snapshot.capturedAt) }}. Base dos cadastros: versão
           {{ revision.snapshot.catalogVersion }}.

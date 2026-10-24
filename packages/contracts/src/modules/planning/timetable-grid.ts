@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { planningSchema } from './plannings.ts';
+import { gridRulesSchema } from './grid-rules.ts';
 import { timetableSnapshotSchema } from '../generation/generation.ts';
+
+export { gridRulesSchema };
 
 const weekday = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]);
 const version = z.number().int().positive();
@@ -18,18 +21,6 @@ export const gridOperationSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('swap'), first: gridSlotSchema, second: gridSlotSchema }),
   z.object({ type: z.literal('pin'), slot: gridSlotSchema, pinned: z.boolean() }),
 ]);
-const dailyRule = {
-  maxPerDay: z.union([z.literal(1), z.literal(2)]),
-  consecutive: z.boolean(),
-};
-export const gridRulesSchema = z.object({
-  formatVersion: z.literal(1),
-  planningPeriods: z.enum(['any_shift', 'teaching_shifts']),
-  daily: z.object(dailyRule),
-  dailyExceptions: z
-    .array(z.object({ classGroupId: z.uuid(), subjectId: z.uuid(), ...dailyRule }))
-    .max(2000),
-});
 export const gridCommandSchema = z.object({
   version,
   revisionId: z.uuid(),
