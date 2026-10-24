@@ -1,3 +1,4 @@
+export { bindUseCase } from './shared/use-case.ts';
 export { DomainError, NotFoundError, type DomainErrorKind } from './shared/domain-error.ts';
 export type { Clock, Digest, IdGenerator, SeedGenerator } from './shared/ports.ts';
 export { StaleVersionError, type VersionedRef } from './shared/versioning.ts';
@@ -64,25 +65,27 @@ export {
   SubjectNameAlreadyInUseError,
   SubjectNotFoundError,
   createSubject,
+  SubjectEntity,
+  SubjectName,
   normalizeSubjectName,
   type Subject,
 } from './modules/school-structure/domain/subject.ts';
 export type { SubjectRepository } from './modules/school-structure/application/subject-repository.ts';
 export {
   makeRegisterSubject,
-  type RegisterSubject,
+  RegisterSubject,
 } from './modules/school-structure/application/register-subject.ts';
 export {
   makeListSubjects,
-  type ListSubjects,
+  ListSubjects,
 } from './modules/school-structure/application/list-subjects.ts';
 export {
   makeArchiveSubject,
   makeRestoreSubject,
   makeUpdateSubject,
-  type ArchiveSubject,
-  type RestoreSubject,
-  type UpdateSubject,
+  ArchiveSubject,
+  RestoreSubject,
+  UpdateSubject,
 } from './modules/school-structure/application/change-subject.ts';
 export {
   InvalidResourceNameError,

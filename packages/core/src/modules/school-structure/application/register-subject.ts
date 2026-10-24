@@ -1,26 +1,6 @@
-import type { Clock, IdGenerator } from '../../../shared/ports.ts';
-import { SubjectNameAlreadyInUseError, createSubject } from '../domain/subject.ts';
-import type { Subject } from '../domain/subject.ts';
-import type { SubjectRepository } from './subject-repository.ts';
-
-export interface RegisterSubjectDeps {
-  subjects: SubjectRepository;
-  clock: Clock;
-  ids: IdGenerator;
+import { bindUseCase } from '../../../shared/use-case.ts';
+import { RegisterSubject, type RegisterSubjectDeps } from './usecases/register-subject.ts';
+export { RegisterSubject, type RegisterSubjectDeps };
+export function makeRegisterSubject(deps: RegisterSubjectDeps) {
+  return bindUseCase(new RegisterSubject(deps));
 }
-
-export function makeRegisterSubject({ subjects, clock, ids }: RegisterSubjectDeps) {
-  return async function registerSubject(input: { name: string }): Promise<Subject> {
-    const subject = createSubject({ id: ids.next(), name: input.name, createdAt: clock.now() });
-
-    const existing = await subjects.findByNormalizedName(subject.normalizedName);
-    if (existing) {
-      throw new SubjectNameAlreadyInUseError(existing);
-    }
-
-    await subjects.add(subject);
-    return subject;
-  };
-}
-
-export type RegisterSubject = ReturnType<typeof makeRegisterSubject>;

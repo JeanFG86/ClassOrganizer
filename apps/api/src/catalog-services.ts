@@ -6,7 +6,6 @@ import {
   makeRestoreResource,
   makeUpdateResource,
   makeArchiveShift,
-  makeArchiveSubject,
   makeArchiveTeacher,
   makeAssignTeaching,
   makeChangeClassGroupSchedule,
@@ -19,16 +18,13 @@ import {
   makeListTeachers,
   makeRegisterClassGroup,
   makeRegisterShift,
-  makeRegisterSubject,
   makeRegisterTeacher,
   makeRemoveAssignment,
   makeRestoreClassGroup,
   makeRestoreShift,
-  makeRestoreSubject,
   makeRestoreTeacher,
   makeUpdateClassGroup,
   makeUpdateShift,
-  makeUpdateSubject,
   makeUpdateTeacher,
 } from '@classorganizer/core';
 import {
@@ -42,6 +38,7 @@ import {
   uuidGenerator,
 } from '@classorganizer/infrastructure';
 import type { PersistenceClient } from '@classorganizer/infrastructure';
+import { composeSubjects } from './composition/subjects.ts';
 export function makeCatalogServices(db: PersistenceClient) {
   const subjects = new PrismaSubjectRepository(db);
   const teachers = new PrismaTeacherRepository(db);
@@ -53,11 +50,8 @@ export function makeCatalogServices(db: PersistenceClient) {
   const ids = uuidGenerator;
 
   return {
-    registerSubject: makeRegisterSubject({ subjects, clock, ids }),
+    ...composeSubjects(db),
     listSubjects: makeListSubjects({ subjects }),
-    updateSubject: makeUpdateSubject({ subjects }),
-    archiveSubject: makeArchiveSubject({ subjects, clock }),
-    restoreSubject: makeRestoreSubject({ subjects }),
     registerTeacher: makeRegisterTeacher({ teachers, subjects, clock, ids }),
     listTeachers: makeListTeachers({ teachers }),
     updateTeacher: makeUpdateTeacher({ teachers, subjects, assignments }),
