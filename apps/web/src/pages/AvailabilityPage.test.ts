@@ -76,6 +76,7 @@ async function mountPage(teachersApi: TeachersApi, query: Record<string, string>
       { subjectId: 'other', teacherId: 'second' },
     ],
     weeklyLessons,
+    resourceIds: [],
     createdAt,
     version: 1,
   });

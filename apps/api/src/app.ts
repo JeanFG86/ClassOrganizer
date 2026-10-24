@@ -8,6 +8,8 @@ import type { ClassGroupRoutesDeps } from './http/class-group-routes.ts';
 import { registerErrorHandling } from './http/errors.ts';
 import { registerHealthRoutes } from './http/health-routes.ts';
 import type { HealthDeps } from './http/health-routes.ts';
+import { registerResourceRoutes } from './http/resource-routes.ts';
+import type { ResourceRoutesDeps } from './http/resource-routes.ts';
 import { registerSubjectRoutes } from './http/subject-routes.ts';
 import type { SubjectRoutesDeps } from './http/subject-routes.ts';
 import { registerShiftRoutes } from './http/shift-routes.ts';
@@ -20,6 +22,7 @@ export type AppDeps = HealthDeps &
   TeacherRoutesDeps &
   ClassGroupRoutesDeps &
   ShiftRoutesDeps &
+  ResourceRoutesDeps &
   AssignmentRoutesDeps;
 
 export interface AppOptions {
@@ -42,6 +45,7 @@ export function buildApp(deps: AppDeps, options: AppOptions): FastifyInstance {
   registerTeacherRoutes(app, deps);
   registerClassGroupRoutes(app, deps);
   registerShiftRoutes(app, deps);
+  registerResourceRoutes(app, deps);
   registerAssignmentRoutes(app, deps);
 
   return app;

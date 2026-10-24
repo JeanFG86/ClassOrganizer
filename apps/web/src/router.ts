@@ -61,6 +61,12 @@ export const router = createRouter({
       meta: { title: 'Turnos e horários' },
     },
     {
+      path: '/recursos',
+      name: 'resources',
+      component: () => import('./pages/ResourcesPage.vue'),
+      meta: { title: 'Recursos especiais' },
+    },
+    {
       path: '/professores',
       name: 'teachers',
       component: () => import('./pages/TeachersPage.vue'),

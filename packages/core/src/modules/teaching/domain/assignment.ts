@@ -1,6 +1,8 @@
 import { DomainError, NotFoundError } from '../../../shared/domain-error.ts';
 
 export const MAX_WEEKLY_LESSONS = 40;
+/** Recursos especiais que um bloco pode ocupar ao mesmo tempo (ADR 0016). */
+export const MAX_ASSIGNMENT_RESOURCES = 5;
 
 /** Cada professor participa uma vez do bloco, com a disciplina em que é habilitado. */
 export interface AssignmentParticipant {
@@ -14,6 +16,8 @@ export interface TeachingAssignment {
   readonly classGroupId: string;
   readonly participants: readonly AssignmentParticipant[];
   readonly weeklyLessons: number;
+  /** Recursos especiais ocupados por todas as aulas do bloco; vazio na maioria dos blocos. */
+  readonly resourceIds: readonly string[];
   readonly createdAt: Date;
   readonly version: number;
 }
@@ -50,6 +54,15 @@ export class InvalidAssignmentParticipantsError extends DomainError {
   }
 }
 
+export class InvalidAssignmentResourcesError extends DomainError {
+  readonly code = 'assignment.invalid_resources';
+  readonly kind = 'validation';
+
+  constructor() {
+    super(`Escolha até ${MAX_ASSIGNMENT_RESOURCES} recursos, sem repetir nenhum.`);
+  }
+}
+
 export class AssignmentNotFoundError extends NotFoundError {
   constructor() {
     super('assignment.not_found', 'Atribuição não encontrada.');
@@ -75,29 +88,46 @@ function validParticipants(
   return participants.map((p) => ({ ...p }));
 }
 
+function validResources(resourceIds: readonly string[]): string[] {
+  if (
+    resourceIds.length > MAX_ASSIGNMENT_RESOURCES ||
+    new Set(resourceIds).size !== resourceIds.length
+  ) {
+    throw new InvalidAssignmentResourcesError();
+  }
+  return [...resourceIds];
+}
+
 export function createAssignment(input: {
   id: string;
   classGroupId: string;
   participants: readonly AssignmentParticipant[];
   weeklyLessons: number;
+  resourceIds: readonly string[];
   createdAt: Date;
 }): TeachingAssignment {
   return {
     ...input,
     participants: validParticipants(input.participants),
     weeklyLessons: validWeeklyLessons(input.weeklyLessons),
+    resourceIds: validResources(input.resourceIds),
     version: 1,
   };
 }
 
-/** A turma permanece; participantes e carga são alterados juntos. */
+/** A turma permanece; participantes, carga e recursos são alterados juntos. */
 export function changeAssignment(
   assignment: TeachingAssignment,
-  input: { participants: readonly AssignmentParticipant[]; weeklyLessons: number },
+  input: {
+    participants: readonly AssignmentParticipant[];
+    weeklyLessons: number;
+    resourceIds: readonly string[];
+  },
 ): TeachingAssignment {
   return {
     ...assignment,
     participants: validParticipants(input.participants),
     weeklyLessons: validWeeklyLessons(input.weeklyLessons),
+    resourceIds: validResources(input.resourceIds),
   };
 }

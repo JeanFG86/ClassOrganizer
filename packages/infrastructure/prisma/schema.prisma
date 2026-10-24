@@ -28,6 +28,20 @@ model Subject {
   @@map("subject")
 }
 
+/// Recurso especial (quadra, laboratório) que atende um bloco de aulas por vez (ADR 0016).
+model Resource {
+  id             String    @id @db.Uuid
+  name           String    @db.VarChar(60)
+  normalizedName String    @unique(map: "resource_normalized_name_key") @map("normalized_name") @db.VarChar(60)
+  createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  version        Int       @default(1)
+
+  assignments AssignmentResource[]
+
+  @@map("resource")
+}
+
 /// Turma, com o turno e as aulas do turno que ela usa.
 model ClassGroup {
   id             String    @id @db.Uuid
@@ -154,9 +168,24 @@ model TeachingAssignment {
 
   classGroup   ClassGroup              @relation(fields: [classGroupId], references: [id], onDelete: Restrict)
   participants AssignmentParticipant[]
+  resources    AssignmentResource[]
 
   @@index([classGroupId])
   @@map("teaching_assignment")
+}
+
+/// Recurso ocupado por todas as aulas do bloco; um recurso aparece uma vez por bloco.
+model AssignmentResource {
+  assignmentId String @map("assignment_id") @db.Uuid
+  resourceId   String @map("resource_id") @db.Uuid
+  position     Int    @db.SmallInt
+
+  assignment TeachingAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  resource   Resource           @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+
+  @@id([assignmentId, resourceId])
+  @@index([resourceId])
+  @@map("assignment_resource")
 }
 
 /// Chave natural preservada ao editar; cada professor ocupa uma única participação no bloco.

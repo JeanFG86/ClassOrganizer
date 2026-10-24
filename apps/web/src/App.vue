@@ -26,6 +26,7 @@ async function logout() {
       <RouterLink to="/disciplinas">Disciplinas</RouterLink>
       <RouterLink to="/turmas">Turmas</RouterLink>
       <RouterLink to="/turnos">Turnos</RouterLink>
+      <RouterLink to="/recursos">Recursos</RouterLink>
       <RouterLink to="/professores">Professores</RouterLink>
       <RouterLink to="/disponibilidade">Disponibilidade</RouterLink>
       <RouterLink to="/atribuicoes">Atribuições</RouterLink>

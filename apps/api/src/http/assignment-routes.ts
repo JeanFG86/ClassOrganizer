@@ -27,6 +27,7 @@ function toDto(assignment: TeachingAssignment): AssignmentDto {
     classGroupId: assignment.classGroupId,
     participants: assignment.participants.map((p) => ({ ...p })),
     weeklyLessons: assignment.weeklyLessons,
+    resourceIds: [...assignment.resourceIds],
     createdAt: assignment.createdAt.toISOString(),
     version: assignment.version,
   };

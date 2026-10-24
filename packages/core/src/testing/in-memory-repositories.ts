@@ -1,7 +1,9 @@
 // Repositórios em memória para testes do core. Imitam o comportamento relevante dos
 // adaptadores reais (versão otimista e unicidade); não são usados em produção.
 import type { ClassGroupRepository } from '../modules/school-structure/application/class-groups.ts';
+import type { ResourceRepository } from '../modules/school-structure/application/resources.ts';
 import type { ShiftRepository } from '../modules/school-structure/application/shift-repository.ts';
+import type { Resource } from '../modules/school-structure/domain/resource.ts';
 import type { ClassGroup } from '../modules/school-structure/domain/class-group.ts';
 import type { Shift } from '../modules/school-structure/domain/shift.ts';
 import type { AssignmentRepository } from '../modules/teaching/application/ports.ts';
@@ -50,6 +52,30 @@ export class InMemoryClassGroupRepository implements ClassGroupRepository {
 
   async update(classGroup: ClassGroup) {
     return this.store.save(classGroup);
+  }
+
+  async listAll() {
+    return this.store.values();
+  }
+}
+
+export class InMemoryResourceRepository implements ResourceRepository {
+  readonly store = new VersionedStore<Resource>();
+
+  async findById(id: string) {
+    return this.store.get(id);
+  }
+
+  async findByNormalizedName(normalizedName: string) {
+    return this.store.values().find((r) => r.normalizedName === normalizedName) ?? null;
+  }
+
+  async add(resource: Resource) {
+    this.store.items.set(resource.id, resource);
+  }
+
+  async update(resource: Resource) {
+    return this.store.save(resource);
   }
 
   async listAll() {

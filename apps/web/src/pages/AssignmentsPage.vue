@@ -3,16 +3,19 @@ import { useAccess } from '../services/access-api.ts';
 import type {
   AssignmentDto,
   ClassGroupDto,
+  ResourceDto,
   SubjectDto,
   TeacherDto,
 } from '@classorganizer/contracts';
 import { computed, onMounted, ref } from 'vue';
 import AssignmentParticipantsEditor from '../components/AssignmentParticipantsEditor.vue';
+import AssignmentResourcesPicker from '../components/AssignmentResourcesPicker.vue';
 import { assignmentsApiKey } from '../services/assignments-api.ts';
 import { classGroupsApiKey } from '../services/class-groups-api.ts';
 import { errorMessage, isOutdatedError, type Feedback } from '../services/feedback.ts';
 import { injectRequired } from '../services/inject-required.ts';
 import { compareNames } from '../services/names.ts';
+import { resourcesApiKey } from '../services/resources-api.ts';
 import { subjectsApiKey } from '../services/subjects-api.ts';
 import { teachersApiKey } from '../services/teachers-api.ts';
 
@@ -21,14 +24,17 @@ const assignmentsApi = injectRequired(assignmentsApiKey);
 const classGroupsApi = injectRequired(classGroupsApiKey);
 const subjectsApi = injectRequired(subjectsApiKey);
 const teachersApi = injectRequired(teachersApiKey);
+const resourcesApi = injectRequired(resourcesApiKey);
 
 const MAX_WEEKLY_LESSONS = 40;
+const MAX_RESOURCES = 5;
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 const classGroups = ref<ClassGroupDto[]>([]);
 const subjects = ref<SubjectDto[]>([]);
 const teachers = ref<TeacherDto[]>([]);
+const resources = ref<ResourceDto[]>([]);
 const assignments = ref<AssignmentDto[]>([]);
 const loadState = ref<LoadState>('loading');
 const loadError = ref('');
@@ -37,6 +43,7 @@ const byId = <T extends { id: string }>(items: T[]) => new Map(items.map((i) => 
 const classGroupById = computed(() => byId(classGroups.value));
 const subjectById = computed(() => byId(subjects.value));
 const teacherById = computed(() => byId(teachers.value));
+const resourceById = computed(() => byId(resources.value));
 
 const activeClassGroups = computed(() => classGroups.value.filter((c) => !c.archivedAt));
 const activeTeachers = computed(() => teachers.value.filter((t) => !t.archivedAt));
@@ -55,6 +62,16 @@ function subjectName(id: string): string {
 
 function teacherName(id: string): string {
   return teacherById.value.get(id)?.name ?? '(removido)';
+}
+
+function resourceNames(assignment: AssignmentDto): string {
+  return assignment.resourceIds
+    .map((id) => {
+      const resource = resourceById.value.get(id);
+      if (!resource) return '(removido)';
+      return resource.archivedAt ? resource.name + ' (arquivado)' : resource.name;
+    })
+    .join(', ');
 }
 
 function lessonsLabel(count: number): string {
@@ -119,16 +136,19 @@ async function load(): Promise<void> {
 /** Atualiza tudo sem voltar ao estado "carregando". */
 async function refresh(): Promise<void> {
   try {
-    const [classGroupList, subjectList, teacherList, assignmentList] = await Promise.all([
-      classGroupsApi.list(),
-      subjectsApi.list(),
-      teachersApi.list(),
-      assignmentsApi.list(),
-    ]);
+    const [classGroupList, subjectList, teacherList, assignmentList, resourceList] =
+      await Promise.all([
+        classGroupsApi.list(),
+        subjectsApi.list(),
+        teachersApi.list(),
+        assignmentsApi.list(),
+        resourcesApi.list(),
+      ]);
     classGroups.value = classGroupList;
     subjects.value = subjectList;
     teachers.value = teacherList;
     assignments.value = assignmentList;
+    resources.value = resourceList;
     loadState.value = 'ready';
   } catch (error) {
     loadError.value = errorMessage(error);
@@ -138,7 +158,12 @@ async function refresh(): Promise<void> {
 
 type Participant = AssignmentDto['participants'][number];
 const emptyParticipants = (): Participant[] => [{ subjectId: '', teacherId: '' }];
-const form = ref({ classGroupId: '', weeklyLessons: '', participants: emptyParticipants() });
+const form = ref({
+  classGroupId: '',
+  weeklyLessons: '',
+  participants: emptyParticipants(),
+  resourceIds: [] as string[],
+});
 const saving = ref(false);
 const busy = ref(false);
 const formFeedback = ref<Feedback | null>(null);
@@ -147,6 +172,7 @@ const editing = ref<{
   id: string;
   participants: Participant[];
   weeklyLessons: string | number;
+  resourceIds: string[];
 } | null>(null);
 const confirmingRemovalId = ref<string | null>(null);
 
@@ -157,7 +183,11 @@ function clearFeedback(): void {
   formFeedback.value = null;
   listFeedback.value = null;
 }
-function validationMessage(participants: Participant[], raw: string | number): string | null {
+function validationMessage(
+  participants: Participant[],
+  raw: string | number,
+  resourceIds: string[],
+): string | null {
   if (!participants.length || participants.some((p) => !p.subjectId || !p.teacherId))
     return 'Escolha a disciplina e o professor de cada participante.';
   if (new Set(participants.map((p) => p.teacherId)).size !== participants.length)
@@ -165,12 +195,16 @@ function validationMessage(participants: Participant[], raw: string | number): s
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1 || value > MAX_WEEKLY_LESSONS)
     return 'Informe um número inteiro de aulas por semana entre 1 e 40.';
+  if (resourceIds.length > MAX_RESOURCES)
+    return 'Escolha até ' + MAX_RESOURCES + ' recursos especiais para o bloco.';
   return null;
 }
 async function submit(): Promise<void> {
   clearFeedback();
-  const { classGroupId, participants, weeklyLessons } = form.value;
-  const error = !classGroupId ? 'Escolha a turma.' : validationMessage(participants, weeklyLessons);
+  const { classGroupId, participants, weeklyLessons, resourceIds } = form.value;
+  const error = !classGroupId
+    ? 'Escolha a turma.'
+    : validationMessage(participants, weeklyLessons, resourceIds);
   if (error) {
     formFeedback.value = { kind: 'error', text: error };
     return;
@@ -181,12 +215,18 @@ async function submit(): Promise<void> {
       classGroupId,
       participants: participants.map((p) => ({ ...p })),
       weeklyLessons: Number(weeklyLessons),
+      resourceIds: [...resourceIds],
     });
     formFeedback.value = {
       kind: 'success',
       text: 'Bloco de aulas em ' + classGroupName(classGroupId) + ' criado.',
     };
-    form.value = { classGroupId, weeklyLessons: '', participants: emptyParticipants() };
+    form.value = {
+      classGroupId,
+      weeklyLessons: '',
+      participants: emptyParticipants(),
+      resourceIds: [],
+    };
     await refresh();
   } catch (error) {
     formFeedback.value = { kind: 'error', text: errorMessage(error) };
@@ -202,6 +242,7 @@ function startEdit(assignment: AssignmentDto): void {
     id: assignment.id,
     participants: assignment.participants.map((p) => ({ ...p })),
     weeklyLessons: assignment.weeklyLessons,
+    resourceIds: [...assignment.resourceIds],
   };
 }
 async function runListAction(action: () => Promise<string>): Promise<void> {
@@ -226,7 +267,7 @@ async function runListAction(action: () => Promise<string>): Promise<void> {
 function saveEdit(assignment: AssignmentDto): Promise<void> {
   const draft = editing.value;
   if (!draft) return Promise.resolve();
-  const error = validationMessage(draft.participants, draft.weeklyLessons);
+  const error = validationMessage(draft.participants, draft.weeklyLessons, draft.resourceIds);
   if (error) {
     clearFeedback();
     listFeedback.value = { kind: 'error', text: error };
@@ -236,6 +277,7 @@ function saveEdit(assignment: AssignmentDto): Promise<void> {
     await assignmentsApi.update(assignment.id, {
       participants: draft.participants.map((p) => ({ ...p })),
       weeklyLessons: Number(draft.weeklyLessons),
+      resourceIds: [...draft.resourceIds],
       version: assignment.version,
     });
     return 'Bloco de aulas atualizado.';
@@ -303,6 +345,12 @@ onMounted(load);
           :teachers="teachers"
           :disabled="saving || !canWrite"
         />
+        <AssignmentResourcesPicker
+          v-model="form.resourceIds"
+          id-prefix="assignment"
+          :resources="resources"
+          :disabled="saving || !canWrite"
+        />
         <p v-if="activeClassGroups.length === 0" class="hint">
           Nenhuma turma cadastrada. <RouterLink to="/turmas">Cadastre as turmas</RouterLink>.
         </p>
@@ -364,6 +412,12 @@ onMounted(load);
                       :teachers="teachers"
                       :disabled="busy || !canWrite"
                     />
+                    <AssignmentResourcesPicker
+                      v-model="editing.resourceIds"
+                      :id-prefix="'edit-' + assignment.id"
+                      :resources="resources"
+                      :disabled="busy || !canWrite"
+                    />
                     <label :for="'edit-lessons-' + assignment.id"
                       >Aulas por semana do bloco {{ index + 1 }}</label
                     >
@@ -396,6 +450,9 @@ onMounted(load);
                 <td>
                   <div v-for="p in assignment.participants" :key="p.teacherId">
                     {{ subjectName(p.subjectId) }} — {{ teacherName(p.teacherId) }}
+                  </div>
+                  <div v-if="assignment.resourceIds.length" class="muted">
+                    Recurso: {{ resourceNames(assignment) }}
                   </div>
                 </td>
                 <td class="num">{{ assignment.weeklyLessons }}</td>

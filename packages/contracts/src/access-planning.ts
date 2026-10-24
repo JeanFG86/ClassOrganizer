@@ -4,6 +4,7 @@ import { teacherSchema } from './teachers.ts';
 import { classGroupSchema } from './class-groups.ts';
 import { assignmentSchema } from './assignments.ts';
 import { shiftSchema } from './shifts.ts';
+import { resourceSchema } from './resources.ts';
 export const roleSchema = z.enum(['admin', 'editor', 'viewer']);
 export const credentialsSchema = z.object({
   username: z.string().min(1).max(40),
@@ -56,6 +57,8 @@ export const catalogSnapshotSchema = z.object({
       .passthrough(),
   ),
   assignments: z.array(assignmentSchema.passthrough()),
+  /** Ausente nas fotografias anteriores aos recursos especiais (ADR 0016). */
+  resources: z.array(resourceSchema.passthrough()).default([]),
 });
 export const revisionSchema = z.object({
   id: z.uuid(),

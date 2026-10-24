@@ -29,6 +29,14 @@ function period(id: string) {
         {{ item.name }}{{ item.archivedAt ? ' (arquivada)' : '' }}
       </li>
     </ul>
+    <template v-if="snapshot.resources.length">
+      <h4>Recursos especiais</h4>
+      <ul>
+        <li v-for="item in snapshot.resources" :key="item.id">
+          {{ item.name }}{{ item.archivedAt ? ' (arquivado)' : '' }}
+        </li>
+      </ul>
+    </template>
     <h4>Turnos e horários</h4>
     <p v-if="snapshot.shifts.length === 0">Nenhum turno nesta revisão.</p>
     <ul v-else>
@@ -81,6 +89,9 @@ function period(id: string) {
           <li v-for="participant in item.participants" :key="participant.teacherId">
             {{ name(snapshot.teachers, participant.teacherId) }} ·
             {{ name(snapshot.subjects, participant.subjectId) }}
+          </li>
+          <li v-if="item.resourceIds.length">
+            Recurso: {{ item.resourceIds.map((id) => name(snapshot.resources, id)).join(', ') }}
           </li>
         </ul>
       </li>

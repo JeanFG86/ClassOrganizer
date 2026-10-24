@@ -192,6 +192,7 @@ describe('professores', () => {
         createAssignment({
           id: 'a-1',
           classGroupId: '6A',
+          resourceIds: [],
           participants: [
             { subjectId, teacherId: accompanying.id },
             { subjectId, teacherId: ana.id },

@@ -5,8 +5,8 @@ import type { CatalogApi, CatalogItem } from '../services/catalog-api.ts';
 import { errorMessage, isOutdatedError, type Feedback } from '../services/feedback.ts';
 
 /**
- * Textos de um cadastro simples por nome. Os cadastros atuais (disciplina, turma) são
- * substantivos femininos, por isso as mensagens usam "cadastrada", "arquivada" etc.
+ * Textos de um cadastro simples por nome. As mensagens concordam com o gênero do substantivo:
+ * "cadastrada" (disciplina, turma) ou, com `masculine`, "cadastrado" (recurso).
  */
 export interface CatalogTexts {
   /** Título da página e prefixo dos rótulos das listas (ex.: "Disciplinas"). */
@@ -20,6 +20,10 @@ export interface CatalogTexts {
   maxLength: number;
   /** Explicação sobre o efeito do arquivamento. */
   archivedHint: string;
+  /** Orientação exibida logo abaixo do título. */
+  intro?: string;
+  /** Substantivo masculino; ausente, as mensagens ficam no feminino. */
+  masculine?: boolean;
 }
 
 const { canWrite } = useAccess();
@@ -39,6 +43,8 @@ const activeItems = computed(() => items.value.filter((i) => i.archivedAt === nu
 const archivedItems = computed(() => items.value.filter((i) => i.archivedAt !== null));
 
 const plural = computed(() => props.texts.title.toLocaleLowerCase('pt-BR'));
+/** Terminação de "cadastrada"/"cadastrado" e similares. */
+const ending = computed(() => (props.texts.masculine ? 'o' : 'a'));
 const singular = computed(() => props.texts.noun.toLocaleLowerCase('pt-BR'));
 const ids = computed(() => ({
   name: `${props.texts.idPrefix}-name`,
@@ -79,7 +85,10 @@ function clearFeedback(): void {
 async function submit(): Promise<void> {
   clearFeedback();
   if (name.value.trim() === '') {
-    formFeedback.value = { kind: 'error', text: `Informe o nome da ${singular.value}.` };
+    formFeedback.value = {
+      kind: 'error',
+      text: `Informe o nome d${ending.value} ${singular.value}.`,
+    };
     return;
   }
 
@@ -88,7 +97,7 @@ async function submit(): Promise<void> {
     const created = await props.api.register(name.value);
     formFeedback.value = {
       kind: 'success',
-      text: `${props.texts.noun} "${created.name}" cadastrada.`,
+      text: `${props.texts.noun} "${created.name}" cadastrad${ending.value}.`,
     };
     name.value = '';
     await refresh();
@@ -136,21 +145,21 @@ function saveEdit(item: T): Promise<void> {
       name: editingName.value,
       version: item.version,
     });
-    return `${props.texts.noun} renomeada para "${updated.name}".`;
+    return `${props.texts.noun} renomead${ending.value} para "${updated.name}".`;
   });
 }
 
 function archive(item: T): Promise<void> {
   return runListAction(async () => {
     await props.api.archive(item.id, item.version);
-    return `${props.texts.noun} "${item.name}" arquivada.`;
+    return `${props.texts.noun} "${item.name}" arquivad${ending.value}.`;
   });
 }
 
 function restore(item: T): Promise<void> {
   return runListAction(async () => {
     await props.api.restore(item.id, item.version);
-    return `${props.texts.noun} "${item.name}" restaurada.`;
+    return `${props.texts.noun} "${item.name}" restaurad${ending.value}.`;
   });
 }
 
@@ -160,6 +169,7 @@ onMounted(load);
 <template>
   <section :aria-labelledby="`${texts.idPrefix}-page-title`">
     <h1 :id="`${texts.idPrefix}-page-title`">{{ texts.title }}</h1>
+    <p v-if="texts.intro" class="hint">{{ texts.intro }}</p>
 
     <form v-if="canWrite" class="card" novalidate @submit.prevent="submit">
       <label :for="ids.name">{{ texts.fieldLabel }}</label>
@@ -185,7 +195,7 @@ onMounted(load);
       </p>
     </form>
 
-    <h2>Cadastradas</h2>
+    <h2>Cadastrad{{ ending }}s</h2>
     <p v-if="listFeedback?.kind === 'error'" class="error" role="alert">{{ listFeedback.text }}</p>
     <p v-if="listFeedback?.kind === 'success'" class="success" role="status">
       {{ listFeedback.text }}
@@ -197,8 +207,10 @@ onMounted(load);
       <button type="button" @click="load">Tentar novamente</button>
     </div>
     <template v-else>
-      <p v-if="activeItems.length === 0">Nenhuma {{ singular }} cadastrada ainda.</p>
-      <ul v-else class="list" :aria-label="`${texts.title} cadastradas`">
+      <p v-if="activeItems.length === 0">
+        {{ texts.masculine ? 'Nenhum' : 'Nenhuma' }} {{ singular }} cadastrad{{ ending }} ainda.
+      </p>
+      <ul v-else class="list" :aria-label="`${texts.title} cadastrad${ending}s`">
         <li v-for="item in activeItems" :key="item.id" class="item">
           <form
             v-if="editingId === item.id"
@@ -247,9 +259,9 @@ onMounted(load);
       </ul>
 
       <section v-if="archivedItems.length > 0" :aria-labelledby="ids.archivedTitle">
-        <h2 :id="ids.archivedTitle">Arquivadas ({{ archivedItems.length }})</h2>
+        <h2 :id="ids.archivedTitle">Arquivad{{ ending }}s ({{ archivedItems.length }})</h2>
         <p class="muted">{{ texts.archivedHint }}</p>
-        <ul class="list" :aria-label="`${texts.title} arquivadas`">
+        <ul class="list" :aria-label="`${texts.title} arquivad${ending}s`">
           <li v-for="item in archivedItems" :key="item.id" class="item">
             <span class="item-name muted">{{ item.name }}</span>
             <span class="item-actions">

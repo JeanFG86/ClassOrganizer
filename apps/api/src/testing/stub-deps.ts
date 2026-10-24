@@ -6,6 +6,11 @@ import { buildApp, type AppDeps } from '../app.ts';
 export function stubDeps(): AppDeps {
   return {
     checkReadiness: async () => {},
+    registerResource: vi.fn(),
+    listResources: vi.fn(),
+    updateResource: vi.fn(),
+    archiveResource: vi.fn(),
+    restoreResource: vi.fn(),
     registerSubject: vi.fn(),
     listSubjects: vi.fn(),
     updateSubject: vi.fn(),

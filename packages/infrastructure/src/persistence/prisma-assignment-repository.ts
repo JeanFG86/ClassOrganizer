@@ -14,6 +14,7 @@ const withParticipants = {
     select: { teacherId: true, subjectId: true },
     orderBy: { position: 'asc' },
   },
+  resources: { select: { resourceId: true }, orderBy: { position: 'asc' } },
 } as const satisfies Prisma.TeachingAssignmentInclude;
 type AssignmentRecord = Prisma.TeachingAssignmentGetPayload<{ include: typeof withParticipants }>;
 
@@ -23,6 +24,7 @@ function toDomain(record: AssignmentRecord): TeachingAssignment {
     classGroupId: record.classGroupId,
     participants: record.participants.map((p) => ({ ...p })),
     weeklyLessons: record.weeklyLessons,
+    resourceIds: record.resources.map((r) => r.resourceId),
     createdAt: record.createdAt,
     version: record.version,
   };
@@ -38,8 +40,8 @@ async function translateErrors<T>(operation: () => Promise<T>): Promise<T> {
     }
     if (isPrismaError(error, PrismaErrorCode.foreignKeyViolation)) {
       throw new InvalidAssignmentReferenceError(
-        'A turma, a disciplina ou a habilitação de um professor mudou enquanto o bloco ' +
-          'era salvo. Atualize a página e tente novamente.',
+        'A turma, a disciplina, um recurso ou a habilitação de um professor mudou enquanto ' +
+          'o bloco era salvo. Atualize a página e tente novamente.',
       );
     }
     throw error;
@@ -63,12 +65,15 @@ export class PrismaAssignmentRepository implements AssignmentRepository {
   }
 
   async add(assignment: TeachingAssignment): Promise<void> {
-    const { participants, ...data } = assignment;
+    const { participants, resourceIds, ...data } = assignment;
     await translateErrors(() =>
       this.#db.teachingAssignment.create({
         data: {
           ...data,
           participants: { create: participants.map((p, position) => ({ ...p, position })) },
+          resources: {
+            create: resourceIds.map((resourceId, position) => ({ resourceId, position })),
+          },
         },
       }),
     );
@@ -101,6 +106,18 @@ export class PrismaAssignmentRepository implements AssignmentRepository {
             update: data,
           });
         }
+        await tx.assignmentResource.deleteMany({
+          where: {
+            assignmentId: assignment.id,
+            resourceId: { notIn: [...assignment.resourceIds] },
+          },
+        });
+        for (const [position, resourceId] of assignment.resourceIds.entries())
+          await tx.assignmentResource.upsert({
+            where: { assignmentId_resourceId: { assignmentId: assignment.id, resourceId } },
+            create: { assignmentId: assignment.id, resourceId, position },
+            update: { position },
+          });
       }),
     );
     return { ...assignment, version: assignment.version + 1 };

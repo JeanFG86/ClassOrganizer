@@ -84,6 +84,15 @@ export {
   type RestoreSubject,
   type UpdateSubject,
 } from './modules/school-structure/application/change-subject.ts';
+export {
+  InvalidResourceNameError,
+  RESOURCE_NAME_MAX_LENGTH,
+  ResourceNameAlreadyInUseError,
+  ResourceNotFoundError,
+  createResource,
+  type Resource,
+} from './modules/school-structure/domain/resource.ts';
+export * from './modules/school-structure/application/resources.ts';
 
 export {
   ArchivedSubjectError,
@@ -108,6 +117,7 @@ export type {
   AssignmentRepository,
   ClassGroupStatusLookup,
   PeriodLookup,
+  ResourceLookup,
   SubjectLookup,
   TeacherRepository,
 } from './modules/teaching/application/ports.ts';
@@ -116,7 +126,9 @@ export {
   type AssignmentParticipant,
   AssignmentNotFoundError,
   InvalidAssignmentReferenceError,
+  InvalidAssignmentResourcesError,
   InvalidWeeklyLessonsError,
+  MAX_ASSIGNMENT_RESOURCES,
   MAX_WEEKLY_LESSONS,
   TeacherNotQualifiedError,
   createAssignment,

@@ -3,6 +3,7 @@ import App from './App.vue';
 import { router } from './router.ts';
 import { assignmentsApiKey, httpAssignmentsApi } from './services/assignments-api.ts';
 import { classGroupsApiKey, httpClassGroupsApi } from './services/class-groups-api.ts';
+import { httpResourcesApi, resourcesApiKey } from './services/resources-api.ts';
 import { httpShiftsApi, shiftsApiKey } from './services/shifts-api.ts';
 import { httpSubjectsApi, subjectsApiKey } from './services/subjects-api.ts';
 import { httpTeachersApi, teachersApiKey } from './services/teachers-api.ts';
@@ -21,6 +22,7 @@ createApp(App)
   .provide(subjectsApiKey, httpSubjectsApi)
   .provide(classGroupsApiKey, httpClassGroupsApi)
   .provide(shiftsApiKey, httpShiftsApi)
+  .provide(resourcesApiKey, httpResourcesApi)
   .provide(teachersApiKey, httpTeachersApi)
   .provide(assignmentsApiKey, httpAssignmentsApi)
   .provide(gridApiKey, httpGridApi)
