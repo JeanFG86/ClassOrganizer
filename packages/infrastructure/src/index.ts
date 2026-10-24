@@ -31,3 +31,6 @@ export {
   PrismaGenerationQueue,
   PrismaGenerationRunRepository,
 } from './persistence/prisma-generation-repository.ts';
+
+export { PrismaSessionRepository } from './modules/access/prisma-session-repository.ts';
+export { PrismaAuditReader } from './modules/access/prisma-audit-reader.ts';
