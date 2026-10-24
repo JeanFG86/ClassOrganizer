@@ -7,6 +7,7 @@ import { httpShiftsApi, shiftsApiKey } from './services/shifts-api.ts';
 import { httpSubjectsApi, subjectsApiKey } from './services/subjects-api.ts';
 import { httpTeachersApi, teachersApiKey } from './services/teachers-api.ts';
 import { accessApiKey, httpAccessApi } from './services/access-api.ts';
+import { gridApiKey, httpGridApi } from './services/grid-api.ts';
 import './styles.css';
 window.addEventListener('session-expired', () => {
   httpAccessApi.session.value = null;
@@ -21,4 +22,5 @@ createApp(App)
   .provide(shiftsApiKey, httpShiftsApi)
   .provide(teachersApiKey, httpTeachersApi)
   .provide(assignmentsApiKey, httpAssignmentsApi)
+  .provide(gridApiKey, httpGridApi)
   .mount('#app');

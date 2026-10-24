@@ -50,7 +50,11 @@ export interface DailySubjectRule {
 export interface TimetableSnapshot {
   readonly modelVersion: 1;
   readonly sourceRevision: string;
-  readonly lessonMinutes: number;
+  /**
+   * Duração única das aulas. `null` aplica a regra de equivalência da ADR 0013: cada aula
+   * cadastrada conta como uma aula, qualquer que seja a duração.
+   */
+  readonly lessonMinutes: number | null;
   readonly weekdays: readonly Weekday[];
   readonly periods: readonly TimetablePeriod[];
   readonly subjects: readonly { readonly id: string; readonly name: string }[];

@@ -1,16 +1,23 @@
 import type { TimetableIssue, TimetableSnapshot } from './model.ts';
 
-/** Valida referências e a modelagem; não decide se há uma grade viável. */
-export function validateTimetableModel(snapshot: TimetableSnapshot): TimetableIssue[] {
+/**
+ * Valida referências e a modelagem; não decide se há uma grade viável. Os limites de tamanho
+ * protegem a busca automática; a validação da grade manual os desliga (ADR 0013).
+ */
+export function validateTimetableModel(
+  snapshot: TimetableSnapshot,
+  options: { limits?: boolean } = {},
+): TimetableIssue[] {
   const slots = snapshot.periods.length * snapshot.weekdays.length;
   const units =
     snapshot.assignments.reduce((sum, a) => sum + a.weeklyLessons, 0) +
     snapshot.teachers.reduce((sum, t) => sum + t.planningPeriods, 0);
   if (
-    slots > 512 ||
-    units > 12000 ||
-    slots * (snapshot.classGroups.length + snapshot.teachers.length + snapshot.resources.length) >
-      1000000
+    options.limits !== false &&
+    (slots > 512 ||
+      units > 12000 ||
+      slots * (snapshot.classGroups.length + snapshot.teachers.length + snapshot.resources.length) >
+        1000000)
   ) {
     return [
       {
@@ -29,7 +36,7 @@ export function validateTimetableModel(snapshot: TimetableSnapshot): TimetableIs
     Number.isInteger(value) && value >= min && value <= max;
   if (snapshot.modelVersion !== 1 || !snapshot.sourceRevision.trim())
     fail('Informe a versão da modelagem e a revisão de origem.');
-  if (!range(snapshot.lessonMinutes, 1, 1440))
+  if (snapshot.lessonMinutes !== null && !range(snapshot.lessonMinutes, 1, 1440))
     fail('Informe a duração da unidade de aula em minutos.');
   if (
     !snapshot.weekdays.length ||
@@ -58,7 +65,8 @@ export function validateTimetableModel(snapshot: TimetableSnapshot): TimetableIs
       !p.shiftId.trim() ||
       !range(p.startMinute, 0, 1439) ||
       !range(p.endMinute, 1, 1440) ||
-      p.endMinute - p.startMinute !== snapshot.lessonMinutes
+      p.endMinute <= p.startMinute ||
+      (snapshot.lessonMinutes !== null && p.endMinute - p.startMinute !== snapshot.lessonMinutes)
     )
       fail(
         'Cada período precisa ter horário válido e a duração da unidade de aula da execução.',

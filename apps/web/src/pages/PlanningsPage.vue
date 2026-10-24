@@ -213,14 +213,24 @@ onMounted(load);
         <details>
           <summary>Consultar dados desta revisão</summary>
           <p>
-            A conferência inclui horários, cargas, hora-atividade, habilitações e atribuições. As
-            demais políticas serão configuradas nas próximas entregas.
+            A conferência inclui horários, cargas, hora-atividade, habilitações, atribuições e as
+            regras da grade (limite diário e onde cumprir hora-atividade).
           </p>
           <PlanningSnapshotView :snapshot="revision.snapshot" />
         </details>
-        <button :aria-label="'Baixar revisão ' + revision.number" @click="download(revision)">
-          Baixar revisão em JSON
-        </button>
+        <div class="actions">
+          <RouterLink
+            class="button"
+            :to="{
+              path: '/planejamentos/' + detail.id + '/grade',
+              query: revision.id === latest?.id ? {} : { revisao: revision.id },
+            }"
+            :aria-label="'Abrir grade da revisão ' + revision.number"
+            >Abrir grade</RouterLink
+          ><button :aria-label="'Baixar revisão ' + revision.number" @click="download(revision)">
+            Baixar revisão em JSON
+          </button>
+        </div>
       </article>
       <form
         v-if="latest && !latest.sealedAt && !detail.archivedAt && canWrite"
@@ -247,7 +257,8 @@ onMounted(load);
           </button>
         </div>
         <p class="muted">
-          Concluir preserva esta revisão. Isso não publica uma grade nem gera horários.
+          Concluir exige a grade completa e sem problemas e congela a revisão. Isso ainda não
+          publica a grade nem gera horários.
         </p>
       </form>
       <button

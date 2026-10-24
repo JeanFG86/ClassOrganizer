@@ -182,5 +182,11 @@ export {
 export * from './modules/access/domain/access.ts';
 export * from './modules/access/application/authorize.ts';
 export * from './modules/planning/domain/planning.ts';
-export * from './modules/planning/application/plannings.ts';
+export { makePlannings } from './modules/planning/application/plannings.ts';
 export * from './modules/access/application/accounts.ts';
+export * from './modules/planning/domain/grid.ts';
+export * from './modules/planning/domain/catalog-translation.ts';
+export * from './modules/planning/domain/diagnosis.ts';
+export * from './modules/planning/domain/grid-summary.ts';
+export * from './modules/planning/application/ports.ts';
+export * from './modules/planning/application/timetable-grid.ts';

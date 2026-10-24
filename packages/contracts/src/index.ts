@@ -8,3 +8,4 @@ export * from './teachers.ts';
 export * from './generation.ts';
 
 export * from './access-planning.ts';
+export * from './timetable-grid.ts';

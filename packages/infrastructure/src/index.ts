@@ -25,3 +25,4 @@ export {
 } from './access/accounts.ts';
 export { hashToken } from './access/passwords.ts';
 export { PrismaPlanningRepository } from './persistence/prisma-planning-repository.ts';
+export { PrismaGridRepository } from './persistence/prisma-grid-repository.ts';
