@@ -8,7 +8,7 @@ import type {
   GridViewDto,
   PlacementDto,
 } from '@classorganizer/contracts';
-import { useAccess } from '../../access/presentation/session-store.ts';
+import { useAccess } from '../../access/index.ts';
 import { errorMessage, isOutdatedError } from '../../../shared/presentation/feedback.ts';
 import { gridApiKey } from './grid-key.ts';
 import { type GridRef } from '../application/grid-api.ts';

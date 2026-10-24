@@ -1,6 +1,6 @@
 import { type PreferenceCriterionDto } from '@classorganizer/contracts';
 
-import type { GridRef } from '../../planning/application/grid-api.ts';
+import type { GridRef } from '../../planning/application/index.ts';
 import type { z } from 'zod';
 import type {
   GenerationListDto,

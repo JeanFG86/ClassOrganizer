@@ -1,4 +1,3 @@
-import { bindUseCase } from '../../../../shared/use-case.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { NotFoundError } from '../../../../shared/domain-error.ts';
 import { StaleVersionError } from '../../../../shared/versioning.ts';
@@ -8,7 +7,7 @@ import {
   WRITE_ROLES,
   requireRole,
   type Actor,
-} from '../../../access/domain/access.ts';
+} from '../../../access/domain/index.ts';
 import { translateCatalog } from '../../domain/catalog-translation.ts';
 import { diagnoseGrid, isGridComplete } from '../../domain/diagnosis.ts';
 import { DEFAULT_GRID_RULES, type GridRules } from '../../domain/grid.ts';
@@ -247,12 +246,4 @@ export class ChangePlanning {
 
     return { ...planning, version: planning.version + 1 };
   }
-}
-export function makePlannings(deps: PlanningsDependencies) {
-  return {
-    list: bindUseCase(new ListPlannings(deps)),
-    detail: bindUseCase(new GetPlanning(deps)),
-    create: bindUseCase(new CreatePlanning(deps)),
-    change: bindUseCase(new ChangePlanning(deps)),
-  };
 }

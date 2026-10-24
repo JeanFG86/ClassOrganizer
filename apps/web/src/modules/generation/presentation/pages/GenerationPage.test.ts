@@ -10,8 +10,8 @@ import { accessApiKey, createAccessApi } from '../../../../testing/access-fixtur
 import { ApiRequestError } from '../../../../shared/application/api-error.ts';
 import { generationApiKey } from '../generation-key.ts';
 import { type GenerationApi } from '../../application/generation-api.ts';
-import { gridApiKey } from '../../../planning/presentation/grid-key.ts';
-import { type GridApi } from '../../../planning/application/grid-api.ts';
+import { gridApiKey } from '../../../planning/index.ts';
+import { type GridApi } from '../../../planning/index.ts';
 import GenerationPage from './GenerationPage.vue';
 import {
   BLOCK,

@@ -1,3 +1,4 @@
+import { bindUseCase } from '../../../shared/use-case.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { StaleVersionError } from '../../../shared/versioning.ts';
 import { InMemoryAssignmentRepository } from '../../../testing/in-memory-repositories.ts';
@@ -12,14 +13,10 @@ import {
   type SubjectStatus,
   type Teacher,
 } from '../domain/teacher.ts';
-import {
-  makeArchiveTeacher,
-  makeRestoreTeacher,
-  makeUpdateTeacher,
-} from './usecases/change-teacher.ts';
-import { makeListTeachers } from './usecases/list-teachers.ts';
+import { ArchiveTeacher, RestoreTeacher, UpdateTeacher } from './usecases/change-teacher.ts';
+import { ListTeachers } from './usecases/list-teachers.ts';
 import type { SubjectLookup, TeacherRepository } from './ports/index.ts';
-import { makeRegisterTeacher } from './usecases/register-teacher.ts';
+import { RegisterTeacher } from './usecases/register-teacher.ts';
 
 class InMemoryTeacherRepository implements TeacherRepository {
   readonly items = new Map<string, Teacher>();
@@ -51,11 +48,11 @@ const now = new Date('2026-02-01T12:00:00Z');
 describe('professores', () => {
   let teachers: InMemoryTeacherRepository;
   let subjectStatus: Map<string, SubjectStatus>;
-  let registerTeacher: ReturnType<typeof makeRegisterTeacher>;
-  let updateTeacher: ReturnType<typeof makeUpdateTeacher>;
-  let archive: ReturnType<typeof makeArchiveTeacher>;
+  let registerTeacher: RegisterTeacher['execute'];
+  let updateTeacher: UpdateTeacher['execute'];
+  let archive: ArchiveTeacher['execute'];
   let assignments: InMemoryAssignmentRepository;
-  let restore: ReturnType<typeof makeRestoreTeacher>;
+  let restore: RestoreTeacher['execute'];
 
   beforeEach(() => {
     teachers = new InMemoryTeacherRepository();
@@ -77,15 +74,17 @@ describe('professores', () => {
     };
     const clock = { now: () => now };
     let sequence = 0;
-    registerTeacher = makeRegisterTeacher({
-      teachers,
-      subjects,
-      clock,
-      ids: { next: () => `t-${++sequence}` },
-    });
-    updateTeacher = makeUpdateTeacher({ teachers, subjects, assignments });
-    archive = makeArchiveTeacher({ teachers, assignments, clock });
-    restore = makeRestoreTeacher({ teachers });
+    registerTeacher = bindUseCase(
+      new RegisterTeacher({
+        teachers,
+        subjects,
+        clock,
+        ids: { next: () => `t-${++sequence}` },
+      }),
+    );
+    updateTeacher = bindUseCase(new UpdateTeacher({ teachers, subjects, assignments }));
+    archive = bindUseCase(new ArchiveTeacher({ teachers, assignments, clock }));
+    restore = bindUseCase(new RestoreTeacher({ teachers }));
   });
 
   describe('cadastro', () => {
@@ -130,7 +129,7 @@ describe('professores', () => {
         await registerTeacher({ name, subjectIds: [] });
       }
 
-      const names = (await makeListTeachers({ teachers })()).map((t) => t.name);
+      const names = (await bindUseCase(new ListTeachers({ teachers }))()).map((t) => t.name);
 
       expect(names).toEqual(['Bruno', 'Ítalo', 'Zélia']);
     });

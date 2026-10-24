@@ -1,4 +1,10 @@
-import type { makeManageAccounts, SessionView, LoginResult } from '@classorganizer/core';
+import type {
+  ListAccounts,
+  CreateAccount,
+  ChangeAccount,
+  ChangePassword,
+} from '@classorganizer/core';
+import type { SessionView, LoginResult } from '@classorganizer/core';
 type WithoutActor<T> = T extends (actor: infer _Actor, ...args: infer Args) => infer Result
   ? (...args: Args) => Result
   : never;
@@ -6,10 +12,10 @@ export interface AccessOperations {
   login(username: string, password: string, ip: string): Promise<LoginResult>;
   session(): Promise<SessionView>;
   logout(): Promise<void>;
-  listUsers: WithoutActor<ReturnType<typeof makeManageAccounts>['list']>;
-  createUser: WithoutActor<ReturnType<typeof makeManageAccounts>['create']>;
-  changeUser: WithoutActor<ReturnType<typeof makeManageAccounts>['change']>;
-  changePassword: WithoutActor<ReturnType<typeof makeManageAccounts>['changePassword']>;
+  listUsers: WithoutActor<ListAccounts['execute']>;
+  createUser: WithoutActor<CreateAccount['execute']>;
+  changeUser: WithoutActor<ChangeAccount['execute']>;
+  changePassword: WithoutActor<ChangePassword['execute']>;
 }
 export class AccessController {
   readonly #operations: AccessOperations;

@@ -1,5 +1,5 @@
 import { TeacherEntity } from '../../domain/teacher.ts';
-import { bindUseCase } from '../../../../shared/use-case.ts';
+
 import type { Clock } from '../../../../shared/ports.ts';
 import { assertVersion } from '../../../../shared/versioning.ts';
 import type { VersionedRef } from '../../../../shared/versioning.ts';
@@ -62,9 +62,6 @@ export class UpdateTeacher {
     return teachers.update(changed);
   }
 }
-export function makeUpdateTeacher(deps: UpdateTeacherDependencies) {
-  return bindUseCase(new UpdateTeacher(deps));
-}
 
 export type ArchiveTeacherDependencies = {
   teachers: TeacherRepository;
@@ -92,9 +89,6 @@ export class ArchiveTeacher {
     return teachers.update(TeacherEntity.reconstitute(current).archive(clock.now()).snapshot());
   }
 }
-export function makeArchiveTeacher(deps: ArchiveTeacherDependencies) {
-  return bindUseCase(new ArchiveTeacher(deps));
-}
 
 export type RestoreTeacherDependencies = { teachers: TeacherRepository };
 export class RestoreTeacher {
@@ -113,9 +107,6 @@ export class RestoreTeacher {
 
     return teachers.update(TeacherEntity.reconstitute(current).restore().snapshot());
   }
-}
-export function makeRestoreTeacher(deps: RestoreTeacherDependencies) {
-  return bindUseCase(new RestoreTeacher(deps));
 }
 
 /** Substitui os horários em que o professor não pode dar aula. */
@@ -141,7 +132,4 @@ export class ChangeTeacherAvailability {
       TeacherEntity.reconstitute(current).setUnavailability(input.unavailable, known).snapshot(),
     );
   }
-}
-export function makeChangeTeacherAvailability(deps: ChangeTeacherAvailabilityDependencies) {
-  return bindUseCase(new ChangeTeacherAvailability(deps));
 }

@@ -1,7 +1,7 @@
 import type { Clock, IdGenerator } from '../../../shared/ports.ts';
 import { NotFoundError } from '../../../shared/domain-error.ts';
 import { StaleVersionError } from '../../../shared/versioning.ts';
-import type { Actor } from '../../access/domain/access.ts';
+import type { Actor } from '../../access/domain/index.ts';
 import { translateCatalog } from '../domain/catalog-translation.ts';
 import { PlanningError, requireDraft, type Planning } from '../domain/planning.ts';
 import type {

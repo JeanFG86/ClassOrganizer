@@ -1,7 +1,6 @@
-import { bindUseCase } from '../../../../shared/use-case.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
-import { READ_ROLES, WRITE_ROLES, requireRole, type Actor } from '../../../access/domain/access.ts';
-import type { TimetableIssue } from '../../../timetable/domain/model.ts';
+import { READ_ROLES, WRITE_ROLES, requireRole, type Actor } from '../../../access/domain/index.ts';
+import type { TimetableIssue } from '../../../timetable/domain/index.ts';
 import type { TranslatedCatalog } from '../../domain/catalog-translation.ts';
 import { diagnoseGrid, issuesAdded, type GridDiagnosis } from '../../domain/diagnosis.ts';
 import {
@@ -230,13 +229,3 @@ export class ChangeGridRules {
     return { id: planning.id, version: planning.version + 1 };
   }
 }
-export function makeTimetableGrid(deps: TimetableGridDependencies) {
-  return {
-    view: bindUseCase(new ViewTimetableGrid(deps)),
-    preview: bindUseCase(new PreviewTimetableGrid(deps)),
-    apply: bindUseCase(new ApplyTimetableGrid(deps)),
-    undo: bindUseCase(new UndoTimetableGrid(deps)),
-    changeRules: bindUseCase(new ChangeGridRules(deps)),
-  };
-}
-export type TimetableGrid = ReturnType<typeof makeTimetableGrid>;

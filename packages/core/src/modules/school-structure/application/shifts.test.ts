@@ -1,3 +1,4 @@
+import { bindUseCase } from '../../../shared/use-case.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   InMemoryClassGroupRepository,
@@ -14,16 +15,16 @@ import {
 } from '../domain/shift.ts';
 import type { PeriodInput } from '../domain/shift.ts';
 import {
-  makeArchiveClassGroup,
-  makeChangeClassGroupSchedule,
-  makeRegisterClassGroup,
+  ArchiveClassGroup,
+  ChangeClassGroupSchedule,
+  RegisterClassGroup,
 } from './usecases/class-groups.ts';
 import {
-  makeArchiveShift,
-  makeListShifts,
-  makeRegisterShift,
-  makeRestoreShift,
-  makeUpdateShift,
+  ArchiveShift,
+  ListShifts,
+  RegisterShift,
+  RestoreShift,
+  UpdateShift,
 } from './usecases/shifts.ts';
 
 const now = new Date('2026-02-01T12:00:00Z');
@@ -43,13 +44,13 @@ const morning = [period('07:30', '08:20'), period('08:20', '09:10'), period('09:
 describe('turnos e aulas', () => {
   let shifts: InMemoryShiftRepository;
   let classGroups: InMemoryClassGroupRepository;
-  let registerShift: ReturnType<typeof makeRegisterShift>;
-  let updateShift: ReturnType<typeof makeUpdateShift>;
-  let archiveShift: ReturnType<typeof makeArchiveShift>;
-  let restoreShift: ReturnType<typeof makeRestoreShift>;
-  let registerClassGroup: ReturnType<typeof makeRegisterClassGroup>;
-  let archiveClassGroup: ReturnType<typeof makeArchiveClassGroup>;
-  let schedule: ReturnType<typeof makeChangeClassGroupSchedule>;
+  let registerShift: RegisterShift['execute'];
+  let updateShift: UpdateShift['execute'];
+  let archiveShift: ArchiveShift['execute'];
+  let restoreShift: RestoreShift['execute'];
+  let registerClassGroup: RegisterClassGroup['execute'];
+  let archiveClassGroup: ArchiveClassGroup['execute'];
+  let schedule: ChangeClassGroupSchedule['execute'];
 
   beforeEach(() => {
     shifts = new InMemoryShiftRepository();
@@ -57,13 +58,13 @@ describe('turnos e aulas', () => {
     const clock = { now: () => now };
     let sequence = 0;
     const ids = { next: () => `id-${++sequence}` };
-    registerShift = makeRegisterShift({ shifts, clock, ids });
-    updateShift = makeUpdateShift({ shifts, classGroups, ids });
-    archiveShift = makeArchiveShift({ shifts, classGroups, clock });
-    restoreShift = makeRestoreShift({ shifts });
-    registerClassGroup = makeRegisterClassGroup({ classGroups, clock, ids });
-    archiveClassGroup = makeArchiveClassGroup({ classGroups, clock });
-    schedule = makeChangeClassGroupSchedule({ classGroups, shifts });
+    registerShift = bindUseCase(new RegisterShift({ shifts, clock, ids }));
+    updateShift = bindUseCase(new UpdateShift({ shifts, classGroups, ids }));
+    archiveShift = bindUseCase(new ArchiveShift({ shifts, classGroups, clock }));
+    restoreShift = bindUseCase(new RestoreShift({ shifts }));
+    registerClassGroup = bindUseCase(new RegisterClassGroup({ classGroups, clock, ids }));
+    archiveClassGroup = bindUseCase(new ArchiveClassGroup({ classGroups, clock }));
+    schedule = bindUseCase(new ChangeClassGroupSchedule({ classGroups, shifts }));
   });
 
   describe('cadastro do turno', () => {
@@ -152,7 +153,7 @@ describe('turnos e aulas', () => {
       await registerShift({ name: 'Manhã', periods: morning });
       await registerShift({ name: 'Tarde', periods: [period('13:00', '13:50')] });
 
-      const names = (await makeListShifts({ shifts })()).map((s) => s.name);
+      const names = (await bindUseCase(new ListShifts({ shifts }))()).map((s) => s.name);
 
       expect(names).toEqual(['Manhã', 'Tarde', 'Noite']);
     });

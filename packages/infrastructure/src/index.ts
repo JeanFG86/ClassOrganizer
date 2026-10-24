@@ -1,5 +1,5 @@
 export { checkDatabase, createDatabase, type Database } from './persistence/database.ts';
-export { PrismaSubjectRepository } from './persistence/prisma-subject-repository.ts';
+export { PrismaSubjectRepository } from './modules/school-structure/prisma-subject-repository.ts';
 export { PrismaResourceRepository } from './modules/school-structure/prisma-resource-repository.ts';
 export { PrismaTeacherRepository } from './modules/teaching/prisma-teacher-repository.ts';
 export { PrismaClassGroupRepository } from './modules/school-structure/prisma-class-group-repository.ts';
@@ -17,8 +17,6 @@ export {
 export { type PersistenceClient } from './persistence/database.ts';
 export { createAccessUnitOfWork, sessionActor, audit } from './modules/access/unit-of-work.ts';
 export {
-  makeAccounts,
-  makeLogin,
   prepareAccount,
   preparePassword,
   publicUser,
@@ -35,3 +33,6 @@ export {
 export { PrismaSessionRepository } from './modules/access/prisma-session-repository.ts';
 export { PrismaAuditReader } from './modules/access/prisma-audit-reader.ts';
 export { PrismaLoginStore } from './modules/access/prisma-login-store.ts';
+
+export { PrismaAccountRepository } from './modules/access/prisma-account-repository.ts';
+export { hashPassword, verifyPassword, newToken } from './modules/access/passwords.ts';

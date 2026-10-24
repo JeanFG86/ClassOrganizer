@@ -1,5 +1,5 @@
 import { TeacherEntity } from '../../domain/teacher.ts';
-import { bindUseCase } from '../../../../shared/use-case.ts';
+
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { assertQualificationsAllowed } from '../../domain/teacher.ts';
 import type { Teacher, WorkloadInput } from '../../domain/teacher.ts';
@@ -37,7 +37,4 @@ export class RegisterTeacher {
 
     return teacher;
   }
-}
-export function makeRegisterTeacher(deps: RegisterTeacherDependencies) {
-  return bindUseCase(new RegisterTeacher(deps));
 }

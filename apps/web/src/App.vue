@@ -48,6 +48,6 @@ async function logout() {
     <p v-if="api.session.value?.user.role === 'viewer'" class="muted" role="status">
       Seu perfil permite apenas consulta e download das revisões.
     </p>
-    <RouterView />
+    <RouterView :key="$route.path" />
   </main>
 </template>

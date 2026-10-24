@@ -4,73 +4,46 @@ import {
   updateClassGroupRequestSchema,
   versionRequestSchema,
 } from '@classorganizer/contracts';
-import type { ClassGroupDto, ClassGroupListDto } from '@classorganizer/contracts';
-import type {
-  ArchiveClassGroup,
-  ChangeClassGroupSchedule,
-  ClassGroup,
-  ListClassGroups,
-  RegisterClassGroup,
-  RestoreClassGroup,
-  UpdateClassGroup,
-} from '@classorganizer/core';
+
 import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
-
-export interface ClassGroupRoutesDeps {
-  registerClassGroup: RegisterClassGroup['execute'];
-  listClassGroups: ListClassGroups['execute'];
-  updateClassGroup: UpdateClassGroup['execute'];
-  changeClassGroupSchedule: ChangeClassGroupSchedule['execute'];
-  archiveClassGroup: ArchiveClassGroup['execute'];
-  restoreClassGroup: RestoreClassGroup['execute'];
-}
-
-function toDto(classGroup: ClassGroup): ClassGroupDto {
-  return {
-    id: classGroup.id,
-    name: classGroup.name,
-    shiftId: classGroup.shiftId,
-    periodIds: [...classGroup.periodIds],
-    createdAt: classGroup.createdAt.toISOString(),
-    archivedAt: classGroup.archivedAt?.toISOString() ?? null,
-    version: classGroup.version,
-  };
-}
+import {
+  ClassGroupController,
+  type ClassGroupOperations,
+} from '../controllers/class-group-controller.ts';
+export type ClassGroupRoutesDeps = ClassGroupOperations;
 
 export function registerClassGroupRoutes(app: FastifyInstance, deps: ClassGroupRoutesDeps): void {
-  app.get('/api/v1/class-groups', async (): Promise<ClassGroupListDto> => {
-    const classGroups = await deps.listClassGroups();
-    return { items: classGroups.map(toDto) };
-  });
+  const controller = new ClassGroupController(deps);
+  app.get('/api/v1/class-groups', () => controller.listClassGroups());
 
   app.post('/api/v1/class-groups', async (request, reply) => {
     const input = parseRequest(registerClassGroupRequestSchema, request.body);
-    const classGroup = await deps.registerClassGroup(input);
-    return reply.status(201).send(toDto(classGroup));
+    const classGroup = await controller.registerClassGroup(input);
+    return reply.status(201).send(classGroup);
   });
 
-  app.put('/api/v1/class-groups/:id', async (request): Promise<ClassGroupDto> => {
+  app.put('/api/v1/class-groups/:id', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const input = parseRequest(updateClassGroupRequestSchema, request.body);
-    return toDto(await deps.updateClassGroup({ id, ...input }));
+    return await controller.updateClassGroup({ id, ...input });
   });
 
-  app.put('/api/v1/class-groups/:id/schedule', async (request): Promise<ClassGroupDto> => {
+  app.put('/api/v1/class-groups/:id/schedule', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const input = parseRequest(changeClassGroupScheduleRequestSchema, request.body);
-    return toDto(await deps.changeClassGroupSchedule({ id, ...input }));
+    return await controller.changeClassGroupSchedule({ id, ...input });
   });
 
-  app.post('/api/v1/class-groups/:id/archive', async (request): Promise<ClassGroupDto> => {
+  app.post('/api/v1/class-groups/:id/archive', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const { version } = parseRequest(versionRequestSchema, request.body);
-    return toDto(await deps.archiveClassGroup({ id, version }));
+    return await controller.archiveClassGroup({ id, version });
   });
 
-  app.post('/api/v1/class-groups/:id/restore', async (request): Promise<ClassGroupDto> => {
+  app.post('/api/v1/class-groups/:id/restore', async (request) => {
     const { id } = parseRequest(idParamsSchema, request.params);
     const { version } = parseRequest(versionRequestSchema, request.body);
-    return toDto(await deps.restoreClassGroup({ id, version }));
+    return await controller.restoreClassGroup({ id, version });
   });
 }

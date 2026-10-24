@@ -1,11 +1,10 @@
-import { bindUseCase } from '../../../../shared/use-case.ts';
-import { validateTimetableModel } from '../../../timetable/domain/validate-model.ts';
+import { validateTimetableModel } from '../../../timetable/domain/index.ts';
 import {
   measureTeacherIdleMinutes,
   validateTimetableProposal,
-} from '../../../timetable/domain/validate-proposal.ts';
-import { measurePreferences } from '../../../timetable/domain/preferences.ts';
-import type { TimetableIssue, TimetableSnapshot } from '../../../timetable/domain/model.ts';
+} from '../../../timetable/domain/index.ts';
+import { measurePreferences } from '../../../timetable/domain/index.ts';
+import type { TimetableIssue, TimetableSnapshot } from '../../../timetable/domain/index.ts';
 import type {
   EngineSearchResult,
   GenerationOptions,
@@ -157,7 +156,4 @@ export class GenerateTimetable {
       ]);
     }
   }
-}
-export function makeGenerateTimetable(deps: GenerateTimetableDependencies) {
-  return bindUseCase(new GenerateTimetable(deps));
 }

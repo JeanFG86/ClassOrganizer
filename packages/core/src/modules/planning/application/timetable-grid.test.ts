@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Actor } from '../../access/domain/access.ts';
+import type { Actor } from '../../access/domain/index.ts';
 import type { GridOperation, GridSlot, Placement } from '../domain/grid.ts';
 import type { Weekday } from '../../../shared/weekdays.ts';
 import { makeInMemoryPlanningStore } from '../../../testing/planning-fixture.ts';
-import { makePlannings } from './usecases/plannings.ts';
-import { makeTimetableGrid } from './usecases/timetable-grid.ts';
+
+import { createPlanningTestOperations } from '../../../testing/use-case-operations.ts';
+
+import { createGridTestOperations } from '../../../testing/use-case-operations.ts';
 
 const editor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
 const viewer: Actor = { ...editor, role: 'viewer' };
@@ -18,8 +20,8 @@ const codes = (issues: readonly { code: string }[]) => issues.map((i) => i.code)
 
 describe('grade manual de um rascunho', () => {
   let store: ReturnType<typeof makeInMemoryPlanningStore>;
-  let grid: ReturnType<typeof makeTimetableGrid>;
-  let plannings: ReturnType<typeof makePlannings>;
+  let grid: ReturnType<typeof createGridTestOperations>;
+  let plannings: ReturnType<typeof createPlanningTestOperations>;
   let ref: { id: string; version: number; revisionId: string };
   beforeEach(async () => {
     let sequence = 0;
@@ -28,8 +30,12 @@ describe('grade manual de um rascunho', () => {
       clock: { now: () => new Date('2026-01-01T00:00:00.000Z') },
       ids: { next: () => 'id-' + ++sequence },
     };
-    plannings = makePlannings({ repository: store.repository, grids: store.grids, ...deps });
-    grid = makeTimetableGrid({ plannings: store.repository, grids: store.grids, ...deps });
+    plannings = createPlanningTestOperations({
+      repository: store.repository,
+      grids: store.grids,
+      ...deps,
+    });
+    grid = createGridTestOperations({ plannings: store.repository, grids: store.grids, ...deps });
     const planning = await plannings.create(editor, { name: 'Plano fictício', year: 2027 });
     const revisionId = store.revisions[0]?.id ?? '';
     ref = { id: planning.id, version: 1, revisionId };

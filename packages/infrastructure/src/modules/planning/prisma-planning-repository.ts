@@ -12,7 +12,7 @@ import type { Prisma } from '../../generated/prisma/client.ts';
 import type { PersistenceClient } from '../../persistence/database.ts';
 import { inTransaction } from '../../persistence/database.ts';
 import { isUuid } from '../../persistence/uuid.ts';
-import { PrismaSubjectRepository } from '../../persistence/prisma-subject-repository.ts';
+import { PrismaSubjectRepository } from '../school-structure/prisma-subject-repository.ts';
 import { PrismaTeacherRepository } from '../teaching/prisma-teacher-repository.ts';
 import { PrismaClassGroupRepository } from '../school-structure/prisma-class-group-repository.ts';
 import { PrismaShiftRepository } from '../school-structure/prisma-shift-repository.ts';

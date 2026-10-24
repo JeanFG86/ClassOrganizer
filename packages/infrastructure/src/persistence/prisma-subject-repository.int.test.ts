@@ -7,7 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startTestDatabase } from '../testing/postgres-container.ts';
 import type { TestDatabase } from '../testing/postgres-container.ts';
 import { checkDatabase } from './database.ts';
-import { PrismaSubjectRepository } from './prisma-subject-repository.ts';
+import { PrismaSubjectRepository } from '../modules/school-structure/prisma-subject-repository.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const MATH = '0b9d3a52-5c39-4a7e-9a34-1f0a51a8f0c1';

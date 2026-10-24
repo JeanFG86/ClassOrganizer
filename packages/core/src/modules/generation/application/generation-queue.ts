@@ -1,9 +1,6 @@
 export type { ClaimedGeneration, GenerationQueue } from './ports/generation-queue.ts';
-import {
-  proposalPlacements,
-  type GenerationOutcome,
-} from '../../planning/domain/generation-run.ts';
-import type { TimetableSnapshot } from '../../timetable/domain/model.ts';
+import { proposalPlacements, type GenerationOutcome } from '../../planning/domain/index.ts';
+import type { TimetableSnapshot } from '../../timetable/domain/index.ts';
 import type { GenerationResult } from './ports/engine.ts';
 
 /** Execução reservada por um worker, com a entrada gravada na solicitação. */

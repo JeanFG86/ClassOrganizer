@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAccess } from '../../../access/presentation/session-store.ts';
+import { useAccess } from '../../../access/index.ts';
 import type { ClassGroupDto, ShiftDto } from '@classorganizer/contracts';
 import { computed, onMounted, ref } from 'vue';
 import PeriodsEditor from '../components/PeriodsEditor.vue';

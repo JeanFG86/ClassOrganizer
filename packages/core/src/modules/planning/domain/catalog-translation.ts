@@ -5,7 +5,7 @@ import type {
   TimetableProposal,
   TimetableSnapshot,
   TimetableTeacher,
-} from '../../timetable/domain/model.ts';
+} from '../../timetable/domain/index.ts';
 import type { GridRules, GridSlot, Placement } from './grid.ts';
 import { PlanningError } from './planning-error.ts';
 import type { CatalogSnapshot } from './planning.ts';

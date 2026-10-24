@@ -15,7 +15,7 @@ import type { TestDatabase } from '../../testing/postgres-container.ts';
 import { PrismaAssignmentRepository } from './prisma-assignment-repository.ts';
 import { PrismaClassGroupRepository } from '../school-structure/prisma-class-group-repository.ts';
 import { PrismaResourceRepository } from '../school-structure/prisma-resource-repository.ts';
-import { PrismaSubjectRepository } from '../../persistence/prisma-subject-repository.ts';
+import { PrismaSubjectRepository } from '../school-structure/prisma-subject-repository.ts';
 import { PrismaTeacherRepository } from './prisma-teacher-repository.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00.000Z');

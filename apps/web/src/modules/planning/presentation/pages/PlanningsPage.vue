@@ -2,7 +2,7 @@
 import { planningsApiKey } from '../plannings-key.ts';
 import { computed, onMounted, ref, shallowRef } from 'vue';
 import type { PlanningDto, PlanningDetailDto, RevisionDto } from '@classorganizer/contracts';
-import { accessApiKey } from '../../../access/presentation/session-store.ts';
+import { accessApiKey } from '../../../access/index.ts';
 import { injectRequired } from '../../../../shared/presentation/inject-required.ts';
 import { errorMessage } from '../../../../shared/presentation/feedback.ts';
 import PlanningSnapshotView from '../components/PlanningSnapshotView.vue';

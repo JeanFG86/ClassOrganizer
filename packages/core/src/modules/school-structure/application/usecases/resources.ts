@@ -1,7 +1,7 @@
 import type { ResourceRepository } from '../ports/resource-repository.ts';
 export type { ResourceRepository } from '../ports/resource-repository.ts';
 import { ResourceEntity } from '../../domain/resource.ts';
-import { bindUseCase } from '../../../../shared/use-case.ts';
+
 import { compareNames } from '../../../../shared/names.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { assertVersion } from '../../../../shared/versioning.ts';
@@ -48,9 +48,6 @@ export class RegisterResource {
     return resource;
   }
 }
-export function makeRegisterResource(deps: RegisterResourceDependencies) {
-  return bindUseCase(new RegisterResource(deps));
-}
 
 export type ListResourcesDependencies = { resources: ResourceRepository };
 export class ListResources {
@@ -65,9 +62,6 @@ export class ListResources {
 
     return all.toSorted((a, b) => compareNames(a.name, b.name));
   }
-}
-export function makeListResources(deps: ListResourcesDependencies) {
-  return bindUseCase(new ListResources(deps));
 }
 
 export type UpdateResourceDependencies = { resources: ResourceRepository };
@@ -92,9 +86,6 @@ export class UpdateResource {
     return resources.update(renamed);
   }
 }
-export function makeUpdateResource(deps: UpdateResourceDependencies) {
-  return bindUseCase(new UpdateResource(deps));
-}
 
 /** Arquivar não altera os blocos: eles voltam a reservar o recurso se ele for restaurado. */
 export type ArchiveResourceDependencies = { resources: ResourceRepository; clock: Clock };
@@ -117,9 +108,6 @@ export class ArchiveResource {
     );
   }
 }
-export function makeArchiveResource(deps: ArchiveResourceDependencies) {
-  return bindUseCase(new ArchiveResource(deps));
-}
 
 export type RestoreResourceDependencies = { resources: ResourceRepository };
 export class RestoreResource {
@@ -138,7 +126,4 @@ export class RestoreResource {
 
     return resources.update(ResourceEntity.reconstitute(current).restore().snapshot());
   }
-}
-export function makeRestoreResource(deps: RestoreResourceDependencies) {
-  return bindUseCase(new RestoreResource(deps));
 }

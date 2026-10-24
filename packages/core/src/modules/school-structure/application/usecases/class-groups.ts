@@ -1,7 +1,7 @@
 import type { ClassGroupRepository } from '../ports/class-group-repository.ts';
 export type { ClassGroupRepository } from '../ports/class-group-repository.ts';
 import { ClassGroupEntity } from '../../domain/class-group.ts';
-import { bindUseCase } from '../../../../shared/use-case.ts';
+
 import { compareNames } from '../../../../shared/names.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { assertVersion } from '../../../../shared/versioning.ts';
@@ -56,9 +56,6 @@ export class RegisterClassGroup {
     return classGroup;
   }
 }
-export function makeRegisterClassGroup(deps: RegisterClassGroupDependencies) {
-  return bindUseCase(new RegisterClassGroup(deps));
-}
 
 export type ListClassGroupsDependencies = { classGroups: ClassGroupRepository };
 export class ListClassGroups {
@@ -73,9 +70,6 @@ export class ListClassGroups {
 
     return all.toSorted((a, b) => compareNames(a.name, b.name));
   }
-}
-export function makeListClassGroups(deps: ListClassGroupsDependencies) {
-  return bindUseCase(new ListClassGroups(deps));
 }
 
 export type UpdateClassGroupDependencies = { classGroups: ClassGroupRepository };
@@ -100,9 +94,6 @@ export class UpdateClassGroup {
     return classGroups.update(renamed);
   }
 }
-export function makeUpdateClassGroup(deps: UpdateClassGroupDependencies) {
-  return bindUseCase(new UpdateClassGroup(deps));
-}
 
 export type ArchiveClassGroupDependencies = { classGroups: ClassGroupRepository; clock: Clock };
 export class ArchiveClassGroup {
@@ -124,9 +115,6 @@ export class ArchiveClassGroup {
     );
   }
 }
-export function makeArchiveClassGroup(deps: ArchiveClassGroupDependencies) {
-  return bindUseCase(new ArchiveClassGroup(deps));
-}
 
 export type RestoreClassGroupDependencies = { classGroups: ClassGroupRepository };
 export class RestoreClassGroup {
@@ -145,9 +133,6 @@ export class RestoreClassGroup {
 
     return classGroups.update(ClassGroupEntity.reconstitute(current).restore().snapshot());
   }
-}
-export function makeRestoreClassGroup(deps: RestoreClassGroupDependencies) {
-  return bindUseCase(new RestoreClassGroup(deps));
 }
 
 export type ChangeClassGroupScheduleDependencies = {
@@ -179,7 +164,4 @@ export class ChangeClassGroupSchedule {
       ClassGroupEntity.reconstitute(current).schedule(shift, input.periodIds).snapshot(),
     );
   }
-}
-export function makeChangeClassGroupSchedule(deps: ChangeClassGroupScheduleDependencies) {
-  return bindUseCase(new ChangeClassGroupSchedule(deps));
 }

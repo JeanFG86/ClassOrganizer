@@ -1,4 +1,4 @@
-import { useAccess } from '../../access/presentation/session-store.ts';
+import { useAccess } from '../../access/index.ts';
 import type {
   AssignmentDto,
   ClassGroupDto,
@@ -8,7 +8,7 @@ import type {
 } from '@classorganizer/contracts';
 import { computed, onMounted, ref } from 'vue';
 import { assignmentsApiKey } from './assignments-key.ts';
-import { classGroupsApiKey } from '../../school-structure/presentation/class-groups-key.ts';
+import { classGroupsApiKey } from '../../school-structure/index.ts';
 import {
   errorMessage,
   isOutdatedError,
@@ -16,8 +16,8 @@ import {
 } from '../../../shared/presentation/feedback.ts';
 import { injectRequired } from '../../../shared/presentation/inject-required.ts';
 import { compareNames } from '../../../shared/presentation/names.ts';
-import { resourcesApiKey } from '../../school-structure/presentation/resources-key.ts';
-import { subjectsApiKey } from '../../school-structure/presentation/subjects-key.ts';
+import { resourcesApiKey } from '../../school-structure/index.ts';
+import { subjectsApiKey } from '../../school-structure/index.ts';
 import { teachersApiKey } from './teachers-key.ts';
 export function useAssignmentsPage() {
   const { canWrite } = useAccess();

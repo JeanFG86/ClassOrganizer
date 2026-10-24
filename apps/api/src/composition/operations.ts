@@ -1,7 +1,10 @@
+import { composeLogin } from './access.ts';
+import { composeGenerationRuns } from './generation-operations.ts';
+import { composeTimetableGrid } from './grid-operations.ts';
+import { composePlannings } from './planning-operations.ts';
 import type { GenerationSettings, Role } from '@classorganizer/core';
 import {
   createAccessUnitOfWork,
-  makeLogin,
   PrismaGenerationRunRepository,
   PrismaGridRepository,
   PrismaPlanningRepository,
@@ -10,18 +13,15 @@ import {
   systemClock,
   uuidGenerator,
 } from '@classorganizer/infrastructure';
-import type { Database, makeAccounts } from '@classorganizer/infrastructure';
+import type { Database } from '@classorganizer/infrastructure';
 import {
   ADMIN_ROLES,
   READ_ROLES,
   WRITE_ROLES,
   makeAuthorizedOperation,
-  makeGenerationRuns,
-  makePlannings,
-  makeTimetableGrid,
 } from '@classorganizer/core';
 
-import { makeCatalogServices } from '../catalog-services.ts';
+import { composeCatalog } from './catalog.ts';
 
 import { composeAccessServices } from './access.ts';
 export function composeOperations(
@@ -30,20 +30,20 @@ export function composeOperations(
   currentSession: () => string | null,
 ) {
   const unitOfWork = createAccessUnitOfWork(db, (tx) => ({
-    catalog: makeCatalogServices(tx),
-    plannings: makePlannings({
+    catalog: composeCatalog(tx),
+    plannings: composePlannings({
       repository: new PrismaPlanningRepository(tx),
       grids: new PrismaGridRepository(tx),
       clock: systemClock,
       ids: uuidGenerator,
     }),
-    grid: makeTimetableGrid({
+    grid: composeTimetableGrid({
       plannings: new PrismaPlanningRepository(tx),
       grids: new PrismaGridRepository(tx),
       clock: systemClock,
       ids: uuidGenerator,
     }),
-    generation: makeGenerationRuns({
+    generation: composeGenerationRuns({
       plannings: new PrismaPlanningRepository(tx),
       grids: new PrismaGridRepository(tx),
       runs: new PrismaGenerationRunRepository(tx),
@@ -85,7 +85,7 @@ export function composeOperations(
       },
     });
   }
-  const raw = makeCatalogServices(db);
+  const raw = composeCatalog(db);
   const catalog = { ...raw };
   function secureCatalog<Key extends keyof typeof raw>(key: Key): void {
     const write = !key.startsWith('list');
@@ -104,7 +104,7 @@ export function composeOperations(
     Object.assign(catalog, { [key]: secured });
   }
   for (const key of Object.keys(raw) as (keyof typeof raw)[]) secureCatalog(key);
-  const login = makeLogin(db);
+  const login = composeLogin(db);
   const session = protect(READ_ROLES, undefined, (services) => services.session());
   const logout = protect(READ_ROLES, 'access.logout', (services) => services.logout());
   const listUsers = protect(ADMIN_ROLES, undefined, (services, actor) =>
@@ -119,7 +119,7 @@ export function composeOperations(
   const changeUser = protect(
     ADMIN_ROLES,
     'access.changeUser',
-    (services, actor, input: Parameters<ReturnType<typeof makeAccounts>['change']>[1]) =>
+    (services, actor, input: Parameters<Services['accounts']['change']>[1]) =>
       services.accounts.change(actor, input),
   );
   const changePassword = protect(

@@ -33,3 +33,23 @@ Os caminhos `/api/v1`, as rotas da interface, os códigos de erro e os formatos 
 ## Validação por etapa
 
 Executar `pnpm verify`, `pnpm build`, integração e E2E antes de cada entrega de código. Registrar no PR os números efetivamente observados. Conferir telas alteradas a 375 px e executar a verificação local de nomes antes de cada commit. Resultados e dados derivados da escola permanecem exclusivamente em `privado/`.
+
+## Resultado das etapas
+
+| Etapa                   | PR                                                        | Unidade e componentes | Integração | E2E |
+| ----------------------- | --------------------------------------------------------- | --------------------- | ---------- | --- |
+| 1 — Referência e ADR    | [#15](https://github.com/JeanFG86/ClassOrganizer/pull/15) | 369                   | 130        | 17  |
+| 2 — Disciplinas         | [#16](https://github.com/JeanFG86/ClassOrganizer/pull/16) | 377                   | 130        | 17  |
+| 3 — API                 | [#17](https://github.com/JeanFG86/ClassOrganizer/pull/17) | 377                   | 130        | 17  |
+| 4 — Domínio e aplicação | [#18](https://github.com/JeanFG86/ClassOrganizer/pull/18) | 380                   | 130        | 17  |
+| 5 — Worker              | [#19](https://github.com/JeanFG86/ClassOrganizer/pull/19) | 380                   | 130        | 17  |
+| 6 — Interface           | [#20](https://github.com/JeanFG86/ClassOrganizer/pull/20) | 384                   | 130        | 17  |
+| 7 — Consolidação        | PR desta entrega                                          | 391                   | 130        | 17  |
+
+Na etapa 6, foram conferidas 13 telas a 375 px, incluindo grade e geração. O seletor de turmas em Turnos passou a respeitar a largura do card. Os componentes de grade, geração e atribuições preservam os testes de comportamento após extrair a coordenação para composables.
+
+A etapa 7 inclui sete testes de fronteiras arquiteturais, executados com o dependency-cruiser real sobre projetos temporários. Eles verificam rejeição de imports internos entre módulos, aplicação no domínio, persistência no controller, HTTP na apresentação e fixtures em produção, além de aceitar APIs públicas válidas.
+
+Os PRs são encadeados: revisar e incorporar na ordem, atualizando a base para main conforme a etapa anterior for incorporada. O CI completo também é executado em cada PR.
+
+A consolidação final passou em formatação, lint, tipos, fronteiras, 391 testes em 39 arquivos, 130 testes de integração em 16 arquivos, build da interface e 17 E2E. As 13 telas foram conferidas novamente a 375 px. Os comandos de criação de cenário sintético e execução do motor também foram conferidos com a fixture pública inventada.

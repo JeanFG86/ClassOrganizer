@@ -1,5 +1,5 @@
 import type { Clock, IdGenerator } from '../../../shared/ports.ts';
-import type { Actor } from '../../access/domain/access.ts';
+import type { Actor } from '../../access/domain/index.ts';
 import { isKnownSlot, translateCatalog } from '../domain/catalog-translation.ts';
 import type { GridDelta } from '../domain/grid.ts';
 import type { PlanningRevision } from '../domain/planning.ts';

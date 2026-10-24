@@ -1,8 +1,8 @@
 import {
   type GenerationOutcome,
   type GenerationRunOptions,
-} from '../../../planning/domain/generation-run.ts';
-import type { TimetableSnapshot } from '../../../timetable/domain/model.ts';
+} from '../../../planning/domain/index.ts';
+import type { TimetableSnapshot } from '../../../timetable/domain/index.ts';
 
 export interface ClaimedGeneration {
   readonly id: string;

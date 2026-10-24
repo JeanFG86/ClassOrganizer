@@ -1,13 +1,20 @@
-import type { makeGenerationRuns } from '@classorganizer/core';
+import type {
+  ListGenerationRuns,
+  GetGenerationRun,
+  RequestGeneration,
+  CancelGeneration,
+  ApplyGeneration,
+} from '@classorganizer/core';
+
 type WithoutActor<T> = T extends (actor: infer _Actor, ...args: infer Args) => infer Result
   ? (...args: Args) => Result
   : never;
 export interface GenerationOperations {
-  listGenerations: WithoutActor<ReturnType<typeof makeGenerationRuns>['list']>;
-  detailGeneration: WithoutActor<ReturnType<typeof makeGenerationRuns>['detail']>;
-  requestGeneration: WithoutActor<ReturnType<typeof makeGenerationRuns>['request']>;
-  cancelGeneration: WithoutActor<ReturnType<typeof makeGenerationRuns>['cancel']>;
-  applyGeneration: WithoutActor<ReturnType<typeof makeGenerationRuns>['apply']>;
+  listGenerations: WithoutActor<ListGenerationRuns['execute']>;
+  detailGeneration: WithoutActor<GetGenerationRun['execute']>;
+  requestGeneration: WithoutActor<RequestGeneration['execute']>;
+  cancelGeneration: WithoutActor<CancelGeneration['execute']>;
+  applyGeneration: WithoutActor<ApplyGeneration['execute']>;
 }
 export class GenerationController {
   readonly #operations: GenerationOperations;

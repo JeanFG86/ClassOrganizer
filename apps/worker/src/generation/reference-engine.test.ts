@@ -1,5 +1,6 @@
+import { bindUseCase } from '@classorganizer/core';
 import { describe, expect, it } from 'vitest';
-import { makeGenerateTimetable, validateTimetableProposal } from '@classorganizer/core';
+import { GenerateTimetable, validateTimetableProposal } from '@classorganizer/core';
 import type { GenerationOptions, TimetableSnapshot } from '@classorganizer/core';
 import { makeTimetableFixture } from '@classorganizer/core/testing';
 import { solveReference } from './reference-engine.ts';
@@ -27,7 +28,9 @@ describe('motor de referência TypeScript', () => {
     const snapshot = makeTimetableFixture();
     snapshot.fixedLessons.push({ assignmentId: 'a1', weekday: 2, periodId: 'p2' });
     snapshot.fixedPlanning.push({ teacherId: 't1', weekday: 1, periodId: 'p3' });
-    const generate = makeGenerateTimetable({ engine: { solve: async (s) => solve(s) } });
+    const generate = bindUseCase(
+      new GenerateTimetable({ engine: { solve: async (s) => solve(s) } }),
+    );
     const result = await generate(snapshot, options);
     expect(result.status).toBe('feasible');
     expect(result.proposal?.lessons).toContainEqual(snapshot.fixedLessons[0]);

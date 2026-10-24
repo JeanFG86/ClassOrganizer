@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAccess } from '../../../access/presentation/session-store.ts';
+import { useAccess } from '../../../access/index.ts';
 import type { SubjectDto, TeacherDto } from '@classorganizer/contracts';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import {
@@ -8,7 +8,7 @@ import {
   type Feedback,
 } from '../../../../shared/presentation/feedback.ts';
 import { injectRequired } from '../../../../shared/presentation/inject-required.ts';
-import { subjectsApiKey } from '../../../school-structure/presentation/subjects-key.ts';
+import { subjectsApiKey } from '../../../school-structure/index.ts';
 import { teachersApiKey } from '../teachers-key.ts';
 
 const { canWrite } = useAccess();

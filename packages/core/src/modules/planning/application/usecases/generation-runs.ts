@@ -1,7 +1,6 @@
-import { bindUseCase } from '../../../../shared/use-case.ts';
 import type { Clock, Digest, IdGenerator, SeedGenerator } from '../../../../shared/ports.ts';
 import { NotFoundError } from '../../../../shared/domain-error.ts';
-import { READ_ROLES, WRITE_ROLES, requireRole, type Actor } from '../../../access/domain/access.ts';
+import { READ_ROLES, WRITE_ROLES, requireRole, type Actor } from '../../../access/domain/index.ts';
 import {
   gridProposal,
   isKnownSlot,
@@ -20,8 +19,8 @@ import {
   PREFERENCE_CRITERIA,
   type PreferenceCriterion,
   type TimetablePreferences,
-} from '../../../timetable/domain/model.ts';
-import { measurePreferences } from '../../../timetable/domain/preferences.ts';
+} from '../../../timetable/domain/index.ts';
+import { measurePreferences } from '../../../timetable/domain/index.ts';
 import { makeGridAccess } from '../grid-access.ts';
 import type {
   GenerationRunRepository,
@@ -350,13 +349,3 @@ export class ApplyGeneration {
     });
   }
 }
-export function makeGenerationRuns(deps: GenerationRunsDependencies) {
-  return {
-    list: bindUseCase(new ListGenerationRuns(deps)),
-    detail: bindUseCase(new GetGenerationRun(deps)),
-    request: bindUseCase(new RequestGeneration(deps)),
-    cancel: bindUseCase(new CancelGeneration(deps)),
-    apply: bindUseCase(new ApplyGeneration(deps)),
-  };
-}
-export type GenerationRuns = ReturnType<typeof makeGenerationRuns>;

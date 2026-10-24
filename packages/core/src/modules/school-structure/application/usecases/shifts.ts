@@ -1,5 +1,5 @@
 import { ShiftEntity } from '../../domain/shift.ts';
-import { bindUseCase } from '../../../../shared/use-case.ts';
+
 import { compareNames } from '../../../../shared/names.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { assertVersion } from '../../../../shared/versioning.ts';
@@ -61,9 +61,6 @@ export class RegisterShift {
     return shift;
   }
 }
-export function makeRegisterShift(deps: RegisterShiftDependencies) {
-  return bindUseCase(new RegisterShift(deps));
-}
 
 /** Ordena pelo início do dia (manhã, tarde, noite) e, no empate, pelo nome. */
 export type ListShiftsDependencies = { shifts: ShiftRepository };
@@ -83,9 +80,6 @@ export class ListShifts {
         compareNames(a.name, b.name),
     );
   }
-}
-export function makeListShifts(deps: ListShiftsDependencies) {
-  return bindUseCase(new ListShifts(deps));
 }
 
 export type UpdateShiftDependencies = {
@@ -124,9 +118,6 @@ export class UpdateShift {
     return deps.shifts.update(changed);
   }
 }
-export function makeUpdateShift(deps: UpdateShiftDependencies) {
-  return bindUseCase(new UpdateShift(deps));
-}
 
 export type ArchiveShiftDependencies = {
   shifts: ShiftRepository;
@@ -158,9 +149,6 @@ export class ArchiveShift {
     );
   }
 }
-export function makeArchiveShift(deps: ArchiveShiftDependencies) {
-  return bindUseCase(new ArchiveShift(deps));
-}
 
 export type RestoreShiftDependencies = { shifts: ShiftRepository };
 export class RestoreShift {
@@ -179,7 +167,4 @@ export class RestoreShift {
 
     return shifts.update(ShiftEntity.reconstitute(current).restore().snapshot());
   }
-}
-export function makeRestoreShift(deps: RestoreShiftDependencies) {
-  return bindUseCase(new RestoreShift(deps));
 }

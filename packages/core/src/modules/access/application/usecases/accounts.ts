@@ -8,7 +8,7 @@ export type {
   AccountRepository,
   PasswordService,
 } from '../ports/account-repository.ts';
-import { bindUseCase } from '../../../../shared/use-case.ts';
+
 import { StaleVersionError } from '../../../../shared/versioning.ts';
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import {
@@ -159,12 +159,4 @@ export class ChangePassword {
 
     await repository.revokeSessions(user.id);
   }
-}
-export function makeManageAccounts(deps: ManageAccountsDependencies) {
-  return {
-    list: bindUseCase(new ListAccounts(deps)),
-    create: bindUseCase(new CreateAccount(deps)),
-    change: bindUseCase(new ChangeAccount(deps)),
-    changePassword: bindUseCase(new ChangePassword(deps)),
-  };
 }

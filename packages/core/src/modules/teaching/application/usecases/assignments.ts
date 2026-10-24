@@ -1,5 +1,5 @@
 import { TeachingAssignmentEntity } from '../../domain/assignment.ts';
-import { bindUseCase } from '../../../../shared/use-case.ts';
+
 import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { assertVersion } from '../../../../shared/versioning.ts';
 import type { VersionedRef } from '../../../../shared/versioning.ts';
@@ -130,9 +130,6 @@ export class AssignTeaching {
     return assignment;
   }
 }
-export function makeAssignTeaching(deps: AssignTeachingDependencies) {
-  return bindUseCase(new AssignTeaching(deps));
-}
 
 export type ListAssignmentsDependencies = { assignments: AssignmentRepository };
 export class ListAssignments {
@@ -145,9 +142,6 @@ export class ListAssignments {
 
     return assignments.listAll();
   }
-}
-export function makeListAssignments(deps: ListAssignmentsDependencies) {
-  return bindUseCase(new ListAssignments(deps));
 }
 
 export type ChangeAssignmentDependencies = {
@@ -198,9 +192,6 @@ export class ChangeAssignment {
     return deps.assignments.update(changed);
   }
 }
-export function makeChangeAssignment(deps: ChangeAssignmentDependencies) {
-  return bindUseCase(new ChangeAssignment(deps));
-}
 
 export type RemoveAssignmentDependencies = { assignments: AssignmentRepository };
 export class RemoveAssignment {
@@ -215,7 +206,4 @@ export class RemoveAssignment {
 
     await assignments.remove(current);
   }
-}
-export function makeRemoveAssignment(deps: RemoveAssignmentDependencies) {
-  return bindUseCase(new RemoveAssignment(deps));
 }

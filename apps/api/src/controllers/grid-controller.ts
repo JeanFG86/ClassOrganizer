@@ -1,13 +1,20 @@
-import type { makeTimetableGrid } from '@classorganizer/core';
+import type {
+  ViewTimetableGrid,
+  PreviewTimetableGrid,
+  ApplyTimetableGrid,
+  UndoTimetableGrid,
+  ChangeGridRules,
+} from '@classorganizer/core';
+
 type WithoutActor<T> = T extends (actor: infer _Actor, ...args: infer Args) => infer Result
   ? (...args: Args) => Result
   : never;
 export interface GridOperations {
-  viewGrid: WithoutActor<ReturnType<typeof makeTimetableGrid>['view']>;
-  previewGrid: WithoutActor<ReturnType<typeof makeTimetableGrid>['preview']>;
-  applyGrid: WithoutActor<ReturnType<typeof makeTimetableGrid>['apply']>;
-  undoGrid: WithoutActor<ReturnType<typeof makeTimetableGrid>['undo']>;
-  changeGridRules: WithoutActor<ReturnType<typeof makeTimetableGrid>['changeRules']>;
+  viewGrid: WithoutActor<ViewTimetableGrid['execute']>;
+  previewGrid: WithoutActor<PreviewTimetableGrid['execute']>;
+  applyGrid: WithoutActor<ApplyTimetableGrid['execute']>;
+  undoGrid: WithoutActor<UndoTimetableGrid['execute']>;
+  changeGridRules: WithoutActor<ChangeGridRules['execute']>;
 }
 export class GridController {
   readonly #operations: GridOperations;

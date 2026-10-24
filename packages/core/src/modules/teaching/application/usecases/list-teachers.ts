@@ -1,4 +1,3 @@
-import { bindUseCase } from '../../../../shared/use-case.ts';
 import { compareNames } from '../../../../shared/names.ts';
 import type { Teacher } from '../../domain/teacher.ts';
 import type { TeacherRepository } from '../ports/index.ts';
@@ -16,7 +15,4 @@ export class ListTeachers {
 
     return all.toSorted((a, b) => compareNames(a.name, b.name));
   }
-}
-export function makeListTeachers(deps: ListTeachersDependencies) {
-  return bindUseCase(new ListTeachers(deps));
 }

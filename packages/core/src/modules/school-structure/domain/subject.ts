@@ -71,7 +71,7 @@ export class SubjectEntity {
   readonly #state: Subject;
 
   private constructor(state: Subject) {
-    this.#state = { ...state };
+    this.#state = structuredClone(state);
   }
 
   static create(input: { id: string; name: string; createdAt: Date }): SubjectEntity {
@@ -104,7 +104,7 @@ export class SubjectEntity {
   }
 
   snapshot(): Subject {
-    return { ...this.#state };
+    return structuredClone(this.#state);
   }
 }
 

@@ -8,7 +8,7 @@ import {
   gridResultSchema,
 } from '@classorganizer/contracts';
 import { type HttpClient } from '../../../shared/application/ports/http-client.ts';
-import type { GridRef } from '../../planning/application/grid-api.ts';
+import type { GridRef } from '../../planning/application/index.ts';
 
 export function createGenerationApi(client: HttpClient): GenerationApi {
   const apiRequest = client.request.bind(client);

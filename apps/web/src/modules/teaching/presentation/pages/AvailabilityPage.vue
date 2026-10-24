@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAccess } from '../../../access/presentation/session-store.ts';
+import { useAccess } from '../../../access/index.ts';
 import type { AssignmentDto, ShiftDto, TeacherDto } from '@classorganizer/contracts';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -12,7 +12,7 @@ import {
 import { injectRequired } from '../../../../shared/presentation/inject-required.ts';
 import { compareNames } from '../../../../shared/presentation/names.ts';
 import { ordinal } from '../../../../shared/presentation/periods.ts';
-import { shiftsApiKey } from '../../../school-structure/presentation/shifts-key.ts';
+import { shiftsApiKey } from '../../../school-structure/index.ts';
 import { teachersApiKey } from '../teachers-key.ts';
 
 const { canWrite } = useAccess();

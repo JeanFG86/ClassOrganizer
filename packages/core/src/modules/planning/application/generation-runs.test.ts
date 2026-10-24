@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Actor } from '../../access/domain/access.ts';
+import type { Actor } from '../../access/domain/index.ts';
 import { DEFAULT_GRID_RULES, slotKey, type Placement } from '../domain/grid.ts';
 import { canonicalJson, compareGrids, proposalPlacements } from '../domain/generation-run.ts';
 import {
@@ -7,9 +7,12 @@ import {
   makeInMemoryGenerationRuns,
   makeInMemoryPlanningStore,
 } from '../../../testing/planning-fixture.ts';
-import { makeGenerationRuns } from './usecases/generation-runs.ts';
-import { makePlannings } from './usecases/plannings.ts';
-import { makeTimetableGrid } from './usecases/timetable-grid.ts';
+
+import { createGenerationTestOperations } from '../../../testing/use-case-operations.ts';
+
+import { createPlanningTestOperations } from '../../../testing/use-case-operations.ts';
+
+import { createGridTestOperations } from '../../../testing/use-case-operations.ts';
 
 const editor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
 const viewer: Actor = { ...editor, role: 'viewer' };
@@ -51,9 +54,9 @@ describe('domínio da geração', () => {
 describe('geração automática de um rascunho', () => {
   let store: ReturnType<typeof makeInMemoryPlanningStore>;
   let generation: ReturnType<typeof makeInMemoryGenerationRuns>;
-  let runs: ReturnType<typeof makeGenerationRuns>;
-  let grid: ReturnType<typeof makeTimetableGrid>;
-  let plannings: ReturnType<typeof makePlannings>;
+  let runs: ReturnType<typeof createGenerationTestOperations>;
+  let grid: ReturnType<typeof createGridTestOperations>;
+  let plannings: ReturnType<typeof createPlanningTestOperations>;
   let ref: { id: string; version: number; revisionId: string };
   beforeEach(async () => {
     let sequence = 0;
@@ -64,9 +67,13 @@ describe('geração automática de um rascunho', () => {
       clock: { now: () => new Date('2026-01-01T00:00:00.000Z') },
       ids: { next: () => 'id-' + ++sequence },
     };
-    plannings = makePlannings({ repository: store.repository, grids: store.grids, ...deps });
-    grid = makeTimetableGrid({ plannings: store.repository, grids: store.grids, ...deps });
-    runs = makeGenerationRuns({
+    plannings = createPlanningTestOperations({
+      repository: store.repository,
+      grids: store.grids,
+      ...deps,
+    });
+    grid = createGridTestOperations({ plannings: store.repository, grids: store.grids, ...deps });
+    runs = createGenerationTestOperations({
       plannings: store.repository,
       grids: store.grids,
       runs: generation.repository,

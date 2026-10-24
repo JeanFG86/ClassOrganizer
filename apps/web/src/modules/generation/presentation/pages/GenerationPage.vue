@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import GridMatrix from '../../../planning/presentation/components/GridMatrix.vue';
+import { GridMatrix } from '../../../planning/index.ts';
 import { useGenerationPage } from '../use-generation-page.ts';
 const {
   planningId,

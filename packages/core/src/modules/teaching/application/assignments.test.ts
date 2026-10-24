@@ -1,3 +1,4 @@
+import { bindUseCase } from '../../../shared/use-case.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EntityStatus } from '../../../shared/archiving.ts';
 import { StaleVersionError } from '../../../shared/versioning.ts';
@@ -13,10 +14,10 @@ import {
 } from '../domain/assignment.ts';
 import { createTeacher, type Teacher } from '../domain/teacher.ts';
 import {
-  makeAssignTeaching,
-  makeChangeAssignment,
-  makeListAssignments,
-  makeRemoveAssignment,
+  AssignTeaching,
+  ChangeAssignment,
+  ListAssignments,
+  RemoveAssignment,
 } from './usecases/assignments.ts';
 import type { TeacherRepository } from './ports/index.ts';
 
@@ -38,9 +39,9 @@ describe('atribuições em blocos de aulas', () => {
   let teachersById: Map<string, Teacher>;
   let subjectStatus: Map<string, EntityStatus>;
   let resourceStatus: Map<string, EntityStatus>;
-  let assign: ReturnType<typeof makeAssignTeaching>;
-  let change: ReturnType<typeof makeChangeAssignment>;
-  let remove: ReturnType<typeof makeRemoveAssignment>;
+  let assign: AssignTeaching['execute'];
+  let change: ChangeAssignment['execute'];
+  let remove: RemoveAssignment['execute'];
   beforeEach(() => {
     assignments = new InMemoryAssignmentRepository();
     teachersById = new Map([
@@ -82,13 +83,15 @@ describe('atribuições em blocos de aulas', () => {
       },
     };
     let sequence = 0;
-    assign = makeAssignTeaching({
-      ...deps,
-      clock: { now: () => now },
-      ids: { next: () => 'a-' + ++sequence },
-    });
-    change = makeChangeAssignment(deps);
-    remove = makeRemoveAssignment(deps);
+    assign = bindUseCase(
+      new AssignTeaching({
+        ...deps,
+        clock: { now: () => now },
+        ids: { next: () => 'a-' + ++sequence },
+      }),
+    );
+    change = bindUseCase(new ChangeAssignment(deps));
+    remove = bindUseCase(new RemoveAssignment(deps));
   });
 
   it('atribui um professor e lista o bloco', async () => {
@@ -100,7 +103,7 @@ describe('atribuições em blocos de aulas', () => {
       createdAt: now,
       version: 1,
     });
-    expect(await makeListAssignments({ assignments })()).toEqual([assignment]);
+    expect(await bindUseCase(new ListAssignments({ assignments }))()).toEqual([assignment]);
   });
   it('aceita acompanhamento, divisão em blocos e disciplinas simultâneas', async () => {
     const shared = await assign({

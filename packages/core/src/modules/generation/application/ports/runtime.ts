@@ -1,5 +1,5 @@
 import type { GenerationOptions, GenerationResult } from './engine.ts';
-import type { TimetableSnapshot } from '../../../timetable/domain/model.ts';
+import type { TimetableSnapshot } from '../../../timetable/domain/index.ts';
 
 export interface GenerationExecutor {
   execute(
