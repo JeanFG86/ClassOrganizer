@@ -57,8 +57,7 @@ test('versões: nomear, preservar, comparar e restaurar sem alterar o histórico
     gridRules: first.gridRules,
     restoredFromId: first.id,
     sealedAt: null,
-    rulesReviewed: false,
-    availabilityReviewed: false,
+    reviewedItems: [],
   });
   expect(restored.revisionId).toBe(detail.revisions[2]?.id);
   const historical = gridViewSchema.parse(

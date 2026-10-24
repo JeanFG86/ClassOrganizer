@@ -49,6 +49,13 @@ function setup() {
       catalogChanges: [],
       rulesChanged: false,
     })),
+    revisionChecklist: vi.fn(async () => ({
+      version: 1,
+      revisionId,
+      reference: null,
+      complete: false,
+      items: [],
+    })),
     renameRevision: vi.fn(async () => ({ id, version: 2 })),
     restoreRevision: vi.fn(async () => ({ id, version: 2, revisionId })),
   };
@@ -153,6 +160,57 @@ describe('HTTP das versões de planejamento', () => {
       ).statusCode,
     ).toBe(400);
     expect(operations.compareRevisions).toHaveBeenCalledTimes(1);
+  });
+  it('encaminha o checklist da revisão e o pedido de cópia com os cadastros atuais', async () => {
+    const operations = setup();
+    const response = await app.inject({
+      url: `/api/v1/plannings/${id}/revisions/${revisionId}/checklist`,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ revisionId, complete: false });
+    expect(operations.revisionChecklist).toHaveBeenCalledWith({ id, revisionId });
+    expect(
+      (await app.inject({ url: `/api/v1/plannings/${id}/revisions/invalid/checklist` })).statusCode,
+    ).toBe(400);
+
+    vi.mocked(operations.createPlanning).mockResolvedValue({} as never);
+    const copy = {
+      name: 'Plano seguinte',
+      year: 2028,
+      sourceId: id,
+      sourceVersion: 2,
+      base: 'current',
+      keepGrid: false,
+    };
+    expect(
+      (await app.inject({ method: 'POST', url: '/api/v1/plannings', payload: copy })).statusCode,
+    ).toBe(201);
+    expect(operations.createPlanning).toHaveBeenCalledWith(copy);
+    for (const payload of [
+      { name: 'Plano', year: 2028, base: 'current' },
+      { ...copy, base: 'outra' },
+    ])
+      expect(
+        (await app.inject({ method: 'POST', url: '/api/v1/plannings', payload })).statusCode,
+      ).toBe(400);
+
+    vi.mocked(operations.changePlanning).mockResolvedValue({} as never);
+    const review = { version: 1, operation: 'review', revisionId, reviewedItems: ['rules'] };
+    expect(
+      (await app.inject({ method: 'PUT', url: `/api/v1/plannings/${id}`, payload: review }))
+        .statusCode,
+    ).toBe(200);
+    expect(operations.changePlanning).toHaveBeenCalledWith({ ...review, id });
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/api/v1/plannings/${id}`,
+          payload: { ...review, reviewedItems: ['outro'] },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(operations.changePlanning).toHaveBeenCalledTimes(1);
   });
   it('entrada inválida não chega aos casos de uso', async () => {
     const operations = setup();

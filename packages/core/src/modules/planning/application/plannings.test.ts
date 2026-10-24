@@ -54,16 +54,14 @@ describe('planejamentos e revisões', () => {
       version,
       revisionId,
       operation: 'review',
-      rulesReviewed: true,
-      availabilityReviewed: true,
+      reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
     });
   }
   it('cria um rascunho com conferências pendentes e regras padrão', async () => {
     const { result, revision } = await create();
     expect(result.version).toBe(1);
     expect(revision).toMatchObject({
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      reviewedItems: [],
       sealedAt: null,
       snapshot: empty,
       gridRules: { planningPeriods: 'any_shift', daily: { maxPerDay: 2, consecutive: true } },
@@ -80,8 +78,7 @@ describe('planejamentos e revisões', () => {
     });
     expect(copy.copiedFromId).toBe(result.id);
     expect(store.revisions.at(-1)).toMatchObject({
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      reviewedItems: [],
       snapshot: empty,
     });
   });
@@ -99,8 +96,7 @@ describe('planejamentos e revisões', () => {
     await useCases.change(actor, { ...ref, version: 3, operation: 'draft' });
     expect(store.revisions.at(-1)).toMatchObject({
       number: 2,
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      reviewedItems: [],
     });
   });
   it('conclusão exige grade completa e sem problemas', async () => {
@@ -159,6 +155,62 @@ describe('planejamentos e revisões', () => {
     });
     const copied = store.revisions.at(-1);
     expect(copied && store.placements.get(copied.id)).toHaveLength(5);
+  });
+  it('prepara o ano seguinte com os cadastros atuais e a grade da origem, ou sem a grade', async () => {
+    catalog = makeCatalogFixture();
+    const { result, revision } = await create();
+    store.placements.set(revision.id, completeGrid());
+    await review(result.id, 1, revision.id);
+    catalog = { ...makeCatalogFixture(), catalogVersion: 7 };
+    catalog.assignments = catalog.assignments.filter((a) => (a as { id: string }).id !== 'a2');
+
+    await useCases.create(actor, {
+      name: 'Plano do ano seguinte',
+      year: 2028,
+      sourceId: result.id,
+      sourceVersion: 2,
+      base: 'current',
+    });
+    const next = store.revisions.at(-1);
+    expect(next).toMatchObject({
+      snapshot: { catalogVersion: 7 },
+      sourceRevisionId: revision.id,
+      reviewedItems: [],
+    });
+    expect(next && store.placements.get(next.id)).toHaveLength(5);
+
+    await useCases.create(actor, {
+      name: 'Plano sem grade',
+      year: 2028,
+      sourceId: result.id,
+      sourceVersion: 2,
+      keepGrid: false,
+    });
+    const empty = store.revisions.at(-1);
+    expect(empty).toMatchObject({ snapshot: { catalogVersion: 3 }, sourceRevisionId: revision.id });
+    expect(empty && store.placements.get(empty.id)).toBeUndefined();
+  });
+  it('salva a conferência por item e só conclui com todos os itens conferidos', async () => {
+    catalog = makeCatalogFixture();
+    const { result, revision } = await create();
+    store.placements.set(revision.id, completeGrid());
+    const ref = { id: result.id, revisionId: revision.id };
+    await useCases.change(actor, {
+      ...ref,
+      version: 1,
+      operation: 'review',
+      reviewedItems: ['rules', 'structure'],
+    });
+    expect(store.revisions.at(-1)?.reviewedItems).toEqual(['structure', 'rules']);
+    await expect(
+      useCases.change(actor, { ...ref, version: 2, operation: 'seal' }),
+    ).rejects.toMatchObject({ code: 'planning.review_required' });
+    await expect(
+      useCases.change(actor, { ...ref, version: 2, operation: 'review', reviewedItems: ['x'] }),
+    ).rejects.toMatchObject({ code: 'planning.review_invalid' });
+    await review(result.id, 2, revision.id);
+    await useCases.change(actor, { ...ref, version: 3, operation: 'seal' });
+    expect(store.revisions.at(-1)?.sealedAt).not.toBeNull();
   });
   it('rejeita versão antiga, revisão de outro planejamento e escrita por consulta', async () => {
     const { result, revision } = await create();
@@ -221,8 +273,7 @@ describe('operações de planejamento com dependências mínimas', () => {
       id: planning.id,
       version: 1,
       revisionId: revision.id,
-      rulesReviewed: true,
-      availabilityReviewed: true,
+      reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
     });
     expect(reviewed.version).toBe(2);
     const admin: Actor = { ...actor, role: 'admin' };

@@ -7,6 +7,8 @@ export interface PlanningRepository {
   list(): Promise<Planning[]>;
   find(id: string): Promise<Planning | null>;
   revisions(planningId: string): Promise<PlanningRevision[]>;
+  /** Revisão de qualquer planejamento, para consultar a origem de uma cópia. */
+  revision(id: string): Promise<PlanningRevision | null>;
   add(planning: Planning, revision: PlanningRevision): Promise<void>;
   save(planning: Planning, revision?: PlanningRevision): Promise<void>;
   capture(): Promise<CatalogSnapshot>;

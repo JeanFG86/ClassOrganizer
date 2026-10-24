@@ -294,8 +294,7 @@ describe('E4: HTTP, autorização, transações e revisões no PostgreSQL', () =
       version: 1,
       operation: 'review',
       revisionId: revision.id,
-      rulesReviewed: true,
-      availabilityReviewed: true,
+      reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
     };
     const responses = await Promise.all(
       [editorCookie, adminCookie].map((cookie) =>
@@ -348,8 +347,7 @@ describe('E4: HTTP, autorização, transações e revisões no PostgreSQL', () =
               version,
               operation,
               revisionId: revision.id,
-              rulesReviewed: true,
-              availabilityReviewed: true,
+              reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
             },
           })
         ).statusCode,
@@ -357,7 +355,7 @@ describe('E4: HTTP, autorização, transações e revisões no PostgreSQL', () =
     await expect(
       testDb.db.planningRevision.update({
         where: { id: revision.id },
-        data: { rulesReviewed: false },
+        data: { reviewedItems: [] },
       }),
     ).rejects.toThrow();
     const copied = await app.inject({
@@ -377,8 +375,7 @@ describe('E4: HTTP, autorização, transações e revisões no PostgreSQL', () =
     );
     expect(copy.revisions[0]).toMatchObject({
       snapshot: revision.snapshot,
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      reviewedItems: [],
     });
     expect(
       (

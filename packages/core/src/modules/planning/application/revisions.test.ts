@@ -7,6 +7,7 @@ import {
 import { CreatePlanning } from './usecases/plannings.ts';
 import {
   ComparePlanningRevisions,
+  GetRevisionChecklist,
   RenamePlanningRevision,
   RestorePlanningRevision,
   PreservePlanningRevision,
@@ -43,7 +44,7 @@ describe('versões de planejamento', () => {
   async function history() {
     const { planning, first } = await create();
     const sealed = PlanningRevisionEntity.reconstitute(first)
-      .review(true, true)
+      .review(['structure', 'teachers', 'assignments', 'availability', 'rules'])
       .seal(clock.now())
       .snapshot();
     store.revisions[0] = sealed;
@@ -59,6 +60,38 @@ describe('versões de planejamento', () => {
     await store.repository.save(planning, second);
     return { planning: { ...planning, version: 2 }, first: sealed, second };
   }
+  it('o checklist compara com a revisão anterior ou com a origem da cópia', async () => {
+    const { planning, first, second } = await history();
+    const checklist = new GetRevisionChecklist(deps);
+
+    const initial = await checklist.execute(viewer, { id: planning.id, revisionId: first.id });
+    expect(initial).toMatchObject({ version: 2, revisionId: first.id, reference: null });
+    expect(initial.complete).toBe(true);
+
+    const next = await checklist.execute(viewer, { id: planning.id, revisionId: second.id });
+    expect(next.reference).toEqual({ id: first.id, label: 'revisão 1' });
+    expect(next.complete).toBe(false);
+    expect(next.items.find((i) => i.item === 'structure')?.changes).toEqual([
+      { kind: 'removed', label: 'Disciplina Disciplina Alfa', fields: [] },
+      { kind: 'removed', label: 'Disciplina Disciplina Beta', fields: [] },
+    ]);
+    expect(next.items.find((i) => i.item === 'rules')?.changes).toHaveLength(1);
+
+    const copy = await new CreatePlanning(deps).execute(actor, {
+      name: 'Plano seguinte',
+      year: 2028,
+      sourceId: planning.id,
+      sourceVersion: 2,
+    });
+    const copied = store.revisions.at(-1);
+    if (!copied) throw new Error('Revisão ausente.');
+    const fromSource = await checklist.execute(viewer, { id: copy.id, revisionId: copied.id });
+    expect(fromSource.reference).toEqual({ id: second.id, label: 'Plano inventado, revisão 2' });
+    expect(fromSource.items.every((i) => i.changes.length === 0)).toBe(true);
+    await expect(
+      checklist.execute(viewer, { id: copy.id, revisionId: first.id }),
+    ).rejects.toMatchObject({ code: 'planning.revision_not_found' });
+  });
   it('nomeia uma revisão concluída sem mudar dados, conferências ou grade', async () => {
     const { planning, first } = await history();
     const result = await new RenamePlanningRevision(deps).execute(actor, {
@@ -92,7 +125,7 @@ describe('versões de planejamento', () => {
       snapshot: first.snapshot,
       restoredFromId: null,
       sealedAt: null,
-      rulesReviewed: false,
+      reviewedItems: [],
     });
     expect(store.placements.get(result.revisionId)).toEqual(completeGrid());
     await expect(
@@ -123,8 +156,7 @@ describe('versões de planejamento', () => {
       name: null,
       snapshot: first.snapshot,
       gridRules: first.gridRules,
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      reviewedItems: [],
       sealedAt: null,
     });
     expect(store.placements.get(result.revisionId)).toEqual(completeGrid());

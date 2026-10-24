@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { planningsApiKey } from '../plannings-key.ts';
 import { computed, onMounted, ref, shallowRef } from 'vue';
-import type { PlanningDto, PlanningDetailDto, RevisionDto } from '@classorganizer/contracts';
+import {
+  REVIEW_ITEMS,
+  type PlanningDto,
+  type PlanningDetailDto,
+  type ReviewItemDto,
+  type RevisionDto,
+} from '@classorganizer/contracts';
 import { accessApiKey } from '../../../access/index.ts';
 import { injectRequired } from '../../../../shared/presentation/inject-required.ts';
 import { errorMessage } from '../../../../shared/presentation/feedback.ts';
 import PlanningSnapshotView from '../components/PlanningSnapshotView.vue';
 import PlanningVersionsPanel from '../components/PlanningVersionsPanel.vue';
+import RevisionChecklist from '../components/RevisionChecklist.vue';
 const api = injectRequired(planningsApiKey);
 const access = injectRequired(accessApiKey);
 const canWrite = computed(
@@ -18,13 +25,14 @@ const detail = shallowRef<PlanningDetailDto | null>(null);
 const name = ref('');
 const year = ref(new Date().getFullYear());
 const source = ref<PlanningDto | null>(null);
+/** Base da cópia: os cadastros atuais preparam o próximo período (ADR 0022). */
+const base = ref<'current' | 'source'>('current');
+const keepGrid = ref(true);
 const loading = ref(true);
 const loadError = ref('');
 const error = ref('');
 const status = ref('');
 const busy = ref(false);
-const rulesReviewed = ref(false);
-const availabilityReviewed = ref(false);
 const latest = computed(() => detail.value?.revisions.at(-1));
 async function load() {
   loading.value = true;
@@ -42,8 +50,6 @@ async function open(id: string) {
   error.value = '';
   try {
     detail.value = await api.planning(id);
-    rulesReviewed.value = latest.value?.rulesReviewed ?? false;
-    availabilityReviewed.value = latest.value?.availabilityReviewed ?? false;
   } catch (cause) {
     error.value = errorMessage(cause);
     detail.value = null;
@@ -59,6 +65,8 @@ async function refreshDetail() {
 function copy(item: PlanningDto) {
   source.value = item;
   name.value = item.name + ' — cópia';
+  base.value = 'current';
+  keepGrid.value = true;
   document.getElementById('planning-name')?.focus();
 }
 async function create() {
@@ -69,11 +77,18 @@ async function create() {
     const created = await api.createPlanning({
       name: name.value,
       year: year.value,
-      ...(source.value ? { sourceId: source.value.id, sourceVersion: source.value.version } : {}),
+      ...(source.value
+        ? {
+            sourceId: source.value.id,
+            sourceVersion: source.value.version,
+            base: base.value,
+            keepGrid: keepGrid.value,
+          }
+        : {}),
     });
     name.value = '';
     source.value = null;
-    status.value = 'Planejamento criado. Revise as regras e a disponibilidade do rascunho.';
+    status.value = 'Planejamento criado. Confira cada item do checklist do rascunho.';
     await load();
     await open(created.id);
   } catch (cause) {
@@ -84,7 +99,10 @@ async function create() {
     busy.value = false;
   }
 }
-async function change(operation: 'draft' | 'review' | 'seal' | 'archive' | 'restore') {
+async function change(
+  operation: 'draft' | 'review' | 'seal' | 'archive' | 'restore',
+  reviewedItems: ReviewItemDto[] = [],
+) {
   const current = detail.value;
   if (!current) return;
   busy.value = true;
@@ -95,14 +113,14 @@ async function change(operation: 'draft' | 'review' | 'seal' | 'archive' | 'rest
       version: current.version,
       operation,
       revisionId: latest.value?.id,
-      ...(operation === 'review'
-        ? { rulesReviewed: rulesReviewed.value, availabilityReviewed: availabilityReviewed.value }
-        : {}),
+      ...(operation === 'review' ? { reviewedItems } : {}),
     });
     status.value =
       operation === 'draft'
-        ? 'Novo rascunho criado com os cadastros atuais. Revise novamente as regras e a disponibilidade.'
-        : 'Planejamento atualizado.';
+        ? 'Novo rascunho criado com os cadastros atuais. Confira novamente os itens do checklist.'
+        : operation === 'review'
+          ? 'Conferência salva.'
+          : 'Planejamento atualizado.';
     await open(current.id);
     await load();
   } catch (cause) {
@@ -137,9 +155,28 @@ onMounted(load);
     </p>
     <form v-if="canWrite" class="card stack-form" @submit.prevent="create">
       <h2>{{ source ? 'Copiar planejamento' : 'Criar planejamento' }}</h2>
-      <p v-if="source">
-        Origem: {{ source.name }}. A cópia exige nova conferência das regras e da disponibilidade.
-      </p>
+      <template v-if="source">
+        <p>Origem: {{ source.name }}. A cópia exige nova conferência de todos os itens.</p>
+        <fieldset class="stack-form">
+          <legend>Dados da cópia</legend>
+          <label
+            ><input v-model="base" type="radio" name="copy-base" value="current" /> Cadastros
+            atuais, para preparar o próximo período</label
+          >
+          <label
+            ><input v-model="base" type="radio" name="copy-base" value="source" /> Mesma fotografia
+            da última revisão da origem</label
+          >
+        </fieldset>
+        <label
+          ><input v-model="keepGrid" type="checkbox" /> Trazer a grade da origem como ponto de
+          partida</label
+        >
+        <p class="muted">
+          Com os cadastros atuais, alocações de turmas, blocos ou professores que deixaram de
+          existir são descartadas, e o checklist mostra o que mudou desde a origem.
+        </p>
+      </template>
       <label for="planning-name">Nome do planejamento</label
       ><input id="planning-name" v-model="name" maxlength="100" required />
       <label for="planning-year">Ano</label
@@ -236,8 +273,8 @@ onMounted(load);
           {{ revision.snapshot.assignments.length }} atribuições.
         </p>
         <p>
-          Regras: {{ revision.rulesReviewed ? 'conferidas' : 'revisão necessária' }}.
-          Disponibilidade: {{ revision.availabilityReviewed ? 'conferida' : 'revisão necessária' }}.
+          Conferência: {{ revision.reviewedItems.length }} de {{ REVIEW_ITEMS.length }} itens do
+          checklist.
         </p>
         <details>
           <summary>Consultar dados desta revisão</summary>
@@ -276,35 +313,16 @@ onMounted(load);
           </button>
         </div>
       </article>
-      <form
-        v-if="latest && !latest.sealedAt && !detail.archivedAt && canWrite"
-        class="stack-form"
-        @submit.prevent="change('review')"
-      >
-        <h3>Conferência do rascunho</h3>
-        <label
-          ><input v-model="rulesReviewed" type="checkbox" /> Conferi as regras e cargas desta
-          revisão</label
-        >
-        <label
-          ><input v-model="availabilityReviewed" type="checkbox" /> Conferi a disponibilidade e a
-          hora-atividade desta revisão</label
-        >
-        <div class="actions">
-          <button :disabled="busy">Salvar conferência</button
-          ><button
-            type="button"
-            :disabled="busy || !latest.rulesReviewed || !latest.availabilityReviewed"
-            @click="change('seal')"
-          >
-            Concluir revisão
-          </button>
-        </div>
-        <p class="muted">
-          Concluir exige a grade completa e sem problemas e congela a revisão. Isso ainda não
-          publica a grade.
-        </p>
-      </form>
+      <RevisionChecklist
+        v-if="latest"
+        :key="latest.id"
+        :planning="detail"
+        :revision="latest"
+        :editable="!latest.sealedAt && !detail.archivedAt && canWrite"
+        :busy="busy"
+        @save="(items) => change('review', items)"
+        @seal="change('seal')"
+      />
       <button
         v-if="latest?.sealedAt && !detail.archivedAt && canWrite"
         :disabled="busy"

@@ -63,7 +63,10 @@ describe('grade da revisão (PostgreSQL)', () => {
   const seal = () =>
     testDb.db.planningRevision.update({
       where: { id: REVISION },
-      data: { rulesReviewed: true, availabilityReviewed: true, sealedAt: at },
+      data: {
+        reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
+        sealedAt: at,
+      },
     });
   const change = (overrides: Record<string, unknown> = {}) => ({
     id: CHANGE,

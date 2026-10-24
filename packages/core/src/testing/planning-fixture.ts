@@ -159,6 +159,7 @@ export function makeInMemoryPlanningStore(capture: () => CatalogSnapshot = makeC
     list: async () => structuredClone(plannings),
     find: async (id) => structuredClone(plannings.find((p) => p.id === id) ?? null),
     revisions: async (id) => structuredClone(revisions.filter((r) => r.planningId === id)),
+    revision: async (id) => structuredClone(revisions.find((r) => r.id === id) ?? null),
     add: async (planning, revision) => {
       plannings.push(structuredClone(planning));
       revisions.push(structuredClone(revision));

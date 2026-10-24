@@ -5,6 +5,7 @@ import {
   completeGrid,
 } from '../../../testing/planning-fixture.ts';
 import type { Actor } from '../../access/domain/index.ts';
+import { REVIEW_PENDING_NOTICE } from '../domain/review-items.ts';
 import { CreatePlanning } from './usecases/plannings.ts';
 import { PreservePlanningRevision } from './usecases/revisions.ts';
 import { GetTimetableReport } from './usecases/timetable-reports.ts';
@@ -86,7 +87,7 @@ describe('relatórios da grade', () => {
     expect(
       result.sheets.flatMap((s) => s.rows.flatMap((r) => r.cells.flatMap((c) => c.items))),
     ).toHaveLength(5);
-    expect(result.notices).toContain('Conferência das regras e da disponibilidade pendente.');
+    expect(result.notices).toContain(REVIEW_PENDING_NOTICE);
   });
   it('cada professor aparece nos blocos compartilhados uma única vez, com HA e indisponibilidade', async () => {
     const first = store.revisions[0];

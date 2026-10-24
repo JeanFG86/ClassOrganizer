@@ -4,6 +4,7 @@ import type {
   CreatePlanning,
   ChangePlanning,
   ComparePlanningRevisions,
+  GetRevisionChecklist,
   RenamePlanningRevision,
   RestorePlanningRevision,
   PreservePlanningRevision,
@@ -23,6 +24,7 @@ export interface PlanningOperations {
   createPlanning: WithoutActor<CreatePlanning['execute']>;
   changePlanning: WithoutActor<ChangePlanning['execute']>;
   compareRevisions: WithoutActor<ComparePlanningRevisions['execute']>;
+  revisionChecklist: WithoutActor<GetRevisionChecklist['execute']>;
   renameRevision: WithoutActor<RenamePlanningRevision['execute']>;
   restoreRevision: WithoutActor<RestorePlanningRevision['execute']>;
 }
@@ -54,6 +56,9 @@ export class PlanningController {
   }
   compareRevisions(...args: Parameters<PlanningOperations['compareRevisions']>) {
     return this.#operations.compareRevisions(...args);
+  }
+  revisionChecklist(...args: Parameters<PlanningOperations['revisionChecklist']>) {
+    return this.#operations.revisionChecklist(...args);
   }
   renameRevision(...args: Parameters<PlanningOperations['renameRevision']>) {
     return this.#operations.renameRevision(...args);

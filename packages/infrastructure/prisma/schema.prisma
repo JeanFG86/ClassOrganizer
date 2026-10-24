@@ -274,14 +274,18 @@ model PlanningRevision {
   restoredFromId String? @map("restored_from_id") @db.Uuid
   restoredFrom PlanningRevision? @relation("revision_restore", fields: [restoredFromId, planningId], references: [id, planningId], onDelete: Restrict, onUpdate: Restrict)
   restorations PlanningRevision[] @relation("revision_restore")
+  /// Revisão de outro planejamento copiada para criar este (ADR 0022).
+  sourceRevisionId String? @map("source_revision_id") @db.Uuid
+  sourceRevision PlanningRevision? @relation("revision_source", fields: [sourceRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  copies PlanningRevision[] @relation("revision_source")
   planningId String @map("planning_id") @db.Uuid
   number Int
   createdAt DateTime @map("created_at") @db.Timestamptz(3)
   createdBy String @map("created_by") @db.Uuid
   snapshot Json
   gridRules Json @default("{\"formatVersion\":1,\"planningPeriods\":\"any_shift\",\"daily\":{\"maxPerDay\":2,\"consecutive\":true},\"dailyExceptions\":[]}") @map("grid_rules")
-  rulesReviewed Boolean @default(false) @map("rules_reviewed")
-  availabilityReviewed Boolean @default(false) @map("availability_reviewed")
+  /// Itens do checklist conferidos; a conclusão exige todos (ADR 0022).
+  reviewedItems String[] @default([]) @map("reviewed_items")
   sealedAt DateTime? @map("sealed_at") @db.Timestamptz(3)
   planning Planning @relation(fields: [planningId], references: [id], onDelete: Restrict)
   creator AppUser @relation(fields: [createdBy], references: [id], onDelete: Restrict)

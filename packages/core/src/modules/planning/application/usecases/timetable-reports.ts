@@ -3,6 +3,7 @@ import { NotFoundError } from '../../../../shared/domain-error.ts';
 import { StaleVersionError } from '../../../../shared/versioning.ts';
 import { requireRole, READ_ROLES, type Actor } from '../../../access/domain/index.ts';
 import { diagnoseGrid } from '../../domain/diagnosis.ts';
+import { REVIEW_PENDING_NOTICE, isRevisionReviewed } from '../../domain/review-items.ts';
 import { buildReportSheets, type ReportPerspective } from '../../domain/timetable-report.ts';
 import { GridReader, type GridReaderDependencies } from '../services/grid-access.ts';
 
@@ -42,8 +43,7 @@ export class GetTimetableReport {
     const notices = [...diagnosis.model, ...diagnosis.problems, ...diagnosis.pending].map(
       (issue) => issue.message,
     );
-    if (!revision.rulesReviewed || !revision.availabilityReviewed)
-      notices.unshift('Conferência das regras e da disponibilidade pendente.');
+    if (!isRevisionReviewed(revision)) notices.unshift(REVIEW_PENDING_NOTICE);
     if ((await this.#deps.plannings.find(planning.id))?.version !== planning.version)
       throw new StaleVersionError();
     return {

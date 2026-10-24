@@ -15,6 +15,7 @@ import {
   ViewTimetableGrid,
   bindUseCase,
   ComparePlanningRevisions,
+  GetRevisionChecklist,
   RenamePlanningRevision,
   RestorePlanningRevision,
   PreservePlanningRevision,
@@ -61,6 +62,7 @@ export function composePlanning(tx: PersistenceClient, settings: GenerationSetti
       create: bindUseCase(new CreatePlanning({ repository: plannings, grids, clock, ids })),
       change: bindUseCase(new ChangePlanning({ repository: plannings, grids, clock, ids })),
       compareRevisions: bindUseCase(new ComparePlanningRevisions({ repository: plannings, grids })),
+      revisionChecklist: bindUseCase(new GetRevisionChecklist({ repository: plannings })),
       renameRevision: bindUseCase(new RenamePlanningRevision({ repository: plannings })),
       restoreRevision: bindUseCase(
         new RestorePlanningRevision({ repository: plannings, grids, clock, ids }),

@@ -46,7 +46,18 @@ Abra a interface, entre e use **Acessos** para criar contas individuais. **Minha
 
 ## Planejamentos
 
-Prepare os cadastros e abra **Planejamentos**. A criação captura os dados daquele momento; consulte cada revisão, confira regras/cargas e disponibilidade/hora-atividade e salve a conferência. Depois é possível concluir a revisão ou copiar o planejamento. Uma cópia sempre pede nova conferência.
+Prepare os cadastros e abra **Planejamentos**. A criação captura os dados daquele momento. Consulte os dados da revisão, confira cada item do **Checklist de conferência** e salve a conferência. Depois é possível concluir a revisão ou copiar o planejamento. Uma cópia sempre pede nova conferência.
+
+### Checklist de conferência
+
+O checklist tem cinco itens: **Disciplinas, turnos e turmas**, **Professores e habilitações**, **Atribuições, cargas e recursos**, **Disponibilidade e hora-atividade** e **Regras da grade**. Concluir exige os cinco. Alterar as regras da grade desmarca o item das regras.
+
+- **Pontos de atenção** indicam dados que ficam fora da grade ou que provavelmente precisam de ajuste: turmas sem turno, professores sem atribuições ou acima da carga máxima, disponibilidade insuficiente para aulas e hora-atividade, entre outros. São avisos. Corrija nos cadastros e abra outro rascunho, ou confirme que estão corretos.
+- **Alterações** comparam a revisão com a anterior ou, numa cópia, com a revisão de origem. Itens sem alteração também precisam ser confirmados: a disponibilidade de um professor pode ter mudado de um ano para o outro sem ter sido atualizada no cadastro.
+
+### Preparar o ano seguinte
+
+Atualize os cadastros (professores que chegaram ou saíram, turmas, disponibilidade) e use **Copiar** no planejamento do ano anterior. Em **Dados da cópia**, mantenha **Cadastros atuais, para preparar o próximo período**. Com **Trazer a grade da origem como ponto de partida**, a grade anterior é reaproveitada; alocações de turmas, blocos ou professores que deixaram de existir são descartadas e o histórico da grade informa quantas. As regras da grade vêm da origem. Escolha **Mesma fotografia da última revisão da origem** para copiar exatamente os dados do planejamento original. O planejamento de origem não muda.
 
 Para incorporar alterações posteriores dos cadastros, conclua a revisão atual e abra **Novo rascunho com os cadastros atuais**. Concluir não gera nem publica a grade. Administradores podem arquivar/restaurar planejamentos. Todos os perfis podem consultar e baixar as revisões; arquivos baixados contêm dados da organização e devem permanecer no ambiente de trabalho autorizado.
 

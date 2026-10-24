@@ -1,6 +1,10 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlanningDetailDto, RevisionComparisonDto } from '@classorganizer/contracts';
+import {
+  REVIEW_ITEMS,
+  type PlanningDetailDto,
+  type RevisionComparisonDto,
+} from '@classorganizer/contracts';
 import { createAccessApi } from '../../../../testing/access-fixture.ts';
 import { ApiRequestError } from '../../../../shared/application/api-error.ts';
 import { planningsApiKey } from '../plannings-key.ts';
@@ -10,13 +14,13 @@ const revision = {
   id: 'first',
   name: 'Grade inicial',
   restoredFromId: null,
+  sourceRevisionId: null,
   planningId: 'plan',
   number: 1,
   createdAt: '2026-01-01T00:00:00Z',
   createdBy: 'editor',
   sealedAt: '2026-01-02T00:00:00Z',
-  rulesReviewed: true,
-  availabilityReviewed: true,
+  reviewedItems: [...REVIEW_ITEMS],
   gridRules: {
     formatVersion: 1 as const,
     planningPeriods: 'any_shift' as const,
