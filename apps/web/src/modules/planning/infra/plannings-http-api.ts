@@ -6,6 +6,7 @@ import {
   planningSchema,
   revisionResultSchema,
   revisionRestoreResultSchema,
+  revisionChecklistSchema,
   revisionComparisonSchema,
 } from '@classorganizer/contracts';
 import type { z } from 'zod';
@@ -53,14 +54,19 @@ export function createPlanningsApi(client: HttpClient): PlanningsApi {
           '/revisions/comparison?' +
           new URLSearchParams({ fromRevisionId, toRevisionId }),
       ),
+    revisionChecklist: (id, revisionId) =>
+      apiRequest(
+        revisionChecklistSchema,
+        '/plannings/' +
+          encodeURIComponent(id) +
+          '/revisions/' +
+          encodeURIComponent(revisionId) +
+          '/checklist',
+      ),
     plannings: () => apiRequest(planningsSchema, '/plannings'),
     planning: (id: string) => apiRequest(planningDetailSchema, '/plannings/' + id),
-    createPlanning: (input: {
-      name: string;
-      year: number;
-      sourceId?: string;
-      sourceVersion?: number;
-    }) => apiRequest(planningSchema, '/plannings', { method: 'POST', body: JSON.stringify(input) }),
+    createPlanning: (input) =>
+      apiRequest(planningSchema, '/plannings', { method: 'POST', body: JSON.stringify(input) }),
     changePlanning: (id: string, input: z.infer<typeof changePlanningSchema>) =>
       apiRequest(planningSchema, '/plannings/' + id, {
         method: 'PUT',

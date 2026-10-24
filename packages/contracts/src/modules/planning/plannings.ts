@@ -7,6 +7,17 @@ import { shiftSchema } from '../school-structure/shifts.ts';
 import { resourceSchema } from '../school-structure/resources.ts';
 import { gridRulesSchema } from './grid-rules.ts';
 
+/** Itens do checklist de conferência, na ordem da revisão (ADR 0022). */
+export const REVIEW_ITEMS = [
+  'structure',
+  'teachers',
+  'assignments',
+  'availability',
+  'rules',
+] as const;
+export const reviewItemSchema = z.enum(REVIEW_ITEMS);
+export type ReviewItemDto = z.infer<typeof reviewItemSchema>;
+
 export const planningSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -42,14 +53,14 @@ export const revisionSchema = z.object({
   id: z.uuid(),
   name: z.string().nullable(),
   restoredFromId: z.uuid().nullable(),
+  sourceRevisionId: z.uuid().nullable(),
   planningId: z.uuid(),
   number: z.number().int().positive(),
   createdAt: z.iso.datetime(),
   createdBy: z.uuid(),
   snapshot: catalogSnapshotSchema,
   gridRules: gridRulesSchema,
-  rulesReviewed: z.boolean(),
-  availabilityReviewed: z.boolean(),
+  reviewedItems: z.array(reviewItemSchema),
   sealedAt: z.iso.datetime().nullable(),
 });
 
@@ -63,17 +74,24 @@ export const createPlanningSchema = z
     year: z.number().int().min(2000).max(2200),
     sourceId: z.uuid().optional(),
     sourceVersion: z.number().int().positive().optional(),
+    /** `source`: fotografia da origem; `current`: cadastros atuais (ADR 0022). */
+    base: z.enum(['source', 'current']).optional(),
+    keepGrid: z.boolean().optional(),
   })
   .refine((value) => (value.sourceId === undefined) === (value.sourceVersion === undefined), {
     message: 'Informe o planejamento de origem e sua versão juntos.',
-  });
+  })
+  .refine(
+    (value) =>
+      value.sourceId !== undefined || (value.base === undefined && value.keepGrid === undefined),
+    { message: 'A base e a grade da origem só se aplicam a uma cópia.' },
+  );
 
 export const changePlanningSchema = z.object({
   version: z.number().int().positive(),
   operation: z.enum(['draft', 'review', 'seal', 'archive', 'restore']),
   revisionId: z.uuid().optional(),
-  rulesReviewed: z.boolean().optional(),
-  availabilityReviewed: z.boolean().optional(),
+  reviewedItems: z.array(reviewItemSchema).max(REVIEW_ITEMS.length).optional(),
 });
 
 export type PlanningDto = z.infer<typeof planningSchema>;
@@ -123,3 +141,27 @@ export const revisionComparisonSchema = z.object({
   ),
 });
 export type RevisionComparisonDto = z.infer<typeof revisionComparisonSchema>;
+
+export const revisionChecklistSchema = z.object({
+  version: z.number().int().positive(),
+  revisionId: z.uuid(),
+  reference: z.object({ id: z.uuid(), label: z.string() }).nullable(),
+  complete: z.boolean(),
+  items: z.array(
+    z.object({
+      item: reviewItemSchema,
+      title: z.string(),
+      description: z.string(),
+      reviewed: z.boolean(),
+      attention: z.array(z.string()),
+      changes: z.array(
+        z.object({
+          kind: z.enum(['added', 'removed', 'changed']),
+          label: z.string(),
+          fields: z.array(z.string()),
+        }),
+      ),
+    }),
+  ),
+});
+export type RevisionChecklistDto = z.infer<typeof revisionChecklistSchema>;

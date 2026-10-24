@@ -204,8 +204,7 @@ describe('grade manual de um rascunho', () => {
     await plannings.change(editor, {
       ...ref,
       operation: 'review',
-      rulesReviewed: true,
-      availabilityReviewed: true,
+      reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
     });
     ref = { ...ref, version: ref.version + 1 };
     const view = await grid.view(editor, { id: ref.id });
@@ -214,7 +213,12 @@ describe('grade manual de um rascunho', () => {
       rules: { ...view.rules, daily: { maxPerDay: 1, consecutive: false } },
     });
     const after = await grid.view(editor, { id: ref.id });
-    expect(after.revision.rulesReviewed).toBe(false);
+    expect(after.revision.reviewedItems).toEqual([
+      'structure',
+      'teachers',
+      'assignments',
+      'availability',
+    ]);
     expect(codes(after.diagnosis.problems)).toEqual(['subject.daily_limit']);
   });
 

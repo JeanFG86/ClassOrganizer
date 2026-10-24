@@ -7,6 +7,7 @@ import {
   type PlanningRepository,
   type PlanningRevision,
   validateGridRules,
+  validReviewedItems,
 } from '@classorganizer/core';
 import type { Prisma } from '../../generated/prisma/client.ts';
 import type { PersistenceClient } from '../../persistence/database.ts';
@@ -30,6 +31,15 @@ function revisionData(revision: PlanningRevision) {
     gridRules: revision.gridRules as unknown as Prisma.InputJsonObject,
   };
 }
+type RevisionRow = Awaited<ReturnType<PersistenceClient['planningRevision']['findUniqueOrThrow']>>;
+function toRevision(row: RevisionRow): PlanningRevision {
+  return {
+    ...row,
+    snapshot: row.snapshot as unknown as CatalogSnapshot,
+    gridRules: validateGridRules(row.gridRules),
+    reviewedItems: validReviewedItems(row.reviewedItems),
+  };
+}
 export class PrismaPlanningRepository implements PlanningRepository {
   readonly #db: PersistenceClient;
   constructor(db: PersistenceClient) {
@@ -47,11 +57,12 @@ export class PrismaPlanningRepository implements PlanningRepository {
       where: { planningId },
       orderBy: { number: 'asc' },
     });
-    return rows.map((row) => ({
-      ...row,
-      snapshot: row.snapshot as unknown as CatalogSnapshot,
-      gridRules: validateGridRules(row.gridRules),
-    }));
+    return rows.map(toRevision);
+  }
+  async revision(id: string): Promise<PlanningRevision | null> {
+    if (!isUuid(id)) return null;
+    const row = await this.#db.planningRevision.findUnique({ where: { id } });
+    return row && toRevision(row);
   }
   async add(planning: Planning, revision: PlanningRevision): Promise<void> {
     await inTransaction(this.#db, async (tx) => {
@@ -78,8 +89,7 @@ export class PrismaPlanningRepository implements PlanningRepository {
           update: {
             name: revision.name,
             gridRules: revision.gridRules as unknown as Prisma.InputJsonObject,
-            rulesReviewed: revision.rulesReviewed,
-            availabilityReviewed: revision.availabilityReviewed,
+            reviewedItems: revision.reviewedItems,
             sealedAt: revision.sealedAt,
           },
         });

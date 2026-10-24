@@ -48,6 +48,9 @@ export function registerPlanningRoutes(app: FastifyInstance, operations: Plannin
       ...parseRequest(compareRevisionsSchema, request.query),
     }),
   );
+  app.get('/api/v1/plannings/:id/revisions/:revisionId/checklist', (request) =>
+    controller.revisionChecklist(parseRequest(revisionParams, request.params)),
+  );
   app.put('/api/v1/plannings/:id/revisions/:revisionId/name', (request) =>
     controller.renameRevision({
       ...parseRequest(revisionParams, request.params),

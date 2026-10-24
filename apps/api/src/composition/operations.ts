@@ -171,6 +171,12 @@ export function composeOperations(
       (services, actor, input: Input<Services['plannings']['compareRevisions']>) =>
         services.plannings.compareRevisions(actor, input),
     ),
+    revisionChecklist: protect(
+      READ_ROLES,
+      undefined,
+      (services, actor, input: Input<Services['plannings']['revisionChecklist']>) =>
+        services.plannings.revisionChecklist(actor, input),
+    ),
     renameRevision: protect(
       WRITE_ROLES,
       'planning.revisionName',

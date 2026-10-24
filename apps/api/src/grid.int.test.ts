@@ -225,8 +225,7 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
       version,
       revisionId,
       operation: 'review',
-      rulesReviewed: true,
-      availabilityReviewed: true,
+      reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
     });
     version++;
     const blocked = await call('PUT', 'plannings/' + planningId, {
@@ -335,7 +334,7 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
     expect(rules.statusCode, rules.body).toBe(200);
     const changed = await view();
     expect(changed.rules.dailyExceptions).toHaveLength(1);
-    expect(changed.revision.rulesReviewed).toBe(false);
+    expect(changed.revision.reviewedItems).not.toContain('rules');
     expect(
       await testDb.db.auditEvent.findMany({
         select: { action: true },
@@ -358,8 +357,7 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
         version,
         revisionId,
         operation,
-        rulesReviewed: true,
-        availabilityReviewed: true,
+        reviewedItems: ['structure', 'teachers', 'assignments', 'availability', 'rules'],
       });
       expect(response.statusCode, response.body).toBe(200);
       version++;
@@ -377,7 +375,7 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
       testDb.db.planningRevision.update({ where: { id: firstId }, data: { sealedAt: null } }),
     ).rejects.toThrow(/imutável/);
     await expect(
-      testDb.db.planningRevision.update({ where: { id: firstId }, data: { rulesReviewed: false } }),
+      testDb.db.planningRevision.update({ where: { id: firstId }, data: { reviewedItems: [] } }),
     ).rejects.toThrow(/imutável/);
     await expect(
       testDb.db.planningRevision.update({ where: { id: firstId }, data: { name: ' ' } }),
@@ -423,8 +421,7 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
       snapshot: old[0]?.snapshot,
       gridRules: old[0]?.gridRules,
       restoredFromId: firstId,
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      reviewedItems: [],
       sealedAt: null,
     });
     // O rascunho substituído permanece consultável, mas não editável.
@@ -457,7 +454,7 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
     await expect(
       testDb.db.planningRevision.update({
         where: { id: source.id },
-        data: { rulesReviewed: true },
+        data: { reviewedItems: ['rules'] },
       }),
     ).rejects.toThrow(/imutável/);
     await expect(

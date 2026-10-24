@@ -21,11 +21,16 @@ test('planejamento → conferência → conclusão bloqueada sem grade → cópi
   await page.getByRole('button', { name: 'Criar planejamento', exact: true }).click();
   const detail = page.getByRole('region', { name: name + ' · 2027', exact: true });
   await expect(detail.getByRole('heading', { name: 'Revisão 1 · Rascunho' })).toBeVisible();
-  await detail.getByLabel('Conferi as regras e cargas desta revisão', { exact: true }).check();
-  await detail
-    .getByLabel('Conferi a disponibilidade e a hora-atividade desta revisão', { exact: true })
-    .check();
+  for (const item of [
+    'Disciplinas, turnos e turmas',
+    'Professores e habilitações',
+    'Atribuições, cargas e recursos',
+    'Disponibilidade e hora-atividade',
+    'Regras da grade',
+  ])
+    await detail.getByRole('checkbox', { name: item, exact: true }).check();
   await detail.getByRole('button', { name: 'Salvar conferência' }).click();
+  await expect(detail).toContainText('5 de 5 itens conferidos');
   await expect(detail.getByRole('button', { name: 'Concluir revisão' })).toBeEnabled();
   await detail.getByRole('button', { name: 'Concluir revisão' }).click();
   await expect(page.getByRole('alert')).toContainText(
@@ -38,7 +43,7 @@ test('planejamento → conferência → conclusão bloqueada sem grade → cópi
   await page.getByRole('button', { name: 'Copiar ' + name, exact: true }).click();
   await page.getByRole('button', { name: 'Criar cópia', exact: true }).click();
   const copy = page.getByRole('region', { name: name + ' — cópia · 2027', exact: true });
-  await expect(copy).toContainText('Regras: revisão necessária');
+  await expect(copy).toContainText('0 de 5 itens conferidos');
   await expect(copy.getByRole('button', { name: 'Concluir revisão' })).toBeDisabled();
   await page.reload();
   await page.getByRole('button', { name: 'Abrir ' + name + ' — cópia', exact: true }).click();

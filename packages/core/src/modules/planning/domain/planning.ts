@@ -1,5 +1,6 @@
 import type { GridRules } from './grid.ts';
 import { PlanningError } from './planning-error.ts';
+import { isRevisionReviewed, validReviewedItems, type ReviewItem } from './review-items.ts';
 
 export { PlanningError };
 
@@ -21,6 +22,8 @@ export interface PlanningRevision {
   id: string;
   name: string | null;
   restoredFromId: string | null;
+  /** Revisão de outro planejamento usada como origem da cópia (ADR 0022). */
+  sourceRevisionId: string | null;
   planningId: string;
   number: number;
   createdAt: Date;
@@ -28,8 +31,8 @@ export interface PlanningRevision {
   snapshot: CatalogSnapshot;
   /** Regras da grade desta revisão (ADR 0013). */
   gridRules: GridRules;
-  rulesReviewed: boolean;
-  availabilityReviewed: boolean;
+  /** Itens do checklist já conferidos neste rascunho (ADR 0022). */
+  reviewedItems: ReviewItem[];
   sealedAt: Date | null;
 }
 export interface Planning {
@@ -102,13 +105,14 @@ export class PlanningRevisionEntity {
     gridRules: GridRules;
     createdAt: Date;
     createdBy: string;
+    sourceRevisionId?: string | undefined;
   }): PlanningRevisionEntity {
     return new PlanningRevisionEntity({
       ...input,
       name: null,
       restoredFromId: null,
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      sourceRevisionId: input.sourceRevisionId ?? null,
+      reviewedItems: [],
       sealedAt: null,
     });
   }
@@ -144,25 +148,24 @@ export class PlanningRevisionEntity {
   }
   /** Regras novas precisam ser conferidas de novo antes da conclusão. */
   changeRules(gridRules: GridRules): PlanningRevisionEntity {
-    return new PlanningRevisionEntity({ ...this.#state, gridRules, rulesReviewed: false });
+    return new PlanningRevisionEntity({
+      ...this.#state,
+      gridRules,
+      reviewedItems: this.#state.reviewedItems.filter((item) => item !== 'rules'),
+    });
   }
-  review(
-    rulesReviewed: boolean | undefined,
-    availabilityReviewed: boolean | undefined,
-  ): PlanningRevisionEntity {
-    if (rulesReviewed === undefined || availabilityReviewed === undefined)
-      throw new PlanningError(
-        'planning.review_invalid',
-        'Informe a revisão das regras e da disponibilidade.',
-        'validation',
-      );
-    return new PlanningRevisionEntity({ ...this.#state, rulesReviewed, availabilityReviewed });
+  /** Registra os itens conferidos; os ausentes voltam a ficar pendentes. */
+  review(reviewedItems: unknown): PlanningRevisionEntity {
+    return new PlanningRevisionEntity({
+      ...this.#state,
+      reviewedItems: validReviewedItems(reviewedItems),
+    });
   }
   requireReviewed(): void {
-    if (!this.#state.rulesReviewed || !this.#state.availabilityReviewed)
+    if (!isRevisionReviewed(this.#state))
       throw new PlanningError(
         'planning.review_required',
-        'Revise as regras e a disponibilidade antes de concluir.',
+        'Confira todos os itens do checklist antes de concluir.',
       );
   }
   seal(at: Date): PlanningRevisionEntity {

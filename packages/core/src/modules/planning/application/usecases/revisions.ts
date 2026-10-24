@@ -2,8 +2,13 @@ import type { Clock, IdGenerator } from '../../../../shared/ports.ts';
 import { NotFoundError } from '../../../../shared/domain-error.ts';
 import { StaleVersionError } from '../../../../shared/versioning.ts';
 import { requireRole, READ_ROLES, WRITE_ROLES, type Actor } from '../../../access/domain/index.ts';
-import { PlanningError, PlanningRevisionEntity } from '../../domain/planning.ts';
+import {
+  PlanningError,
+  PlanningRevisionEntity,
+  type PlanningRevision,
+} from '../../domain/planning.ts';
 import { compareRevisions } from '../../domain/revision-comparison.ts';
+import { reviewChecklist, type ChecklistReference } from '../../domain/review-checklist.ts';
 import type { GridRepository, PlanningRepository } from '../ports/index.ts';
 import { saveRevisionCopy, type RevisionCopyDependencies } from '../services/revision-copy.ts';
 
@@ -69,6 +74,42 @@ export class ComparePlanningRevisions {
       version: planning.version,
       ...comparison,
     };
+  }
+}
+
+export type GetRevisionChecklistDependencies = { repository: PlanningRepository };
+/**
+ * Checklist de conferência de uma revisão (ADR 0022). A referência é a revisão anterior do
+ * mesmo planejamento ou, na primeira revisão de uma cópia, a revisão de origem.
+ */
+export class GetRevisionChecklist {
+  readonly #deps: GetRevisionChecklistDependencies;
+  constructor(deps: GetRevisionChecklistDependencies) {
+    this.#deps = deps;
+  }
+  async execute(actor: Actor, input: { id: string; revisionId: string }) {
+    requireRole(actor, READ_ROLES);
+    const { repository } = this.#deps;
+    const { planning, revisions } = await load(repository, input.id);
+    const revision = revisionOf(revisions, input.revisionId);
+    const checklist = reviewChecklist(revision, await this.#reference(revisions, revision));
+    // A leitura não bloqueia escritas; recusa um checklist montado durante uma alteração.
+    if ((await repository.find(planning.id))?.version !== planning.version)
+      throw new StaleVersionError();
+    return { version: planning.version, revisionId: revision.id, ...checklist };
+  }
+
+  async #reference(
+    revisions: readonly PlanningRevision[],
+    revision: PlanningRevision,
+  ): Promise<ChecklistReference | null> {
+    const previous = revisions.find((item) => item.number === revision.number - 1);
+    if (previous) return { revision: previous, label: 'revisão ' + previous.number };
+    if (!revision.sourceRevisionId) return null;
+    const source = await this.#deps.repository.revision(revision.sourceRevisionId);
+    const origin = source && (await this.#deps.repository.find(source.planningId));
+    if (!source || !origin) return null;
+    return { revision: source, label: origin.name + ', revisão ' + source.number };
   }
 }
 

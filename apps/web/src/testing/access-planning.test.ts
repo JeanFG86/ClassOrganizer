@@ -13,7 +13,11 @@ import UsersPage from '../modules/access/presentation/pages/UsersPage.vue';
 import PlanningsPage from '../modules/planning/presentation/pages/PlanningsPage.vue';
 import AuditPage from '../modules/access/presentation/pages/AuditPage.vue';
 import SubjectsPage from '../modules/school-structure/presentation/pages/SubjectsPage.vue';
-import type { PlanningDetailDto } from '@classorganizer/contracts';
+import {
+  REVIEW_ITEMS,
+  type PlanningDetailDto,
+  type RevisionChecklistDto,
+} from '@classorganizer/contracts';
 const date = '2026-01-01T00:00:00.000Z';
 const user = {
   id: 'admin-id',
@@ -36,6 +40,7 @@ const planning: PlanningDetailDto = {
       id: 'revision-id',
       name: null,
       restoredFromId: null,
+      sourceRevisionId: null,
       gridRules: {
         formatVersion: 1,
         planningPeriods: 'any_shift',
@@ -46,8 +51,7 @@ const planning: PlanningDetailDto = {
       number: 1,
       createdAt: date,
       createdBy: user.id,
-      rulesReviewed: false,
-      availabilityReviewed: false,
+      reviewedItems: [],
       sealedAt: null,
       snapshot: {
         formatVersion: 1,
@@ -63,6 +67,34 @@ const planning: PlanningDetailDto = {
     },
   ],
 };
+const checklist: RevisionChecklistDto = {
+  version: 1,
+  revisionId: 'revision-id',
+  reference: { id: 'source-id', label: 'Plano anterior, revisão 2' },
+  complete: false,
+  items: REVIEW_ITEMS.map((item) => ({
+    item,
+    title: 'Item ' + item,
+    description: 'Descrição ' + item,
+    reviewed: false,
+    attention:
+      item === 'availability'
+        ? ['Professor Docente Fictício precisa de horários.']
+        : item === 'structure'
+          ? ['Turma A sem turno.', 'Turma B sem turno.', 'Turma C sem turno.', 'Turma D sem turno.']
+          : [],
+    changes:
+      item === 'teachers'
+        ? [
+            {
+              kind: 'changed' as const,
+              label: 'Professor Docente Fictício',
+              fields: ['carga máxima'],
+            },
+          ]
+        : [],
+  })),
+};
 const wrappers: VueWrapper[] = [];
 afterEach(() => {
   for (const wrapper of wrappers) wrapper.unmount();
@@ -71,6 +103,7 @@ afterEach(() => {
 function fake() {
   const api = createAccessApi();
   api.session.value = { user, expiresAt: date };
+  vi.spyOn(api, 'revisionChecklist').mockResolvedValue(checklist);
   return api;
 }
 async function render(component: object, api = fake(), extra: Record<symbol, unknown> = {}) {
@@ -135,7 +168,9 @@ describe('acesso e planejamentos na interface', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('Rascunho');
     expect(wrapper.text()).toContain('Baixar revisão em JSON');
+    expect(wrapper.text()).toContain('Item rules · Pendente');
     expect(wrapper.find('form').exists()).toBe(false);
+    expect(wrapper.find('input[type=checkbox]').exists()).toBe(false);
     const catalog = await render(SubjectsPage, api, {
       [subjectsApiKey as symbol]: {
         list: async () => [
@@ -177,6 +212,83 @@ describe('acesso e planejamentos na interface', () => {
     expect(detail).toHaveBeenCalledTimes(2);
     expect(wrapper.get('[role=alert]').text()).toContain('Outro usuário');
   });
+  it('checklist mostra pontos de atenção e alterações e salva os itens conferidos', async () => {
+    const api = fake();
+    vi.spyOn(api, 'plannings').mockResolvedValue([planning]);
+    vi.spyOn(api, 'planning').mockResolvedValue(planning);
+    const change = vi.spyOn(api, 'changePlanning').mockResolvedValue(planning);
+    const { wrapper } = await render(PlanningsPage, api);
+    await wrapper.get('button[aria-label="Abrir Plano fictício"]').trigger('click');
+    await flushPromises();
+    expect(api.revisionChecklist).toHaveBeenCalledWith(planning.id, 'revision-id');
+    const section = wrapper.get('section[aria-labelledby="checklist-title"]');
+    expect(section.text()).toContain('0 de 5 itens conferidos');
+    expect(section.text()).toContain('comparadas com Plano anterior, revisão 2');
+    expect(section.get('[aria-label="Pontos de atenção: Item availability"]').text()).toContain(
+      'precisa de horários',
+    );
+    expect(section.get('[aria-label="Alterações: Item teachers"]').text()).toBe(
+      'Alterado: Professor Docente Fictício (carga máxima)',
+    );
+    expect(section.text()).toContain('Sem alterações desde Plano anterior, revisão 2.');
+    const attention = section.findAll('details.attention');
+    expect(attention.map((d) => [d.get('summary').text(), d.attributes('open')])).toEqual([
+      ['4 pontos de atenção', undefined],
+      ['1 ponto de atenção', ''],
+    ]);
+    const seal = section.findAll('button').find((b) => b.text() === 'Concluir revisão');
+    expect(seal?.attributes('disabled')).toBeDefined();
+    await section.get('input[value="rules"]').setValue(true);
+    await section.get('input[value="structure"]').setValue(true);
+    await section.get('form').trigger('submit');
+    await flushPromises();
+    expect(change).toHaveBeenCalledWith(planning.id, {
+      version: 1,
+      revisionId: 'revision-id',
+      operation: 'review',
+      reviewedItems: ['rules', 'structure'],
+    });
+    expect(wrapper.get('[role=status]').text()).toBe('Conferência salva.');
+  });
+  it('checklist com falha oferece nova tentativa', async () => {
+    const api = fake();
+    vi.spyOn(api, 'plannings').mockResolvedValue([planning]);
+    vi.spyOn(api, 'planning').mockResolvedValue(planning);
+    vi.mocked(api.revisionChecklist)
+      .mockRejectedValueOnce(new ApiRequestError('network', 'Sem conexão'))
+      .mockResolvedValue(checklist);
+    const { wrapper } = await render(PlanningsPage, api);
+    await wrapper.get('button[aria-label="Abrir Plano fictício"]').trigger('click');
+    await flushPromises();
+    const section = wrapper.get('section[aria-labelledby="checklist-title"]');
+    expect(section.get('[role=alert]').text()).toContain('Sem conexão');
+    await section.get('[role=alert] button').trigger('click');
+    await flushPromises();
+    expect(section.find('[role=alert]').exists()).toBe(false);
+    expect(section.findAll('input[type=checkbox]')).toHaveLength(5);
+  });
+  it('cópia pode usar a fotografia da origem e deixar a grade para trás', async () => {
+    const api = fake();
+    vi.spyOn(api, 'plannings').mockResolvedValue([planning]);
+    vi.spyOn(api, 'planning').mockResolvedValue(planning);
+    const create = vi.spyOn(api, 'createPlanning').mockResolvedValue(planning);
+    const { wrapper } = await render(PlanningsPage, api);
+    await wrapper.get('button[aria-label="Copiar Plano fictício"]').trigger('click');
+    const form = wrapper.get('form');
+    expect((form.get('input[value="current"]').element as HTMLInputElement).checked).toBe(true);
+    await form.get('input[value="source"]').setValue(true);
+    await form.get('input[type=checkbox]').setValue(false);
+    await form.trigger('submit');
+    await flushPromises();
+    expect(create).toHaveBeenCalledWith({
+      name: 'Plano fictício — cópia',
+      year: new Date().getFullYear(),
+      sourceId: planning.id,
+      sourceVersion: 1,
+      base: 'source',
+      keepGrid: false,
+    });
+  });
   it('cópia informa origem e versão; falha de lista oferece nova tentativa', async () => {
     const api = fake();
     const list = vi
@@ -194,9 +306,14 @@ describe('acesso e planejamentos na interface', () => {
     await wrapper.get('form').trigger('submit');
     await flushPromises();
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ sourceId: planning.id, sourceVersion: 1 }),
+      expect.objectContaining({
+        sourceId: planning.id,
+        sourceVersion: 1,
+        base: 'current',
+        keepGrid: true,
+      }),
     );
-    expect(wrapper.get('[role=status]').text()).toContain('Revise');
+    expect(wrapper.get('[role=status]').text()).toContain('checklist');
   });
   it('gestão de acessos cria usuário e esvazia a senha depois de salvar', async () => {
     const api = fake();

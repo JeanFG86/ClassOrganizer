@@ -88,7 +88,10 @@ export class GetPlanning {
   }
 }
 
-/** Cria um planejamento com a fotografia atual ou copia a última revisão de outro. */
+/**
+ * Cria um planejamento com a fotografia atual ou copia a última revisão de outro. A cópia usa a
+ * fotografia da origem ou os cadastros atuais e pode trazer a grade da origem (ADR 0022).
+ */
 export class CreatePlanning {
   readonly #deps: PlanningsDependencies;
   constructor(deps: PlanningsDependencies) {
@@ -101,6 +104,10 @@ export class CreatePlanning {
       year: number;
       sourceId?: string | undefined;
       sourceVersion?: number | undefined;
+      /** `source`: fotografia da origem (padrão); `current`: cadastros atuais. */
+      base?: 'source' | 'current' | undefined;
+      /** Traz a grade da origem para a cópia; padrão verdadeiro. */
+      keepGrid?: boolean | undefined;
     },
   ): Promise<Planning> {
     const { repository, grids, clock, ids } = this.#deps;
@@ -127,13 +134,15 @@ export class CreatePlanning {
       id: ids.next(),
       planningId: planning.id,
       number: 1,
-      snapshot: source ? source.revision.snapshot : await repository.capture(),
+      snapshot:
+        source && input.base !== 'current' ? source.revision.snapshot : await repository.capture(),
       gridRules: source ? source.revision.gridRules : DEFAULT_GRID_RULES,
       createdAt: clock.now(),
       createdBy: actor.id,
+      sourceRevisionId: source?.revision.id,
     }).snapshot();
     await repository.add(planning, revision);
-    if (source)
+    if (source && input.keepGrid !== false)
       await carryGrid(
         { grids, clock, ids },
         {
@@ -181,7 +190,7 @@ export class OpenPlanningDraft {
 }
 
 export type ReviewPlanningRevisionDependencies = Pick<PlanningsDependencies, 'repository'>;
-/** Registra as conferências de regras e de disponibilidade do rascunho. */
+/** Registra os itens conferidos do checklist do rascunho (ADR 0022). */
 export class ReviewPlanningRevision {
   readonly #deps: ReviewPlanningRevisionDependencies;
   constructor(deps: ReviewPlanningRevisionDependencies) {
@@ -189,17 +198,14 @@ export class ReviewPlanningRevision {
   }
   async execute(
     actor: Actor,
-    input: RevisionRef & {
-      rulesReviewed?: boolean | undefined;
-      availabilityReviewed?: boolean | undefined;
-    },
+    input: RevisionRef & { reviewedItems?: readonly string[] | undefined },
   ): Promise<Planning> {
     const { repository } = this.#deps;
     requireRole(actor, WRITE_ROLES);
     const { planning, latest } = await findCurrentRevision(repository, input);
     PlanningEntity.reconstitute(planning).requireDraft(latest);
     const reviewed = PlanningRevisionEntity.reconstitute(latest)
-      .review(input.rulesReviewed, input.availabilityReviewed)
+      .review(input.reviewedItems)
       .snapshot();
     await repository.save(planning, reviewed);
     return saved(planning);
@@ -303,8 +309,7 @@ export class ChangePlanning {
     actor: Actor,
     input: RevisionRef & {
       operation: PlanningChangeOperation;
-      rulesReviewed?: boolean | undefined;
-      availabilityReviewed?: boolean | undefined;
+      reviewedItems?: readonly string[] | undefined;
     },
   ): Promise<Planning> {
     return this.#operations[input.operation].execute(actor, input);

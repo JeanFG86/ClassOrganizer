@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { planningSchema } from './plannings.ts';
+import { planningSchema, reviewItemSchema } from './plannings.ts';
 import { gridRulesSchema } from './grid-rules.ts';
 import { timetableSnapshotSchema } from '../generation/generation.ts';
 
@@ -64,8 +64,7 @@ export const gridViewSchema = z.object({
     id: z.uuid(),
     number: z.number().int().positive(),
     sealedAt: z.iso.datetime().nullable(),
-    rulesReviewed: z.boolean(),
-    availabilityReviewed: z.boolean(),
+    reviewedItems: z.array(reviewItemSchema),
   }),
   revisions: z.array(
     z.object({

@@ -2,6 +2,7 @@ import { compareNames } from '../../../shared/names.ts';
 import type { TranslatedCatalog } from './catalog-translation.ts';
 import { diagnoseGrid } from './diagnosis.ts';
 import type { Placement } from './grid.ts';
+import { REVIEW_PENDING_NOTICE, isRevisionReviewed } from './review-items.ts';
 import {
   PlanningError,
   type CatalogSnapshot,
@@ -135,8 +136,7 @@ export function buildTimetableExport(input: {
     ...diagnosis.pending,
     ...diagnosis.alerts,
   ].map((issue) => issue.message);
-  if (!revision.rulesReviewed || !revision.availabilityReviewed)
-    notices.unshift('Conferência das regras e da disponibilidade pendente.');
+  if (!isRevisionReviewed(revision)) notices.unshift(REVIEW_PENDING_NOTICE);
   const excluded = blocks.filter((block) => !applicable.has(text(block, 'id'))).length;
   if (excluded)
     notices.push(
