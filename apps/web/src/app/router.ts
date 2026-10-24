@@ -36,6 +36,11 @@ export function createAppRouter(
         meta: { title: 'Grade' },
       },
       {
+        path: '/planejamentos/:id/impressoes',
+        component: () => import('../modules/planning/presentation/pages/TimetableReportPage.vue'),
+        meta: { title: 'Impressão e PDF', report: true },
+      },
+      {
         path: '/planejamentos/:id/geracao',
         component: () => import('../modules/generation/presentation/pages/GenerationPage.vue'),
         meta: { title: 'Geração automática' },

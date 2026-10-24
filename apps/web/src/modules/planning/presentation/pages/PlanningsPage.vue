@@ -251,6 +251,15 @@ onMounted(load);
           <RouterLink
             class="button"
             :to="{
+              path: '/planejamentos/' + detail.id + '/impressoes',
+              query: { revisao: revision.id },
+            }"
+            :aria-label="'Imprimir revisão ' + revision.number"
+            >Impressão e PDF</RouterLink
+          >
+          <RouterLink
+            class="button"
+            :to="{
               path: '/planejamentos/' + detail.id + '/grade',
               query: revision.id === latest?.id ? {} : { revisao: revision.id },
             }"

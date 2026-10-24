@@ -12,6 +12,24 @@ afterEach(async () => {
 });
 function setup() {
   const operations: PlanningOperations = {
+    timetableReport: vi.fn(async () => ({
+      planning: { id, name: 'Plano inventado', year: 2027, version: 1, archived: false },
+      revision: {
+        id: revisionId,
+        number: 1,
+        name: null,
+        sealedAt: null,
+        capturedAt: '2026-01-01T00:00:00Z',
+        catalogVersion: 1,
+        historical: false,
+      },
+      generatedAt: new Date('2026-01-01T00:00:00Z'),
+      perspective: 'teacher' as const,
+      notices: [],
+      targets: [],
+      sheets: [],
+      revisions: [],
+    })),
     preserveRevision: vi.fn(async () => ({ id, version: 2, revisionId })),
     listPlannings: vi.fn(),
     detailPlanning: vi.fn(),
@@ -35,6 +53,28 @@ function setup() {
   return operations;
 }
 describe('HTTP das versões de planejamento', () => {
+  it('exige revisão e perspectiva explícitas no relatório e encaminha o filtro', async () => {
+    const operations = setup();
+    const response = await app.inject({
+      url: `/api/v1/plannings/${id}/report?revisionId=${revisionId}&perspective=teacher&entityId=${id}`,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(operations.timetableReport).toHaveBeenCalledWith({
+      id,
+      revisionId,
+      perspective: 'teacher',
+      entityId: id,
+    });
+    for (const query of [
+      'perspective=class',
+      `revisionId=${revisionId}&perspective=resource`,
+      `revisionId=${revisionId}&perspective=class&entityId=invalid`,
+    ])
+      expect(
+        (await app.inject({ url: `/api/v1/plannings/${id}/report?${query}` })).statusCode,
+      ).toBe(400);
+    expect(operations.timetableReport).toHaveBeenCalledTimes(1);
+  });
   it('encaminha identificadores, versão e nome com acentos', async () => {
     const operations = setup();
     const response = await app.inject({

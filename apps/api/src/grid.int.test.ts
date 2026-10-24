@@ -16,6 +16,7 @@ import {
   type GridSlotDto,
   revisionComparisonSchema,
   revisionRestoreResultSchema,
+  timetableReportSchema,
 } from '@classorganizer/contracts';
 
 const client = { 'x-entreaulas-client': 'web' };
@@ -467,6 +468,68 @@ describe('E5: grade manual pela API no PostgreSQL', () => {
       await testDb.db.$executeRawUnsafe('DROP TRIGGER reject_restore_history ON timetable_change');
       await testDb.db.$executeRawUnsafe('DROP FUNCTION reject_restore_history()');
     }
+  });
+
+  it('impressão por consulta mantém nomes, horários e alocações históricos, sem escrever', async () => {
+    await operate({ type: 'place', slot: lesson(1, 0) });
+    await operate({ type: 'pin', slot: lesson(1, 0), pinned: true });
+    const auditCount = await testDb.db.auditEvent.count();
+    const reportUrl = `plannings/${planningId}/report?revisionId=${revisionId}&perspective=class&entityId=${ids.classGroup}`;
+    const response = await call('GET', reportUrl, undefined, viewerCookie);
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    const report = timetableReportSchema.parse(response.json());
+    expect(report.sheets).toHaveLength(1);
+    expect(report.sheets[0]?.rows[0]?.cells[0]?.items).toEqual([
+      expect.objectContaining({
+        title: 'Disciplina fictícia',
+        details: ['Docente fictício'],
+        pinned: true,
+      }),
+    ]);
+    const teacher = await testDb.db.teacher.findUniqueOrThrow({ where: { id: ids.teacher } });
+    await ok('PUT', `teachers/${ids.teacher}`, {
+      name: 'Docente renomeado',
+      subjectIds: [ids.subject],
+      planningPeriods: 1,
+      maxWeeklyLessons: null,
+      version: teacher.version,
+    });
+    const historical = timetableReportSchema.parse(
+      (await call('GET', reportUrl, undefined, viewerCookie)).json(),
+    );
+    expect(historical.sheets).toEqual(report.sheets);
+    const teacherReport = await call(
+      'GET',
+      `plannings/${planningId}/report?revisionId=${revisionId}&perspective=teacher&entityId=${ids.teacher}`,
+      undefined,
+      viewerCookie,
+    );
+    expect(timetableReportSchema.parse(teacherReport.json()).sheets[0]?.targetName).toBe(
+      'Docente fictício',
+    );
+    expect(await testDb.db.auditEvent.count()).toBe(auditCount + 1);
+    expect(
+      (
+        await call(
+          'GET',
+          `plannings/${planningId}/report?revisionId=${randomUUID()}&perspective=class`,
+          undefined,
+          viewerCookie,
+        )
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await call(
+          'GET',
+          `plannings/${planningId}/report?revisionId=${revisionId}&perspective=class&entityId=${ids.teacher}`,
+          undefined,
+          viewerCookie,
+        )
+      ).statusCode,
+    ).toBe(404);
+    expect((await call('GET', reportUrl, undefined, '')).statusCode).toBe(401);
   });
 
   it('E7: a origem da restauração deve pertencer ao mesmo planejamento também no banco', async () => {

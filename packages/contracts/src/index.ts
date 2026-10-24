@@ -11,4 +11,5 @@ export * from './modules/generation/generation.ts';
 export * from './modules/access/access.ts';
 export * from './modules/planning/plannings.ts';
 export * from './modules/planning/timetable-grid.ts';
+export * from './modules/planning/timetable-reports.ts';
 export * from './modules/generation/generation-runs.ts';

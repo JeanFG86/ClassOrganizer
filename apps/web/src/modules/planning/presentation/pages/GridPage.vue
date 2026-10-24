@@ -59,6 +59,15 @@ const {
     </div>
     <template v-else-if="view && lookup">
       <h1 id="grid-title">Grade · {{ view.planning.name }} · {{ view.planning.year }}</h1>
+      <p>
+        <RouterLink
+          :to="{
+            path: '/planejamentos/' + view.planning.id + '/impressoes',
+            query: { revisao: view.revision.id },
+          }"
+          >Imprimir ou salvar PDF desta revisão</RouterLink
+        >
+      </p>
       <div class="card grid-header">
         <label for="grid-revision">Revisão</label>
         <select id="grid-revision" :value="view.revision.id" @change="chooseRevision">

@@ -19,7 +19,7 @@ async function logout() {
 </script>
 <template>
   <a class="skip-link" href="#main">Ir para o conteúdo</a>
-  <header class="topbar">
+  <header class="topbar" :class="{ 'report-chrome': $route.meta['report'] }">
     <RouterLink to="/" class="brand">EntreAulas</RouterLink>
     <nav v-if="api.session.value" aria-label="Principal">
       <RouterLink to="/">Início</RouterLink>
@@ -43,7 +43,7 @@ async function logout() {
       ><button class="small ghost" @click="logout">Sair</button>
     </div>
   </header>
-  <main id="main" tabindex="-1">
+  <main id="main" tabindex="-1" :class="{ 'report-main': $route.meta['report'] }">
     <p v-if="logoutError" class="error" role="alert">{{ logoutError }}</p>
     <p v-if="api.session.value?.user.role === 'viewer'" class="muted" role="status">
       Seu perfil permite apenas consulta e download das revisões.
