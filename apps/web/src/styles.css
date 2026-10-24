@@ -723,3 +723,32 @@ button.grid-empty:hover:not(:disabled) {
   font-size: 1.25rem;
   font-weight: 600;
 }
+.generation-criteria ol {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: criteria;
+}
+.generation-criteria li::before {
+  counter-increment: criteria;
+  content: counter(criteria) 'º';
+  flex: none;
+  min-width: 1.75rem;
+  padding-top: 0.25rem;
+  font-weight: 600;
+}
+.generation-criteria li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.25rem 0.75rem;
+  padding: 0.25rem 0;
+}
+.generation-criteria li > div {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.generation-criteria li .hint {
+  margin: 0 0 0 1.75rem;
+}

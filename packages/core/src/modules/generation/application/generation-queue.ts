@@ -50,6 +50,7 @@ export function outcomeOf(
       visitedNodes: result.visitedNodes,
       backtracks: result.backtracks,
       restarts: result.restarts,
+      preferences: result.preferences,
     },
   };
 }

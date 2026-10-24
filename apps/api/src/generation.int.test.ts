@@ -60,7 +60,11 @@ describe('E6: geração automática pela API no PostgreSQL', () => {
   }
   const base = () => 'plannings/' + planningId + '/generations';
   async function request() {
-    const response = await call('POST', base(), { version, revisionId });
+    const response = await call('POST', base(), {
+      version,
+      revisionId,
+      preferences: ['keep_current', 'teacher_windows'],
+    });
     expect(response.statusCode, response.body).toBe(201);
     return generationRunSchema.parse(response.json());
   }
@@ -96,6 +100,7 @@ describe('E6: geração automática pela API no PostgreSQL', () => {
       warnings: [],
       sourceRevision: revisionId,
       teacherIdleMinutes: 0,
+      preferences: { changes: 0, teacherWindows: 0, dailySpread: 0 },
       elapsedMs: 12.4,
       visitedNodes: 5,
       backtracks: 0,
@@ -163,17 +168,26 @@ describe('E6: geração automática pela API no PostgreSQL', () => {
   });
 
   it('consulta acompanha; solicitar exige edição, versão atual e uma execução por vez', async () => {
-    expect((await call('POST', base(), { version, revisionId }, viewerCookie)).statusCode).toBe(
-      403,
-    );
+    const asked = { version, revisionId, preferences: [] };
+    expect((await call('POST', base(), asked, viewerCookie)).statusCode).toBe(403);
+    const repeated = await call('POST', base(), {
+      ...asked,
+      preferences: ['teacher_windows', 'teacher_windows'],
+    });
+    expect(repeated.statusCode).toBe(400);
     const run = await request();
     expect(run).toMatchObject({
       status: 'queued',
       requestedBy: 'editor-geracao',
-      options: { timeLimitMs: 5000, nodeLimit: 100000, memoryLimitMb: 64 },
+      options: {
+        timeLimitMs: 5000,
+        nodeLimit: 100000,
+        memoryLimitMb: 64,
+        preferences: ['keep_current', 'teacher_windows'],
+      },
       stale: false,
     });
-    const again = await call('POST', base(), { version, revisionId });
+    const again = await call('POST', base(), asked);
     expect(again.statusCode).toBe(409);
     expect(again.json()).toMatchObject({ error: { code: 'generation.active' } });
     const list = generationListSchema.parse(
@@ -186,7 +200,7 @@ describe('E6: geração automática pela API no PostgreSQL', () => {
     const cancelled = await call('POST', base() + '/' + run.id + '/cancel', {});
     expect(generationRunSchema.parse(cancelled.json()).status).toBe('cancelled');
     expect((await call('POST', base() + '/' + run.id + '/cancel', {})).statusCode).toBe(409);
-    expect((await call('POST', base(), { version: version + 5, revisionId })).statusCode).toBe(409);
+    expect((await call('POST', base(), { ...asked, version: version + 5 })).statusCode).toBe(409);
   });
 
   it('compara, aplica de uma vez, registra histórico e auditoria e recusa repetir', async () => {
@@ -202,7 +216,20 @@ describe('E6: geração automática pela API no PostgreSQL', () => {
     expect(result).toMatchObject({
       applicable: true,
       run: { status: 'feasible', metrics: { elapsedMs: 12 }, stale: false, attempts: 1 },
-      comparison: { kept: 0, added: 3, removed: 0 },
+      comparison: {
+        kept: 0,
+        added: 3,
+        removed: 0,
+        preferences: {
+          current: { teacherWindows: 0, dailySpread: 0 },
+          proposal: { teacherWindows: 0, dailySpread: 0 },
+        },
+      },
+    });
+    expect(result.run.metrics?.preferences).toEqual({
+      changes: 0,
+      teacherWindows: 0,
+      dailySpread: 0,
     });
     expect(result.comparison?.diagnosis.pending).toEqual([]);
     expect(

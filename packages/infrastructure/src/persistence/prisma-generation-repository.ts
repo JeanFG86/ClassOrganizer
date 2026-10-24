@@ -1,5 +1,6 @@
 import {
   GENERATION_OUTCOMES,
+  PREFERENCE_CRITERIA,
   PlanningError,
   stoppedOutcome,
   type ClaimedGeneration,
@@ -10,6 +11,8 @@ import {
   type GenerationRunRepository,
   type GenerationRunStatus,
   type NewGenerationRun,
+  type PreferenceCriterion,
+  type PreferenceMetrics,
   type TimetableIssue,
   type TimetableSnapshot,
 } from '@classorganizer/core';
@@ -65,6 +68,26 @@ function options(value: Prisma.JsonValue): GenerationRunOptions {
     nodeLimit: count(raw['nodeLimit']),
     seed: count(raw['seed']),
     memoryLimitMb: count(raw['memoryLimitMb']),
+    preferences: criteria(raw['preferences']),
+  };
+}
+/** Execuções anteriores às preferências não gravaram critérios nem métricas. */
+function criteria(value: unknown): PreferenceCriterion[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) invalid();
+  return value.map((item: unknown) =>
+    (PREFERENCE_CRITERIA as readonly unknown[]).includes(item)
+      ? (item as PreferenceCriterion)
+      : invalid(),
+  );
+}
+function preferenceMetrics(value: unknown): PreferenceMetrics | null {
+  if (value === undefined || value === null) return null;
+  const raw = record(value as Prisma.JsonValue);
+  return {
+    changes: count(raw['changes']),
+    teacherWindows: count(raw['teacherWindows']),
+    dailySpread: count(raw['dailySpread']),
   };
 }
 function outcome(value: Prisma.JsonValue | null): GenerationOutcome | null {
@@ -85,6 +108,7 @@ function outcome(value: Prisma.JsonValue | null): GenerationOutcome | null {
       visitedNodes: count(metrics['visitedNodes']),
       backtracks: count(metrics['backtracks']),
       restarts: count(metrics['restarts']),
+      preferences: preferenceMetrics(metrics['preferences']),
     },
   };
 }

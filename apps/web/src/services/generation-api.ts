@@ -1,5 +1,6 @@
 import type { InjectionKey } from 'vue';
 import {
+  type PreferenceCriterionDto,
   generationDetailSchema,
   generationListSchema,
   generationRunSchema,
@@ -19,8 +20,11 @@ export function createGenerationApi() {
     list: (planningId: string) => apiRequest(generationListSchema, path(planningId)),
     detail: (planningId: string, runId: string) =>
       apiRequest(generationDetailSchema, run(planningId, runId)),
-    request: (ref: GridRef) =>
-      apiRequest(generationRunSchema, path(ref.planningId), { method: 'POST', body: command(ref) }),
+    request: (ref: GridRef, preferences: readonly PreferenceCriterionDto[]) =>
+      apiRequest(generationRunSchema, path(ref.planningId), {
+        method: 'POST',
+        body: JSON.stringify({ version: ref.version, revisionId: ref.revisionId, preferences }),
+      }),
     cancel: (planningId: string, runId: string) =>
       apiRequest(generationRunSchema, run(planningId, runId) + '/cancel', { method: 'POST' }),
     apply: (ref: GridRef, runId: string) =>

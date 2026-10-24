@@ -55,8 +55,9 @@ const classRows = computed(() =>
       </ul>
     </template>
     <p class="muted">
-      Recursos especiais e preferências ainda não são configurados. As janelas mostram aulas vagas
-      entre duas atividades do professor no mesmo turno e dia; são apenas informativas.
+      Recursos especiais ainda não são configurados. As janelas mostram aulas vagas entre duas
+      atividades do professor no mesmo turno e dia; não bloqueiam a conclusão, e a geração
+      automática pode reduzi-las.
     </p>
     <details>
       <summary>Carga por professor e por turma</summary>

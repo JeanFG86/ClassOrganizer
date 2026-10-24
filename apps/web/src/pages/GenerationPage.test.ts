@@ -35,11 +35,23 @@ function run(overrides: Partial<GenerationRunDto> = {}): GenerationRunDto {
     finishedAt: date,
     attempts: 1,
     cancelRequested: false,
-    options: { timeLimitMs: 30000, nodeLimit: 2000000, seed: 11, memoryLimitMb: 256 },
-    reason: 'solved',
+    options: {
+      timeLimitMs: 30000,
+      nodeLimit: 2000000,
+      seed: 11,
+      memoryLimitMb: 256,
+      preferences: ['teacher_windows', 'daily_spread'],
+    },
+    reason: 'local_optimum',
     diagnostics: [],
     warnings: [],
-    metrics: { elapsedMs: 1250, visitedNodes: 40, backtracks: 2, restarts: 0 },
+    metrics: {
+      elapsedMs: 1250,
+      visitedNodes: 40,
+      backtracks: 2,
+      restarts: 0,
+      preferences: { changes: 0, teacherWindows: 1, dailySpread: 0 },
+    },
     appliedAt: null,
     appliedBy: null,
     stale: false,
@@ -71,8 +83,10 @@ function detail(overrides: Partial<GenerationDetailDto> = {}): GenerationDetailD
       removed: 0,
       placements: proposal,
       diagnosis: { ...base, pending: [] },
-      currentWindows: 0,
-      proposalWindows: 0,
+      preferences: {
+        current: { teacherWindows: 3, dailySpread: 2 },
+        proposal: { teacherWindows: 1, dailySpread: 0 },
+      },
     },
     ...overrides,
   };
@@ -173,11 +187,10 @@ describe('GenerationPage', () => {
     const wrapper = await render(api);
     await button(wrapper, 'Gerar grade').trigger('click');
     await flushPromises();
-    expect(api.request).toHaveBeenCalledWith({
-      planningId: PLANNING,
-      version: 3,
-      revisionId: REVISION,
-    });
+    expect(api.request).toHaveBeenCalledWith(
+      { planningId: PLANNING, version: 3, revisionId: REVISION },
+      ['keep_current', 'teacher_windows', 'daily_spread'],
+    );
     expect(wrapper.text()).toContain('Geração em andamento');
     expect(wrapper.text()).toContain('Na fila desde');
     expect(button(wrapper, 'Gerar grade').attributes('disabled')).toBeDefined();
@@ -194,7 +207,38 @@ describe('GenerationPage', () => {
       'Geração terminada: Grade completa encontrada.',
     );
     expect(wrapper.find('.generation-summary').text()).toContain('Novas posições2');
+    expect(wrapper.find('.generation-summary').text()).toContain('Janelas de professores3 → 1');
+    expect(wrapper.text()).toContain('deixou de encontrar trocas que melhorassem as preferências');
+    expect(wrapper.text()).toContain(
+      'Prioridades: 1. Evitar janelas dos professores; 2. Distribuir cada disciplina pelos dias.',
+    );
     expect(wrapper.findAll('.grid-item.changed')).toHaveLength(1);
+  });
+
+  it('parte das prioridades da última geração e envia a ordem escolhida', async () => {
+    const api = fakeApi(list({ runs: [run()] }));
+    const wrapper = await render(api);
+    const labels = () => wrapper.findAll('.generation-criteria li label').map((l) => l.text());
+    expect(labels()).toEqual([
+      'Evitar janelas dos professores',
+      'Distribuir cada disciplina pelos dias',
+      'Manter a grade atual',
+    ]);
+    const keep = wrapper.find<HTMLInputElement>('#criterion-keep_current');
+    expect(keep.element.checked).toBe(false);
+    await keep.setValue(true);
+    await wrapper
+      .find('[aria-label="Subir a prioridade de Manter a grade atual"]')
+      .trigger('click');
+    await flushPromises();
+    expect(document.activeElement?.id).toBe('criterion-keep_current');
+    await wrapper.find('#criterion-daily_spread').setValue(false);
+    await button(wrapper, 'Gerar grade').trigger('click');
+    await flushPromises();
+    expect(api.request).toHaveBeenCalledWith(
+      { planningId: PLANNING, version: 3, revisionId: REVISION },
+      ['teacher_windows', 'keep_current'],
+    );
   });
 
   it('aplica a proposta somente após confirmação', async () => {

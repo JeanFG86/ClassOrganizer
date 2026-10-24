@@ -46,6 +46,15 @@ export interface DailySubjectRule {
   /** Duas aulas precisam se tocar no horário real, sem atravessar intervalo. */
   readonly consecutive: boolean;
 }
+/** Critérios de qualidade da geração (ADR 0015); nenhum deles relaxa uma regra obrigatória. */
+export const PREFERENCE_CRITERIA = ['keep_current', 'teacher_windows', 'daily_spread'] as const;
+export type PreferenceCriterion = (typeof PREFERENCE_CRITERIA)[number];
+export interface TimetablePreferences {
+  /** Critérios ativos em ordem de prioridade: cada um só desempata os anteriores. */
+  readonly order: readonly PreferenceCriterion[];
+  /** Grade aceita antes da geração, sem as fixações; base de `keep_current`. */
+  readonly reference: TimetableProposal;
+}
 /** Snapshot autocontido. Nenhuma consulta a cadastros ocorre durante a busca. */
 export interface TimetableSnapshot {
   readonly modelVersion: 1;
@@ -69,6 +78,8 @@ export interface TimetableSnapshot {
   readonly subjectRules: readonly DailySubjectRule[];
   readonly fixedLessons: readonly LessonPlacement[];
   readonly fixedPlanning: readonly PlanningPlacement[];
+  /** Ausente: a busca entrega a primeira grade válida, sem melhorias (E2). */
+  readonly preferences?: TimetablePreferences | undefined;
 }
 export interface TimetableIssue {
   readonly code: string;

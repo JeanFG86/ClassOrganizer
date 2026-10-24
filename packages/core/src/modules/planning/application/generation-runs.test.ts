@@ -14,6 +14,7 @@ import { makeTimetableGrid } from './timetable-grid.ts';
 const editor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
 const viewer: Actor = { ...editor, role: 'viewer' };
 const settings = { timeLimitMs: 30000, nodeLimit: 2000000, memoryLimitMb: 256 };
+const order = ['teacher_windows', 'keep_current'];
 
 describe('domínio da geração', () => {
   it('serializa sem depender da ordem das chaves', () => {
@@ -77,6 +78,8 @@ describe('geração automática de um rascunho', () => {
     const planning = await plannings.create(editor, { name: 'Plano fictício', year: 2027 });
     ref = { id: planning.id, version: 1, revisionId: store.revisions[0]?.id ?? '' };
   });
+  const ask = (actor: Actor, change: Partial<typeof ref> = {}) =>
+    runs.request(actor, { ...ref, ...change, preferences: order });
   const placements = (): Placement[] => store.placements.get(ref.revisionId) ?? [];
   /** O worker devolve uma grade completa, respeitando as fixações da entrada. */
   function solve(runId: string, grid = completeGrid()) {
@@ -98,41 +101,80 @@ describe('geração automática de um rascunho', () => {
   }
 
   it('registra a solicitação com limites, semente e entrada; consulta não solicita', async () => {
-    await expect(runs.request(viewer, ref)).rejects.toMatchObject({ code: 'access.forbidden' });
-    const run = await runs.request(editor, ref);
+    await expect(ask(viewer)).rejects.toMatchObject({ code: 'access.forbidden' });
+    const run = await ask(editor);
     expect(run).toMatchObject({
       status: 'queued',
       requestedBy: 'editor-test',
-      options: { ...settings, seed: 11 },
+      options: { ...settings, seed: 11, preferences: order },
       stale: false,
       cancelRequested: false,
     });
     const input = generation.inputs.get(run.id);
     expect(input?.sourceRevision).toBe(ref.revisionId);
     expect(input?.fixedLessons).toEqual([]);
+    expect(input?.preferences).toEqual({ order, reference: { lessons: [], planning: [] } });
     const list = await runs.list(viewer, { id: ref.id });
     expect(list.active?.id).toBe(run.id);
     expect(list.runs.map((r) => r.id)).toEqual([run.id]);
     expect(placements()).toEqual([]);
   });
 
+  it('recusa critérios desconhecidos ou repetidos', async () => {
+    for (const preferences of [['teacher_windows', 'teacher_windows'], ['fewer_days']])
+      await expect(runs.request(editor, { ...ref, preferences })).rejects.toMatchObject({
+        code: 'generation.preferences_invalid',
+      });
+    expect(generation.runs).toEqual([]);
+  });
+
+  it('usa as aulas não fixadas como referência, sem mudar o resumo da entrada', async () => {
+    const [first, second] = completeGrid();
+    if (!first || !second) throw new Error('fixture incompleta');
+    const slot = (p: Placement) => ({
+      kind: p.kind,
+      entityId: p.entityId,
+      weekday: p.weekday,
+      periodId: p.periodId,
+    });
+    const empty = await ask(editor);
+    await runs.cancel(editor, { id: ref.id, runId: empty.id });
+    await grid.apply(editor, { ...ref, operation: { type: 'place', slot: slot(first) } });
+    await grid.apply(editor, {
+      ...ref,
+      version: 2,
+      operation: { type: 'place', slot: slot(second) },
+    });
+    await grid.apply(editor, {
+      ...ref,
+      version: 3,
+      operation: { type: 'pin', slot: slot(second), pinned: true },
+    });
+    const run = await ask(editor, { version: 4 });
+    expect(generation.inputs.get(run.id)?.preferences?.reference).toEqual({
+      lessons: [{ assignmentId: first.entityId, weekday: first.weekday, periodId: first.periodId }],
+      planning: [],
+    });
+    expect(generation.runs.find((r) => r.id === run.id)?.inputDigest).not.toContain('reference');
+  });
+
   it('aceita uma única execução ativa e exige a versão atual', async () => {
-    await runs.request(editor, ref);
-    await expect(runs.request(editor, ref)).rejects.toMatchObject({ code: 'generation.active' });
-    await expect(runs.request(editor, { ...ref, version: 9 })).rejects.toMatchObject({
+    await ask(editor);
+    await expect(ask(editor)).rejects.toMatchObject({ code: 'generation.active' });
+    await expect(ask(editor, { version: 9 })).rejects.toMatchObject({
       code: 'concurrency.stale',
     });
   });
 
   it('cancela na fila na hora e recusa cancelar uma execução terminada', async () => {
-    const queued = await runs.request(editor, ref);
+    const queued = await ask(editor);
     expect(await runs.cancel(editor, { id: ref.id, runId: queued.id })).toMatchObject({
       status: 'cancelled',
     });
     await expect(runs.cancel(editor, { id: ref.id, runId: queued.id })).rejects.toMatchObject({
       code: 'generation.finished',
     });
-    const running = await runs.request(editor, ref);
+    const running = await ask(editor);
     generation.update(running.id, { status: 'running' });
     expect(await runs.cancel(editor, { id: ref.id, runId: running.id })).toMatchObject({
       status: 'running',
@@ -141,12 +183,20 @@ describe('geração automática de um rascunho', () => {
   });
 
   it('compara, aplica uma única vez e permite desfazer pelo histórico', async () => {
-    const run = await runs.request(editor, ref);
+    const run = await ask(editor);
     solve(run.id);
     const detail = await runs.detail(viewer, { id: ref.id, runId: run.id });
     expect(detail).toMatchObject({
       applicable: true,
-      comparison: { kept: 0, added: 6, removed: 0 },
+      comparison: {
+        kept: 0,
+        added: 6,
+        removed: 0,
+        preferences: {
+          current: { teacherWindows: 0, dailySpread: 0 },
+          proposal: { teacherWindows: expect.any(Number), dailySpread: expect.any(Number) },
+        },
+      },
     });
     expect(detail.comparison?.diagnosis.pending).toEqual([]);
     await expect(runs.apply(viewer, { ...ref, runId: run.id })).rejects.toMatchObject({
@@ -186,7 +236,7 @@ describe('geração automática de um rascunho', () => {
       operation: { type: 'pin', slot, pinned: true },
     });
     ref = { ...ref, version: 3 };
-    const run = await runs.request(editor, ref);
+    const run = await ask(editor);
     expect(generation.inputs.get(run.id)?.fixedLessons).toEqual([
       { assignmentId: first.entityId, weekday: first.weekday, periodId: first.periodId },
     ]);
@@ -201,7 +251,7 @@ describe('geração automática de um rascunho', () => {
   });
 
   it('marca como desatualizada e recusa aplicar quando fixações ou regras mudam', async () => {
-    const run = await runs.request(editor, ref);
+    const run = await ask(editor);
     solve(run.id);
     const [first] = completeGrid();
     if (!first) throw new Error('fixture incompleta');
@@ -227,7 +277,7 @@ describe('geração automática de um rascunho', () => {
   });
 
   it('confere a proposta de novo e não aplica uma grade inválida nem incompleta', async () => {
-    const run = await runs.request(editor, ref);
+    const run = await ask(editor);
     const broken = completeGrid().map((p, index) =>
       index === 1 ? { ...p, periodId: 'pa1', weekday: 1 as const } : p,
     );
@@ -240,7 +290,7 @@ describe('geração automática de um rascunho', () => {
   });
 
   it('não aplica resultados sem grade completa', async () => {
-    const run = await runs.request(editor, ref);
+    const run = await ask(editor);
     generation.finish(run.id, {
       status: 'inconclusive',
       reason: 'time_limit',
@@ -258,7 +308,7 @@ describe('geração automática de um rascunho', () => {
   });
 
   it('não encontra execuções de outro planejamento', async () => {
-    const run = await runs.request(editor, ref);
+    const run = await ask(editor);
     const other = await plannings.create(editor, { name: 'Outro plano', year: 2027 });
     await expect(runs.detail(editor, { id: other.id, runId: run.id })).rejects.toMatchObject({
       code: 'generation.not_found',

@@ -1,7 +1,11 @@
 import type { Clock, Digest, IdGenerator, SeedGenerator } from '../../../shared/ports.ts';
 import { NotFoundError } from '../../../shared/domain-error.ts';
 import { READ_ROLES, WRITE_ROLES, requireRole, type Actor } from '../../access/domain/access.ts';
-import { gridProposal, type TranslatedCatalog } from '../domain/catalog-translation.ts';
+import {
+  gridProposal,
+  isKnownSlot,
+  type TranslatedCatalog,
+} from '../domain/catalog-translation.ts';
 import { diagnoseGrid, isGridComplete } from '../domain/diagnosis.ts';
 import {
   canonicalJson,
@@ -11,6 +15,12 @@ import {
 } from '../domain/generation-run.ts';
 import type { Placement } from '../domain/grid.ts';
 import { PlanningError } from '../domain/planning.ts';
+import {
+  PREFERENCE_CRITERIA,
+  type PreferenceCriterion,
+  type TimetablePreferences,
+} from '../../timetable/domain/model.ts';
+import { measurePreferences } from '../../timetable/domain/preferences.ts';
 import { makeGridAccess } from './grid-access.ts';
 import type { GenerationRunRepository, GridRepository, PlanningRepository } from './ports.ts';
 
@@ -25,8 +35,21 @@ const HISTORY_LIMIT = 20;
 function notFound(): never {
   throw new NotFoundError('generation.not_found', 'Geração não encontrada.');
 }
-function totalWindows(diagnosis: ReturnType<typeof diagnoseGrid>): number {
-  return diagnosis.teachers.reduce((sum, t) => sum + t.windows, 0);
+/** Janelas e repetições de uma grade, medidas como na proposta. */
+function preferenceMetricsOf(translated: TranslatedCatalog, placements: readonly Placement[]) {
+  const { snapshot, proposal } = gridProposal(translated, placements);
+  const { teacherWindows, dailySpread } = measurePreferences(snapshot, proposal);
+  return { teacherWindows, dailySpread };
+}
+function preferenceOrder(order: readonly string[]): PreferenceCriterion[] {
+  const known = new Set<string>(PREFERENCE_CRITERIA);
+  if (new Set(order).size !== order.length || order.some((c) => !known.has(c)))
+    throw new PlanningError(
+      'generation.preferences_invalid',
+      'Escolha critérios de preferência conhecidos, sem repetir nenhum.',
+      'validation',
+    );
+  return order as PreferenceCriterion[];
 }
 
 export function makeGenerationRuns(deps: {
@@ -119,14 +142,28 @@ export function makeGenerationRuns(deps: {
           removed: delta.removed.length,
           placements: proposal,
           diagnosis,
-          currentWindows: totalWindows(diagnoseGrid(loaded.translated, loaded.placements)),
-          proposalWindows: totalWindows(diagnosis),
+          preferences: {
+            current: preferenceMetricsOf(loaded.translated, loaded.placements),
+            proposal: preferenceMetricsOf(loaded.translated, proposal),
+          },
         },
       };
     },
-    /** Registra a solicitação; o cálculo acontece no worker, fora da requisição. */
-    async request(actor: Actor, input: { id: string; version: number; revisionId: string }) {
+    /**
+     * Registra a solicitação; o cálculo acontece no worker, fora da requisição. As alocações
+     * não fixadas da grade atual são a referência de `keep_current` e não entram no resumo.
+     */
+    async request(
+      actor: Actor,
+      input: {
+        id: string;
+        version: number;
+        revisionId: string;
+        preferences: readonly string[];
+      },
+    ) {
       requireRole(actor, WRITE_ROLES);
+      const order = preferenceOrder(input.preferences);
       const loaded = await access.loadDraft(input);
       if (await runs.active(input.id))
         throw new PlanningError(
@@ -134,6 +171,18 @@ export function makeGenerationRuns(deps: {
           'Já há uma geração em andamento neste planejamento. Aguarde o resultado ou cancele.',
         );
       const { snapshot, digest: inputDigest } = inputOf(loaded.translated, loaded.placements);
+      const free = loaded.placements.filter((p) => !p.pinned && isKnownSlot(loaded.translated, p));
+      const preferences: TimetablePreferences = {
+        order,
+        reference: {
+          lessons: free
+            .filter((p) => p.kind === 'lesson')
+            .map((p) => ({ assignmentId: p.entityId, weekday: p.weekday, periodId: p.periodId })),
+          planning: free
+            .filter((p) => p.kind === 'planning')
+            .map((p) => ({ teacherId: p.entityId, weekday: p.weekday, periodId: p.periodId })),
+        },
+      };
       const run = {
         id: ids.next(),
         planningId: input.id,
@@ -141,13 +190,13 @@ export function makeGenerationRuns(deps: {
         requestedBy: actor.id,
         requestedAt: clock.now(),
         status: 'queued' as const,
-        options: { ...settings, seed: seeds.next() },
+        options: { ...settings, seed: seeds.next(), preferences: order },
         inputDigest,
         attempts: 0,
         cancelRequestedAt: null,
         appliedAt: null,
       };
-      await runs.add(run, snapshot);
+      await runs.add(run, { ...snapshot, preferences });
       return summary(await owned(input.id, run.id), {
         revisionId: run.revisionId,
         digest: inputDigest,

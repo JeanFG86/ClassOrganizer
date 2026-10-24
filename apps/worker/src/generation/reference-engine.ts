@@ -5,21 +5,19 @@ import type {
   TimetableProposal,
   TimetableSnapshot,
 } from '@classorganizer/core';
+import { improveProposal } from './improve.ts';
+import {
+  buildSearchModel,
+  makeOccupancy,
+  slotKeyOf,
+  type SearchControl,
+  type SearchModel,
+  type TaskShape,
+} from './search-model.ts';
 
-interface Slot {
-  weekday: 1 | 2 | 3 | 4 | 5;
-  periodId: string;
-  start: number;
-  end: number;
-}
-interface Task {
-  kind: 'lesson' | 'planning';
-  id: string;
-  teachers: number[];
-  resources: number[];
-  classIndex: number | null;
-  ruleIndexes: number[];
-  candidates: number[];
+export type { SearchControl } from './search-model.ts';
+
+interface Task extends TaskShape {
   remaining: number;
   last: number;
   tie: number;
@@ -31,14 +29,11 @@ interface Frame {
   selected: number | null;
   previousLast: number;
 }
-export interface SearchControl {
-  now: () => number;
-  cancelled: () => boolean;
-}
 
 /** Busca completa com retrocesso, menor domínio primeiro e eliminação de permutações. */
 function searchAttempt(
   snapshot: TimetableSnapshot,
+  model: SearchModel,
   options: GenerationOptions,
   control: SearchControl,
 ): EngineSearchResult {
@@ -73,132 +68,19 @@ function searchAttempt(
     random = (Math.imul(random, 1664525) + 1013904223) >>> 0;
     return random;
   };
-  const periods = snapshot.periods.toSorted(
-    (a, b) => a.startMinute - b.startMinute || a.id.localeCompare(b.id),
-  );
-  const slots: Slot[] = snapshot.weekdays
-    .toSorted()
-    .flatMap((weekday) =>
-      periods.map((p) => ({ weekday, periodId: p.id, start: p.startMinute, end: p.endMinute })),
-    );
-  const slotIndex = new Map(slots.map((s, i) => [JSON.stringify([s.weekday, s.periodId]), i]));
-  const periodById = new Map(periods.map((p) => [p.id, p]));
-  const teacherIndexes = new Map(snapshot.teachers.map((t, i) => [t.id, i]));
-  const classIndexes = new Map(snapshot.classGroups.map((c, i) => [c.id, i]));
-  const resourceIndexes = new Map(snapshot.resources.map((r, i) => [r.id, i]));
-  const ruleIndexes = new Map(
-    snapshot.subjectRules.map((r, i) => [JSON.stringify([r.classGroupId, r.subjectId]), i]),
-  );
-  const indexOf = (map: Map<string, number>, id: string): number => {
-    const i = map.get(id);
-    if (i === undefined) throw new Error('Referência ausente no modelo validado.');
-    return i;
-  };
-  const classById = new Map(snapshot.classGroups.map((c) => [c.id, c]));
-  const conflicts = slots.map((s) =>
-    slots.flatMap((other, index) =>
-      s.weekday === other.weekday && s.start < other.end && other.start < s.end ? [index] : [],
-    ),
-  );
-  const teacherBusy = snapshot.teachers.map(() => new Uint16Array(slots.length));
-  const classBusy = snapshot.classGroups.map(() => new Uint16Array(slots.length));
-  const resourceBusy = snapshot.resources.map(() => new Uint16Array(slots.length));
-  const daily = snapshot.subjectRules.map(() => Array.from({ length: 5 }, () => [] as number[]));
-  const available = snapshot.teachers.map((teacher) =>
-    slots.map(
-      (slot) =>
-        !teacher.unavailable.some((u) => {
-          const blocked = periodById.get(u.periodId);
-          return (
-            blocked &&
-            u.weekday === slot.weekday &&
-            slot.start < blocked.endMinute &&
-            blocked.startMinute < slot.end
-          );
-        }),
-    ),
-  );
-  const tasks: Task[] = [];
-  for (const a of snapshot.assignments) {
-    const stop = interrupted();
-    if (stop) return stop;
-    const teachers = a.participants.map((p) => indexOf(teacherIndexes, p.teacherId));
-    const allowed = new Set(classById.get(a.classGroupId)?.periodIds);
-    tasks.push({
-      kind: 'lesson',
-      id: a.id,
-      teachers,
-      resources: a.resourceIds.map((id) => indexOf(resourceIndexes, id)),
-      classIndex: indexOf(classIndexes, a.classGroupId),
-      ruleIndexes: [
-        ...new Set(
-          a.participants.map((p) =>
-            indexOf(ruleIndexes, JSON.stringify([a.classGroupId, p.subjectId])),
-          ),
-        ),
-      ],
-      candidates: slots.flatMap((s, index) =>
-        allowed.has(s.periodId) && teachers.every((t) => available[t]?.[index]) ? [index] : [],
-      ),
-      remaining: a.weeklyLessons,
-      last: -1,
-      tie: nextRandom(),
-    });
-  }
-  for (const [index, t] of snapshot.teachers.entries())
-    if (t.planningPeriods > 0) {
-      tasks.push({
-        kind: 'planning',
-        id: t.id,
-        teachers: [index],
-        resources: [],
-        classIndex: null,
-        ruleIndexes: [],
-        candidates: slots.flatMap((s, i) =>
-          t.planningPeriodIds.includes(s.periodId) && available[index]?.[i] ? [i] : [],
-        ),
-        remaining: t.planningPeriods,
-        last: -1,
-        tie: nextRandom(),
-      });
-    }
-  const fits = (task: Task, index: number): boolean => {
-    const slot = slots[index];
-    if (!slot) return false;
-    if (
-      task.teachers.some((i) => teacherBusy[i]?.[index]) ||
-      task.resources.some((i) => resourceBusy[i]?.[index]) ||
-      (task.classIndex !== null && classBusy[task.classIndex]?.[index])
-    )
-      return false;
-    for (const i of task.ruleIndexes) {
-      const rule = snapshot.subjectRules[i];
-      const own = daily[i]?.[slot.weekday - 1];
-      if (!rule || !own || own.length >= rule.maxPerDay) return false;
-      if (rule.consecutive && own.length === 1) {
-        const first = slots[own[0] ?? -1];
-        if (!first || (first.end !== slot.start && slot.end !== first.start)) return false;
-      }
-    }
-    return true;
-  };
+  const { slots, slotIndex, conflicts } = model;
+  const { daily, teacherBusy, classBusy, fits, occupy: mark } = makeOccupancy(snapshot, model);
+  // A grade de referência vem primeiro na ordem dos valores; a completude não muda.
+  const preferReference = snapshot.preferences?.order.includes('keep_current') ?? false;
+  const tasks: Task[] = model.shapes.map((shape) => ({
+    ...shape,
+    remaining: shape.count,
+    last: -1,
+    tie: nextRandom(),
+  }));
   const placed: { task: Task; slot: number }[] = [];
   const occupy = (task: Task, index: number, change: 1 | -1) => {
-    const slot = slots[index];
-    if (!slot) throw new Error('Período ausente.');
-    const counters = [
-      ...task.teachers.map((i) => teacherBusy[i]),
-      ...task.resources.map((i) => resourceBusy[i]),
-    ];
-    if (task.classIndex !== null) counters.push(classBusy[task.classIndex]);
-    for (const counter of counters)
-      if (counter)
-        for (const other of conflicts[index] ?? []) counter[other] = (counter[other] ?? 0) + change;
-    for (const i of task.ruleIndexes) {
-      const list = daily[i]?.[slot.weekday - 1];
-      if (change === 1) list?.push(index);
-      else list?.pop();
-    }
+    mark(task, index, change);
     task.remaining -= change;
     if (change === 1) placed.push({ task, slot: index });
     else placed.pop();
@@ -209,7 +91,7 @@ function searchAttempt(
   ];
   for (const f of fixed) {
     const task = tasks.find((t) => t.kind === f.kind && t.id === f.id);
-    const index = slotIndex.get(JSON.stringify([f.weekday, f.periodId]));
+    const index = slotIndex.get(slotKeyOf(f.weekday, f.periodId));
     if (
       !task ||
       index === undefined ||
@@ -357,8 +239,12 @@ function searchAttempt(
             }
             return { index, score };
           });
+        const outside = (index: number) =>
+          preferReference && !selected.task.reference.has(index) ? 1 : 0;
         selected.candidates = scored
-          .sort((a, b) => a.score - b.score || a.index - b.index)
+          .sort(
+            (a, b) => outside(a.index) - outside(b.index) || a.score - b.score || a.index - b.index,
+          )
           .map((c) => c.index);
         frames.push(selected);
       }
@@ -397,6 +283,7 @@ function searchAttempt(
 
 /** Reinícios determinísticos reduzem a dependência da primeira ordem de escolhas.
  * Só uma tentativa esgotada pode provar inviabilidade; limites valem para o conjunto.
+ * Com preferências, a primeira grade válida é melhorada no tempo e nos nós restantes.
  */
 export function solveReference(
   snapshot: TimetableSnapshot,
@@ -408,6 +295,7 @@ export function solveReference(
   let backtracks = 0;
   let restarts = 0;
   let attempted = false;
+  let model: SearchModel | null = null;
   while (true) {
     const remainingMs = options.timeLimitMs - (control.now() - started);
     const remainingNodes = options.nodeLimit - visitedNodes;
@@ -426,8 +314,10 @@ export function solveReference(
     if (attempted) restarts++;
     attempted = true;
     const slice = Math.min(remainingNodes, 2000 * 2 ** Math.min(10, Math.floor(restarts / 4)));
+    model ??= buildSearchModel(snapshot);
     const result = searchAttempt(
       snapshot,
+      model,
       {
         ...options,
         timeLimitMs: remainingMs,
@@ -438,6 +328,24 @@ export function solveReference(
     );
     visitedNodes += result.visitedNodes;
     backtracks += result.backtracks;
+    if (result.status === 'feasible' && result.proposal && snapshot.preferences?.order.length) {
+      const improved = improveProposal(snapshot, model, result.proposal, control, {
+        deadline: started + options.timeLimitMs,
+        nodeLimit: options.nodeLimit - visitedNodes,
+        seed: (options.seed + restarts) >>> 0,
+      });
+      visitedNodes += improved.visitedNodes;
+      return {
+        ...result,
+        ...(improved.reason === 'cancelled'
+          ? { status: 'cancelled', reason: 'cancelled', proposal: null }
+          : { reason: improved.reason, proposal: improved.proposal }),
+        elapsedMs: Math.max(0, control.now() - started),
+        visitedNodes,
+        backtracks,
+        restarts,
+      };
+    }
     if (result.status !== 'inconclusive' || result.reason !== 'node_limit')
       return {
         ...result,

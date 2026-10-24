@@ -3,6 +3,7 @@ import {
   measureTeacherIdleMinutes,
   validateTimetableProposal,
 } from '../../timetable/domain/validate-proposal.ts';
+import { measurePreferences } from '../../timetable/domain/preferences.ts';
 import type { TimetableIssue, TimetableSnapshot } from '../../timetable/domain/model.ts';
 import type {
   EngineSearchResult,
@@ -26,6 +27,7 @@ export function makeGenerateTimetable({ engine }: { engine: TimetableEngine }) {
       teacherIdleMinutes: result.proposal
         ? measureTeacherIdleMinutes(snapshot, result.proposal)
         : null,
+      preferences: result.proposal ? measurePreferences(snapshot, result.proposal) : null,
       warnings,
     });
     const stopped = (

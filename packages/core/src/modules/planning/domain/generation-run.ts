@@ -2,7 +2,9 @@ import type {
   TimetableIssue,
   TimetableProposal,
   TimetableSnapshot,
+  PreferenceCriterion,
 } from '../../timetable/domain/model.ts';
+import type { PreferenceMetrics } from '../../timetable/domain/preferences.ts';
 import { slotKey, type GridDelta, type Placement } from './grid.ts';
 
 /** Estados finais, os mesmos da prova do motor (ADR 0010). */
@@ -27,12 +29,16 @@ export interface GenerationRunOptions {
   readonly nodeLimit: number;
   readonly seed: number;
   readonly memoryLimitMb: number;
+  /** Critérios em ordem de prioridade; vazio nas execuções anteriores às preferências. */
+  readonly preferences: readonly PreferenceCriterion[];
 }
 export interface GenerationMetrics {
   readonly elapsedMs: number;
   readonly visitedNodes: number;
   readonly backtracks: number;
   readonly restarts: number;
+  /** Métricas da proposta medidas pelo validador; `null` sem proposta. */
+  readonly preferences: PreferenceMetrics | null;
 }
 /** Resultado de uma execução terminada; a grade proposta existe somente em `feasible`. */
 export interface GenerationOutcome {
@@ -67,7 +73,13 @@ export type NewGenerationRun = Omit<
   'requestedByUsername' | 'appliedByUsername' | 'outcome' | 'startedAt' | 'finishedAt'
 >;
 
-const NO_METRICS: GenerationMetrics = { elapsedMs: 0, visitedNodes: 0, backtracks: 0, restarts: 0 };
+const NO_METRICS: GenerationMetrics = {
+  elapsedMs: 0,
+  visitedNodes: 0,
+  backtracks: 0,
+  restarts: 0,
+  preferences: null,
+};
 
 /** Resultado registrado quando a execução termina sem passar pelo motor. */
 export function stoppedOutcome(

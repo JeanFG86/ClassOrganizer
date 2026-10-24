@@ -4,6 +4,7 @@
 - **Data:** 24/10/2026
 - **Etapa:** E6, primeira parte (geração, fila, acompanhamento e aplicação). Preferências ficam na segunda parte.
 - **Substitui:** a decisão pendente da [ADR 0004](0004-fila-e-worker.md)
+- **Atualizada por:** [ADR 0015](0015-preferencias-na-geracao.md), que acrescenta as preferências com prioridades, as métricas da proposta e a comparação de janelas e repetições
 - **Relacionadas:** ADRs [0010](0010-motor-de-referencia-e-validacao.md), [0012](0012-planejamentos-e-revisoes.md) e [0013](0013-grade-manual.md)
 
 ## Contexto
