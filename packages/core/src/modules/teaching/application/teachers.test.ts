@@ -12,10 +12,14 @@ import {
   type SubjectStatus,
   type Teacher,
 } from '../domain/teacher.ts';
-import { makeArchiveTeacher, makeRestoreTeacher, makeUpdateTeacher } from './change-teacher.ts';
-import { makeListTeachers } from './list-teachers.ts';
-import type { SubjectLookup, TeacherRepository } from './ports.ts';
-import { makeRegisterTeacher } from './register-teacher.ts';
+import {
+  makeArchiveTeacher,
+  makeRestoreTeacher,
+  makeUpdateTeacher,
+} from './usecases/change-teacher.ts';
+import { makeListTeachers } from './usecases/list-teachers.ts';
+import type { SubjectLookup, TeacherRepository } from './ports/index.ts';
+import { makeRegisterTeacher } from './usecases/register-teacher.ts';
 
 class InMemoryTeacherRepository implements TeacherRepository {
   readonly items = new Map<string, Teacher>();

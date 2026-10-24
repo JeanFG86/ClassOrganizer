@@ -7,9 +7,9 @@ import {
   makeInMemoryGenerationRuns,
   makeInMemoryPlanningStore,
 } from '../../../testing/planning-fixture.ts';
-import { makeGenerationRuns } from './generation-runs.ts';
-import { makePlannings } from './plannings.ts';
-import { makeTimetableGrid } from './timetable-grid.ts';
+import { makeGenerationRuns } from './usecases/generation-runs.ts';
+import { makePlannings } from './usecases/plannings.ts';
+import { makeTimetableGrid } from './usecases/timetable-grid.ts';
 
 const editor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
 const viewer: Actor = { ...editor, role: 'viewer' };

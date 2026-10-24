@@ -8,8 +8,8 @@ import type { Shift } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startTestDatabase } from '../testing/postgres-container.ts';
 import type { TestDatabase } from '../testing/postgres-container.ts';
-import { PrismaShiftRepository } from './prisma-shift-repository.ts';
-import { PrismaTeacherRepository } from './prisma-teacher-repository.ts';
+import { PrismaShiftRepository } from '../modules/school-structure/prisma-shift-repository.ts';
+import { PrismaTeacherRepository } from '../modules/teaching/prisma-teacher-repository.ts';
 
 const createdAt = new Date('2026-02-01T12:00:00.000Z');
 const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

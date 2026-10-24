@@ -32,7 +32,7 @@ describe('API HTTP — carga e disponibilidade do professor', () => {
   });
 
   it('cadastra com carga máxima e hora-atividade, que voltam na resposta', async () => {
-    const registerTeacher = vi.fn<RegisterTeacher>(async () => ana);
+    const registerTeacher = vi.fn<RegisterTeacher['execute']>(async () => ana);
     app = buildTestApp({ registerTeacher });
 
     const response = await app.inject({
@@ -60,7 +60,7 @@ describe('API HTTP — carga e disponibilidade do professor', () => {
       'A carga máxima deve ser um número inteiro de 1 a 60 aulas por semana.',
     );
     app = buildTestApp({
-      updateTeacher: vi.fn<UpdateTeacher>(async () => {
+      updateTeacher: vi.fn<UpdateTeacher['execute']>(async () => {
         throw error;
       }),
     });
@@ -80,7 +80,7 @@ describe('API HTTP — carga e disponibilidade do professor', () => {
 
   it('substitui os horários indisponíveis', async () => {
     const changed = setUnavailability(ana, [{ weekday: 2, periodId: P1 }], new Set([P1]));
-    const changeTeacherAvailability = vi.fn<ChangeTeacherAvailability>(async () => ({
+    const changeTeacherAvailability = vi.fn<ChangeTeacherAvailability['execute']>(async () => ({
       ...changed,
       version: 2,
     }));
@@ -107,7 +107,7 @@ describe('API HTTP — carga e disponibilidade do professor', () => {
     ['sábado', [{ weekday: 6, periodId: P1 }]],
     ['aula que não é uuid', [{ weekday: 1, periodId: 'p1' }]],
   ])('recusa requisição fora do contrato: %s', async (_case, unavailable) => {
-    const changeTeacherAvailability = vi.fn<ChangeTeacherAvailability>();
+    const changeTeacherAvailability = vi.fn<ChangeTeacherAvailability['execute']>();
     app = buildTestApp({ changeTeacherAvailability });
 
     const response = await app.inject({
@@ -122,7 +122,7 @@ describe('API HTTP — carga e disponibilidade do professor', () => {
 
   it('aula que deixou de existir responde 400', async () => {
     app = buildTestApp({
-      changeTeacherAvailability: vi.fn<ChangeTeacherAvailability>(async () => {
+      changeTeacherAvailability: vi.fn<ChangeTeacherAvailability['execute']>(async () => {
         throw new InvalidAvailabilityError();
       }),
     });

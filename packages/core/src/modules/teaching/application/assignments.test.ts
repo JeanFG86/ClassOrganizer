@@ -17,8 +17,8 @@ import {
   makeChangeAssignment,
   makeListAssignments,
   makeRemoveAssignment,
-} from './assignments.ts';
-import type { TeacherRepository } from './ports.ts';
+} from './usecases/assignments.ts';
+import type { TeacherRepository } from './ports/index.ts';
 
 const now = new Date('2026-02-01T12:00:00Z');
 const first = { teacherId: 'teacher-a', subjectId: 'math' };

@@ -19,11 +19,11 @@ import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
 
 export interface ShiftRoutesDeps {
-  registerShift: RegisterShift;
-  listShifts: ListShifts;
-  updateShift: UpdateShift;
-  archiveShift: ArchiveShift;
-  restoreShift: RestoreShift;
+  registerShift: RegisterShift['execute'];
+  listShifts: ListShifts['execute'];
+  updateShift: UpdateShift['execute'];
+  archiveShift: ArchiveShift['execute'];
+  restoreShift: RestoreShift['execute'];
 }
 
 function toDto(shift: Shift): ShiftDto {

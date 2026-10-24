@@ -18,12 +18,12 @@ import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
 
 export interface TeacherRoutesDeps {
-  registerTeacher: RegisterTeacher;
-  listTeachers: ListTeachers;
-  updateTeacher: UpdateTeacher;
-  archiveTeacher: ArchiveTeacher;
-  restoreTeacher: RestoreTeacher;
-  changeTeacherAvailability: ChangeTeacherAvailability;
+  registerTeacher: RegisterTeacher['execute'];
+  listTeachers: ListTeachers['execute'];
+  updateTeacher: UpdateTeacher['execute'];
+  archiveTeacher: ArchiveTeacher['execute'];
+  restoreTeacher: RestoreTeacher['execute'];
+  changeTeacherAvailability: ChangeTeacherAvailability['execute'];
 }
 
 function toDto(teacher: Teacher): TeacherDto {

@@ -46,7 +46,9 @@ describe('API HTTP — turmas e atribuições', () => {
 
   describe('turmas', () => {
     it('lista no formato do contrato', async () => {
-      app = buildTestApp({ listClassGroups: vi.fn<ListClassGroups>(async () => [turma]) });
+      app = buildTestApp({
+        listClassGroups: vi.fn<ListClassGroups['execute']>(async () => [turma]),
+      });
 
       const response = await app.inject({ method: 'GET', url: '/api/v1/class-groups' });
 
@@ -65,7 +67,7 @@ describe('API HTTP — turmas e atribuições', () => {
 
     it('cadastra e responde 201; nome repetido responde 409', async () => {
       const registerClassGroup = vi
-        .fn<RegisterClassGroup>()
+        .fn<RegisterClassGroup['execute']>()
         .mockResolvedValueOnce(turma)
         .mockRejectedValueOnce(new ClassGroupNameAlreadyInUseError(turma));
       app = buildTestApp({ registerClassGroup });
@@ -87,7 +89,10 @@ describe('API HTTP — turmas e atribuições', () => {
     });
 
     it('renomeia com versão', async () => {
-      const updateClassGroup = vi.fn<UpdateClassGroup>(async () => ({ ...turma, version: 2 }));
+      const updateClassGroup = vi.fn<UpdateClassGroup['execute']>(async () => ({
+        ...turma,
+        version: 2,
+      }));
       app = buildTestApp({ updateClassGroup });
 
       const response = await app.inject({
@@ -103,10 +108,10 @@ describe('API HTTP — turmas e atribuições', () => {
 
   describe('atribuições', () => {
     it('lista e cria no formato do contrato', async () => {
-      const assignTeaching = vi.fn<AssignTeaching>(async () => assignment);
+      const assignTeaching = vi.fn<AssignTeaching['execute']>(async () => assignment);
       app = buildTestApp({
         assignTeaching,
-        listAssignments: vi.fn<ListAssignments>(async () => [assignment]),
+        listAssignments: vi.fn<ListAssignments['execute']>(async () => [assignment]),
       });
       const payload = {
         classGroupId: C6A,
@@ -136,8 +141,11 @@ describe('API HTTP — turmas e atribuições', () => {
         ],
       };
       const block = createAssignment({ id: A1, ...payload, resourceIds: [], createdAt });
-      const assignTeaching = vi.fn<AssignTeaching>(async () => block);
-      const changeAssignment = vi.fn<ChangeAssignment>(async () => ({ ...block, version: 2 }));
+      const assignTeaching = vi.fn<AssignTeaching['execute']>(async () => block);
+      const changeAssignment = vi.fn<ChangeAssignment['execute']>(async () => ({
+        ...block,
+        version: 2,
+      }));
       app = buildTestApp({ assignTeaching, changeAssignment });
       const created = await app.inject({ method: 'POST', url: '/api/v1/assignments', payload });
       expect(created.statusCode).toBe(201);
@@ -160,7 +168,7 @@ describe('API HTTP — turmas e atribuições', () => {
     it.each([undefined, null, [{ teacherId: ANA }], [{ teacherId: 123, subjectId: MATH }]])(
       'rejeita participantes ausentes ou malformados na fronteira (%j)',
       async (participants) => {
-        const assignTeaching = vi.fn<AssignTeaching>();
+        const assignTeaching = vi.fn<AssignTeaching['execute']>();
         app = buildTestApp({ assignTeaching });
         const response = await app.inject({
           method: 'POST',
@@ -173,7 +181,7 @@ describe('API HTTP — turmas e atribuições', () => {
     );
 
     it('carga não numérica é rejeitada na fronteira', async () => {
-      const assignTeaching = vi.fn<AssignTeaching>();
+      const assignTeaching = vi.fn<AssignTeaching['execute']>();
       app = buildTestApp({ assignTeaching });
 
       const response = await app.inject({
@@ -215,7 +223,10 @@ describe('API HTTP — turmas e atribuições', () => {
     });
 
     it('altera professor e carga com versão', async () => {
-      const changeAssignment = vi.fn<ChangeAssignment>(async () => ({ ...assignment, version: 2 }));
+      const changeAssignment = vi.fn<ChangeAssignment['execute']>(async () => ({
+        ...assignment,
+        version: 2,
+      }));
       app = buildTestApp({ changeAssignment });
 
       const response = await app.inject({
@@ -238,7 +249,7 @@ describe('API HTTP — turmas e atribuições', () => {
     });
 
     it('DELETE remove com a versão na query e responde 204', async () => {
-      const removeAssignment = vi.fn<RemoveAssignment>(async () => {});
+      const removeAssignment = vi.fn<RemoveAssignment['execute']>(async () => {});
       app = buildTestApp({ removeAssignment });
 
       const response = await app.inject({
@@ -251,7 +262,7 @@ describe('API HTTP — turmas e atribuições', () => {
     });
 
     it('DELETE sem versão é rejeitado', async () => {
-      const removeAssignment = vi.fn<RemoveAssignment>();
+      const removeAssignment = vi.fn<RemoveAssignment['execute']>();
       app = buildTestApp({ removeAssignment });
 
       const response = await app.inject({ method: 'DELETE', url: `/api/v1/assignments/${A1}` });
@@ -279,7 +290,7 @@ describe('API HTTP — turmas e atribuições', () => {
   describe('vínculo professor ↔ atribuições', () => {
     it('remover habilitação em uso responde 409', async () => {
       app = buildTestApp({
-        updateTeacher: vi.fn<UpdateTeacher>(async () => {
+        updateTeacher: vi.fn<UpdateTeacher['execute']>(async () => {
           throw new QualificationInUseError();
         }),
       });
@@ -296,7 +307,7 @@ describe('API HTTP — turmas e atribuições', () => {
 
     it('arquivar professor com aulas responde 409', async () => {
       app = buildTestApp({
-        archiveTeacher: vi.fn<ArchiveTeacher>(async () => {
+        archiveTeacher: vi.fn<ArchiveTeacher['execute']>(async () => {
           throw new TeacherHasAssignmentsError();
         }),
       });

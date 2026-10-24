@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeManageAccounts, type AccountRepository, type StoredUser } from './accounts.ts';
+import {
+  makeManageAccounts,
+  type AccountRepository,
+  type StoredUser,
+} from './usecases/accounts.ts';
 const user: StoredUser = {
   id: 'account-a',
   username: 'admin-test',

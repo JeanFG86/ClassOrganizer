@@ -55,7 +55,7 @@ function validName(raw: string): Pick<Resource, 'name' | 'normalizedName'> {
   return { name, normalizedName: normalizeName(name) };
 }
 
-export function createResource(input: { id: string; name: string; createdAt: Date }): Resource {
+function createResourceState(input: { id: string; name: string; createdAt: Date }): Resource {
   return {
     id: input.id,
     ...validName(input.name),
@@ -65,6 +65,40 @@ export function createResource(input: { id: string; name: string; createdAt: Dat
   };
 }
 
-export function renameResource(resource: Resource, name: string): Resource {
+function renameResourceState(resource: Resource, name: string): Resource {
   return { ...resource, ...validName(name) };
+}
+
+/** Transições de negócio; fotografias são cópias independentes do estado. */
+export class ResourceEntity {
+  readonly #state: Resource;
+  private constructor(state: Resource) {
+    this.#state = structuredClone(state);
+  }
+  static reconstitute(state: Resource): ResourceEntity {
+    return new ResourceEntity(state);
+  }
+  snapshot(): Resource {
+    return structuredClone(this.#state);
+  }
+  static create(input: { id: string; name: string; createdAt: Date }): ResourceEntity {
+    return new ResourceEntity(createResourceState(input));
+  }
+  rename(name: string): ResourceEntity {
+    return new ResourceEntity(renameResourceState(this.#state, name));
+  }
+  archive(at: Date): ResourceEntity {
+    return this.#state.archivedAt ? this : new ResourceEntity({ ...this.#state, archivedAt: at });
+  }
+  restore(): ResourceEntity {
+    return new ResourceEntity({ ...this.#state, archivedAt: null });
+  }
+}
+
+export function createResource(input: { id: string; name: string; createdAt: Date }): Resource {
+  return ResourceEntity.create(input).snapshot();
+}
+
+export function renameResource(resource: Resource, name: string): Resource {
+  return ResourceEntity.reconstitute(resource).rename(name).snapshot();
 }

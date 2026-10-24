@@ -15,10 +15,10 @@ import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
 
 export interface AssignmentRoutesDeps {
-  assignTeaching: AssignTeaching;
-  listAssignments: ListAssignments;
-  changeAssignment: ChangeAssignment;
-  removeAssignment: RemoveAssignment;
+  assignTeaching: AssignTeaching['execute'];
+  listAssignments: ListAssignments['execute'];
+  changeAssignment: ChangeAssignment['execute'];
+  removeAssignment: RemoveAssignment['execute'];
 }
 
 function toDto(assignment: TeachingAssignment): AssignmentDto {

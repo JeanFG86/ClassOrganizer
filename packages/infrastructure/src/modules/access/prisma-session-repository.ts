@@ -1,6 +1,6 @@
 import type { SessionRepository, SessionView } from '@classorganizer/core';
 import type { PersistenceClient } from '../../persistence/database.ts';
-import { publicUser } from '../../access/accounts.ts';
+import { publicUser } from './user-mapper.ts';
 
 export class PrismaSessionRepository implements SessionRepository {
   readonly #db: PersistenceClient;
