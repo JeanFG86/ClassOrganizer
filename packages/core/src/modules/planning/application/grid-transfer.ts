@@ -3,7 +3,7 @@ import type { Actor } from '../../access/domain/access.ts';
 import { isKnownSlot, translateCatalog } from '../domain/catalog-translation.ts';
 import type { GridDelta } from '../domain/grid.ts';
 import type { PlanningRevision } from '../domain/planning.ts';
-import type { GridRepository } from './ports.ts';
+import type { GridRepository } from './ports/index.ts';
 
 /**
  * Leva a grade e as regras de outra revisão para um rascunho novo. Alocações sem bloco,

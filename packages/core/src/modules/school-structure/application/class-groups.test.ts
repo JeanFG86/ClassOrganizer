@@ -12,7 +12,7 @@ import {
   makeRegisterClassGroup,
   makeRestoreClassGroup,
   makeUpdateClassGroup,
-} from './class-groups.ts';
+} from './usecases/class-groups.ts';
 
 const now = new Date('2026-02-01T12:00:00Z');
 

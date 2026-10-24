@@ -18,12 +18,12 @@ import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
 
 export interface ClassGroupRoutesDeps {
-  registerClassGroup: RegisterClassGroup;
-  listClassGroups: ListClassGroups;
-  updateClassGroup: UpdateClassGroup;
-  changeClassGroupSchedule: ChangeClassGroupSchedule;
-  archiveClassGroup: ArchiveClassGroup;
-  restoreClassGroup: RestoreClassGroup;
+  registerClassGroup: RegisterClassGroup['execute'];
+  listClassGroups: ListClassGroups['execute'];
+  updateClassGroup: UpdateClassGroup['execute'];
+  changeClassGroupSchedule: ChangeClassGroupSchedule['execute'];
+  archiveClassGroup: ArchiveClassGroup['execute'];
+  restoreClassGroup: RestoreClassGroup['execute'];
 }
 
 function toDto(classGroup: ClassGroup): ClassGroupDto {

@@ -17,14 +17,14 @@ import {
   makeArchiveClassGroup,
   makeChangeClassGroupSchedule,
   makeRegisterClassGroup,
-} from './class-groups.ts';
+} from './usecases/class-groups.ts';
 import {
   makeArchiveShift,
   makeListShifts,
   makeRegisterShift,
   makeRestoreShift,
   makeUpdateShift,
-} from './shifts.ts';
+} from './usecases/shifts.ts';
 
 const now = new Date('2026-02-01T12:00:00Z');
 

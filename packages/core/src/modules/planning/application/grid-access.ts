@@ -4,7 +4,12 @@ import { StaleVersionError } from '../../../shared/versioning.ts';
 import type { Actor } from '../../access/domain/access.ts';
 import { translateCatalog } from '../domain/catalog-translation.ts';
 import { PlanningError, requireDraft, type Planning } from '../domain/planning.ts';
-import type { GridChange, GridHistoryEntry, GridRepository, PlanningRepository } from './ports.ts';
+import type {
+  GridChange,
+  GridHistoryEntry,
+  GridRepository,
+  PlanningRepository,
+} from './ports/index.ts';
 
 /** Desfaz a alteração mais recente ainda não desfeita; desfazer não tem refazer. */
 export function undoTarget(history: readonly GridHistoryEntry[]): GridHistoryEntry | null {

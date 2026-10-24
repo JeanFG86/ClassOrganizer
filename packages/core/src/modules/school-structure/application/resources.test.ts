@@ -13,7 +13,7 @@ import {
   makeRegisterResource,
   makeRestoreResource,
   makeUpdateResource,
-} from './resources.ts';
+} from './usecases/resources.ts';
 
 const now = new Date('2026-03-01T10:00:00Z');
 

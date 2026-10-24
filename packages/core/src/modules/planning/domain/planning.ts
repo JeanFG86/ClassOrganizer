@@ -39,6 +39,78 @@ export interface Planning {
   archivedAt: Date | null;
   copiedFromId: string | null;
 }
+
+export class PlanningEntity {
+  readonly #state: Planning;
+  private constructor(state: Planning) {
+    this.#state = structuredClone(state);
+  }
+  static reconstitute(state: Planning): PlanningEntity {
+    return new PlanningEntity(state);
+  }
+  static create(input: {
+    id: string;
+    name: string;
+    year: number;
+    createdAt: Date;
+    copiedFromId: string | null;
+  }): PlanningEntity {
+    return new PlanningEntity({
+      ...input,
+      name: validatePlanningInput(input.name, input.year),
+      archivedAt: null,
+      version: 1,
+    });
+  }
+  archive(at: Date): PlanningEntity {
+    return new PlanningEntity({ ...this.#state, archivedAt: at });
+  }
+  restore(): PlanningEntity {
+    return new PlanningEntity({ ...this.#state, archivedAt: null });
+  }
+  requireDraft(revision: PlanningRevision): void {
+    requireDraft(this.#state, revision);
+  }
+  snapshot(): Planning {
+    return structuredClone(this.#state);
+  }
+}
+
+export class PlanningRevisionEntity {
+  readonly #state: PlanningRevision;
+  private constructor(state: PlanningRevision) {
+    this.#state = structuredClone(state);
+  }
+  static reconstitute(state: PlanningRevision): PlanningRevisionEntity {
+    return new PlanningRevisionEntity(state);
+  }
+  review(
+    rulesReviewed: boolean | undefined,
+    availabilityReviewed: boolean | undefined,
+  ): PlanningRevisionEntity {
+    if (rulesReviewed === undefined || availabilityReviewed === undefined)
+      throw new PlanningError(
+        'planning.review_invalid',
+        'Informe a revisão das regras e da disponibilidade.',
+        'validation',
+      );
+    return new PlanningRevisionEntity({ ...this.#state, rulesReviewed, availabilityReviewed });
+  }
+  requireReviewed(): void {
+    if (!this.#state.rulesReviewed || !this.#state.availabilityReviewed)
+      throw new PlanningError(
+        'planning.review_required',
+        'Revise as regras e a disponibilidade antes de concluir.',
+      );
+  }
+  seal(at: Date): PlanningRevisionEntity {
+    this.requireReviewed();
+    return new PlanningRevisionEntity({ ...this.#state, sealedAt: at });
+  }
+  snapshot(): PlanningRevision {
+    return structuredClone(this.#state);
+  }
+}
 export function validatePlanningInput(name: string, year: number): string {
   const trimmed = name.trim();
   if (

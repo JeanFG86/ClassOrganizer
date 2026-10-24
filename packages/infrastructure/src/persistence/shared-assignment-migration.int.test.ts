@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from './database.ts';
-import { PrismaAssignmentRepository } from './prisma-assignment-repository.ts';
+import { PrismaAssignmentRepository } from '../modules/teaching/prisma-assignment-repository.ts';
 
 const migrations = new URL('../../prisma/migrations/', import.meta.url);
 const targetMigration = '20261024010000_shared_assignments';

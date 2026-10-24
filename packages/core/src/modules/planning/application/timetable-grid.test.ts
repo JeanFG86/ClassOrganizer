@@ -3,8 +3,8 @@ import type { Actor } from '../../access/domain/access.ts';
 import type { GridOperation, GridSlot, Placement } from '../domain/grid.ts';
 import type { Weekday } from '../../../shared/weekdays.ts';
 import { makeInMemoryPlanningStore } from '../../../testing/planning-fixture.ts';
-import { makePlannings } from './plannings.ts';
-import { makeTimetableGrid } from './timetable-grid.ts';
+import { makePlannings } from './usecases/plannings.ts';
+import { makeTimetableGrid } from './usecases/timetable-grid.ts';
 
 const editor: Actor = { id: 'editor-a', username: 'editor-test', role: 'editor' };
 const viewer: Actor = { ...editor, role: 'viewer' };

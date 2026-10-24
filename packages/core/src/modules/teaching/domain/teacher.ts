@@ -178,7 +178,7 @@ function validWorkload(
  * Cria o professor. Nomes repetidos são permitidos (duas pessoas podem ter o mesmo
  * nome); a regra pode mudar após o levantamento da E0.
  */
-export function createTeacher(
+function createTeacherState(
   input: {
     id: string;
     name: string;
@@ -198,7 +198,7 @@ export function createTeacher(
 }
 
 /** Campos de carga omitidos mantêm o valor atual. */
-export function changeTeacher(
+function changeTeacherState(
   teacher: Teacher,
   input: { name: string; subjectIds: readonly string[] } & WorkloadInput,
 ): Teacher {
@@ -209,7 +209,7 @@ export function changeTeacher(
  * Substitui os horários indisponíveis. Cada aula precisa existir (`knownPeriodIds`);
  * repetições são ignoradas.
  */
-export function setUnavailability(
+function setUnavailabilityState(
   teacher: Teacher,
   slots: readonly { weekday: number; periodId: string }[],
   knownPeriodIds: ReadonlySet<string>,
@@ -227,10 +227,83 @@ export function setUnavailability(
   return { ...teacher, unavailable };
 }
 
-export function archiveTeacher(teacher: Teacher, at: Date): Teacher {
+function archiveTeacherState(teacher: Teacher, at: Date): Teacher {
   return teacher.archivedAt ? teacher : { ...teacher, archivedAt: at };
 }
 
-export function restoreTeacher(teacher: Teacher): Teacher {
+function restoreTeacherState(teacher: Teacher): Teacher {
   return { ...teacher, archivedAt: null };
+}
+
+/** Transições de negócio; fotografias são cópias independentes do estado. */
+export class TeacherEntity {
+  readonly #state: Teacher;
+  private constructor(state: Teacher) {
+    this.#state = structuredClone(state);
+  }
+  static reconstitute(state: Teacher): TeacherEntity {
+    return new TeacherEntity(state);
+  }
+  snapshot(): Teacher {
+    return structuredClone(this.#state);
+  }
+  static create(
+    input: {
+      id: string;
+      name: string;
+      subjectIds: readonly string[];
+      createdAt: Date;
+    } & WorkloadInput,
+  ): TeacherEntity {
+    return new TeacherEntity(createTeacherState(input));
+  }
+  change(input: { name: string; subjectIds: readonly string[] } & WorkloadInput): TeacherEntity {
+    return new TeacherEntity(changeTeacherState(this.#state, input));
+  }
+  setUnavailability(
+    slots: readonly { weekday: number; periodId: string }[],
+    knownPeriodIds: ReadonlySet<string>,
+  ): TeacherEntity {
+    return new TeacherEntity(setUnavailabilityState(this.#state, slots, knownPeriodIds));
+  }
+  archive(at: Date): TeacherEntity {
+    return new TeacherEntity(archiveTeacherState(this.#state, at));
+  }
+  restore(): TeacherEntity {
+    return new TeacherEntity(restoreTeacherState(this.#state));
+  }
+}
+
+export function createTeacher(
+  input: {
+    id: string;
+    name: string;
+    subjectIds: readonly string[];
+    createdAt: Date;
+  } & WorkloadInput,
+): Teacher {
+  return TeacherEntity.create(input).snapshot();
+}
+
+export function changeTeacher(
+  teacher: Teacher,
+  input: { name: string; subjectIds: readonly string[] } & WorkloadInput,
+): Teacher {
+  return TeacherEntity.reconstitute(teacher).change(input).snapshot();
+}
+
+export function setUnavailability(
+  teacher: Teacher,
+  slots: readonly { weekday: number; periodId: string }[],
+  knownPeriodIds: ReadonlySet<string>,
+): Teacher {
+  return TeacherEntity.reconstitute(teacher).setUnavailability(slots, knownPeriodIds).snapshot();
+}
+
+export function archiveTeacher(teacher: Teacher, at: Date): Teacher {
+  return TeacherEntity.reconstitute(teacher).archive(at).snapshot();
+}
+
+export function restoreTeacher(teacher: Teacher): Teacher {
+  return TeacherEntity.reconstitute(teacher).restore().snapshot();
 }

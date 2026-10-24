@@ -152,7 +152,7 @@ function validPeriods(
   return periods;
 }
 
-export function createShift(
+function createShiftState(
   input: { id: string; name: string; periods: readonly PeriodInput[]; createdAt: Date },
   ids: IdGenerator,
 ): Shift {
@@ -170,7 +170,7 @@ export function createShift(
  * Renomeia e redefine as aulas. Aulas informadas com `id` mantêm a identidade (e as
  * turmas que as usam); aulas sem `id` são novas; as ausentes são removidas.
  */
-export function changeShift(
+function changeShiftState(
   shift: Shift,
   input: { name: string; periods: readonly PeriodInput[] },
   ids: IdGenerator,
@@ -196,4 +196,48 @@ export function changeShift(
 export function removedPeriodIds(before: Shift, after: Shift): Set<string> {
   const kept = new Set(after.periods.map((p) => p.id));
   return new Set(before.periods.filter((p) => !kept.has(p.id)).map((p) => p.id));
+}
+
+/** Transições de negócio; fotografias são cópias independentes do estado. */
+export class ShiftEntity {
+  readonly #state: Shift;
+  private constructor(state: Shift) {
+    this.#state = structuredClone(state);
+  }
+  static reconstitute(state: Shift): ShiftEntity {
+    return new ShiftEntity(state);
+  }
+  snapshot(): Shift {
+    return structuredClone(this.#state);
+  }
+  static create(
+    input: { id: string; name: string; periods: readonly PeriodInput[]; createdAt: Date },
+    ids: IdGenerator,
+  ): ShiftEntity {
+    return new ShiftEntity(createShiftState(input, ids));
+  }
+  change(input: { name: string; periods: readonly PeriodInput[] }, ids: IdGenerator): ShiftEntity {
+    return new ShiftEntity(changeShiftState(this.#state, input, ids));
+  }
+  archive(at: Date): ShiftEntity {
+    return this.#state.archivedAt ? this : new ShiftEntity({ ...this.#state, archivedAt: at });
+  }
+  restore(): ShiftEntity {
+    return new ShiftEntity({ ...this.#state, archivedAt: null });
+  }
+}
+
+export function createShift(
+  input: { id: string; name: string; periods: readonly PeriodInput[]; createdAt: Date },
+  ids: IdGenerator,
+): Shift {
+  return ShiftEntity.create(input, ids).snapshot();
+}
+
+export function changeShift(
+  shift: Shift,
+  input: { name: string; periods: readonly PeriodInput[] },
+  ids: IdGenerator,
+): Shift {
+  return ShiftEntity.reconstitute(shift).change(input, ids).snapshot();
 }

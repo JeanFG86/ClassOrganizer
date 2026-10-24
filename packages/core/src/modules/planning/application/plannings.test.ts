@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { makePlannings } from './plannings.ts';
+import { makePlannings } from './usecases/plannings.ts';
 import type { CatalogSnapshot } from '../domain/planning.ts';
 import type { Actor } from '../../access/domain/access.ts';
 import {

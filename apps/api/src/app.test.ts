@@ -47,11 +47,15 @@ function makeApp(overrides: Partial<AppDeps> = {}): FastifyInstance {
       version: 2,
     })),
     restoreSubject: vi.fn<RestoreSubject['execute']>(async () => ({ ...math, version: 3 })),
-    registerTeacher: vi.fn<RegisterTeacher>(async () => ana),
-    listTeachers: vi.fn<ListTeachers>(async () => [ana]),
-    updateTeacher: vi.fn<UpdateTeacher>(async () => ({ ...ana, version: 2 })),
-    archiveTeacher: vi.fn<ArchiveTeacher>(async () => ({ ...ana, archivedAt, version: 2 })),
-    restoreTeacher: vi.fn<RestoreTeacher>(async () => ({ ...ana, version: 3 })),
+    registerTeacher: vi.fn<RegisterTeacher['execute']>(async () => ana),
+    listTeachers: vi.fn<ListTeachers['execute']>(async () => [ana]),
+    updateTeacher: vi.fn<UpdateTeacher['execute']>(async () => ({ ...ana, version: 2 })),
+    archiveTeacher: vi.fn<ArchiveTeacher['execute']>(async () => ({
+      ...ana,
+      archivedAt,
+      version: 2,
+    })),
+    restoreTeacher: vi.fn<RestoreTeacher['execute']>(async () => ({ ...ana, version: 3 })),
     ...overrides,
   });
 }
@@ -307,7 +311,7 @@ describe('API HTTP', () => {
     });
 
     it('cadastra com habilitações e responde 201', async () => {
-      const registerTeacher = vi.fn<RegisterTeacher>(async () => ana);
+      const registerTeacher = vi.fn<RegisterTeacher['execute']>(async () => ana);
       app = makeApp({ registerTeacher });
 
       const response = await app.inject({
@@ -322,7 +326,7 @@ describe('API HTTP', () => {
     });
 
     it('exige a lista de habilitações no corpo', async () => {
-      const registerTeacher = vi.fn<RegisterTeacher>();
+      const registerTeacher = vi.fn<RegisterTeacher['execute']>();
       app = makeApp({ registerTeacher });
 
       const response = await app.inject({
@@ -356,7 +360,7 @@ describe('API HTTP', () => {
     });
 
     it('PUT substitui nome e habilitações com a versão', async () => {
-      const updateTeacher = vi.fn<UpdateTeacher>(async () => ({ ...ana, version: 2 }));
+      const updateTeacher = vi.fn<UpdateTeacher['execute']>(async () => ({ ...ana, version: 2 }));
       app = makeApp({ updateTeacher });
 
       const response = await app.inject({
@@ -375,12 +379,12 @@ describe('API HTTP', () => {
     });
 
     it('arquiva e restaura com a versão informada', async () => {
-      const archiveTeacher = vi.fn<ArchiveTeacher>(async () => ({
+      const archiveTeacher = vi.fn<ArchiveTeacher['execute']>(async () => ({
         ...ana,
         archivedAt,
         version: 2,
       }));
-      const restoreTeacher = vi.fn<RestoreTeacher>(async () => ({ ...ana, version: 3 }));
+      const restoreTeacher = vi.fn<RestoreTeacher['execute']>(async () => ({ ...ana, version: 3 }));
       app = makeApp({ archiveTeacher, restoreTeacher });
 
       await app.inject({

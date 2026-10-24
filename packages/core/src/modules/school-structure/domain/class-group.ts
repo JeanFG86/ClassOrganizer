@@ -65,7 +65,7 @@ function validName(raw: string): Pick<ClassGroup, 'name' | 'normalizedName'> {
   return { name, normalizedName: normalizeName(name) };
 }
 
-export function createClassGroup(input: { id: string; name: string; createdAt: Date }): ClassGroup {
+function createClassGroupState(input: { id: string; name: string; createdAt: Date }): ClassGroup {
   return {
     id: input.id,
     ...validName(input.name),
@@ -77,12 +77,12 @@ export function createClassGroup(input: { id: string; name: string; createdAt: D
   };
 }
 
-export function renameClassGroup(classGroup: ClassGroup, name: string): ClassGroup {
+function renameClassGroupState(classGroup: ClassGroup, name: string): ClassGroup {
   return { ...classGroup, ...validName(name) };
 }
 
 /** Define o turno da turma e as aulas desse turno que ela usa (`shift` nulo tira do turno). */
-export function scheduleClassGroup(
+function scheduleClassGroupState(
   classGroup: ClassGroup,
   shift: Shift | null,
   periodIds: readonly string[],
@@ -108,4 +108,49 @@ export function scheduleClassGroup(
     shiftId: shift.id,
     periodIds: shift.periods.filter((p) => chosen.has(p.id)).map((p) => p.id),
   };
+}
+
+/** Transições de negócio; fotografias são cópias independentes do estado. */
+export class ClassGroupEntity {
+  readonly #state: ClassGroup;
+  private constructor(state: ClassGroup) {
+    this.#state = structuredClone(state);
+  }
+  static reconstitute(state: ClassGroup): ClassGroupEntity {
+    return new ClassGroupEntity(state);
+  }
+  snapshot(): ClassGroup {
+    return structuredClone(this.#state);
+  }
+  static create(input: { id: string; name: string; createdAt: Date }): ClassGroupEntity {
+    return new ClassGroupEntity(createClassGroupState(input));
+  }
+  rename(name: string): ClassGroupEntity {
+    return new ClassGroupEntity(renameClassGroupState(this.#state, name));
+  }
+  schedule(shift: Shift | null, periodIds: readonly string[]): ClassGroupEntity {
+    return new ClassGroupEntity(scheduleClassGroupState(this.#state, shift, periodIds));
+  }
+  archive(at: Date): ClassGroupEntity {
+    return this.#state.archivedAt ? this : new ClassGroupEntity({ ...this.#state, archivedAt: at });
+  }
+  restore(): ClassGroupEntity {
+    return new ClassGroupEntity({ ...this.#state, archivedAt: null });
+  }
+}
+
+export function createClassGroup(input: { id: string; name: string; createdAt: Date }): ClassGroup {
+  return ClassGroupEntity.create(input).snapshot();
+}
+
+export function renameClassGroup(classGroup: ClassGroup, name: string): ClassGroup {
+  return ClassGroupEntity.reconstitute(classGroup).rename(name).snapshot();
+}
+
+export function scheduleClassGroup(
+  classGroup: ClassGroup,
+  shift: Shift | null,
+  periodIds: readonly string[],
+): ClassGroup {
+  return ClassGroupEntity.reconstitute(classGroup).schedule(shift, periodIds).snapshot();
 }

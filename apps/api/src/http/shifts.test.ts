@@ -50,7 +50,7 @@ describe('API HTTP — turnos e aulas', () => {
   });
 
   it('lista com os horários em HH:MM, no formato do contrato', async () => {
-    app = buildTestApp({ listShifts: vi.fn<ListShifts>(async () => [manha]) });
+    app = buildTestApp({ listShifts: vi.fn<ListShifts['execute']>(async () => [manha]) });
 
     const response = await app.inject({ method: 'GET', url: '/api/v1/shifts' });
 
@@ -70,7 +70,7 @@ describe('API HTTP — turnos e aulas', () => {
   });
 
   it('cadastra convertendo HH:MM em minutos e responde 201', async () => {
-    const registerShift = vi.fn<RegisterShift>(async () => manha);
+    const registerShift = vi.fn<RegisterShift['execute']>(async () => manha);
     app = buildTestApp({ registerShift });
 
     const response = await app.inject({
@@ -92,7 +92,7 @@ describe('API HTTP — turnos e aulas', () => {
     ['hora inexistente', { name: 'Manhã', periods: [{ start: '24:00', end: '24:50' }] }],
     ['sem aulas no corpo', { name: 'Manhã' }],
   ])('recusa requisição fora do contrato: %s', async (_case, payload) => {
-    const registerShift = vi.fn<RegisterShift>();
+    const registerShift = vi.fn<RegisterShift['execute']>();
     app = buildTestApp({ registerShift });
 
     const response = await app.inject({ method: 'POST', url: '/api/v1/shifts', payload });
@@ -112,7 +112,7 @@ describe('API HTTP — turnos e aulas', () => {
     [new PeriodInUseError(['6º A']), 409, 'shift.period_in_use'],
     [new ShiftNotFoundError(), 404, 'shift.not_found'],
   ])('traduz erro de alteração (%s)', async (error, status, code) => {
-    const updateShift = vi.fn<UpdateShift>(async () => {
+    const updateShift = vi.fn<UpdateShift['execute']>(async () => {
       throw error;
     });
     app = buildTestApp({ updateShift });
@@ -145,7 +145,7 @@ describe('API HTTP — turnos e aulas', () => {
 
   it('arquivar turno com turmas responde 409 com o nome das turmas', async () => {
     app = buildTestApp({
-      archiveShift: vi.fn<ArchiveShift>(async () => {
+      archiveShift: vi.fn<ArchiveShift['execute']>(async () => {
         throw new ShiftInUseError(['6º A']);
       }),
     });
@@ -166,7 +166,7 @@ describe('API HTTP — turnos e aulas', () => {
       manha,
       [P1],
     );
-    const changeClassGroupSchedule = vi.fn<ChangeClassGroupSchedule>(async () => ({
+    const changeClassGroupSchedule = vi.fn<ChangeClassGroupSchedule['execute']>(async () => ({
       ...turma,
       version: 2,
     }));

@@ -16,11 +16,11 @@ import type { FastifyInstance } from 'fastify';
 import { idParamsSchema, parseRequest } from './errors.ts';
 
 export interface ResourceRoutesDeps {
-  registerResource: RegisterResource;
-  listResources: ListResources;
-  updateResource: UpdateResource;
-  archiveResource: ArchiveResource;
-  restoreResource: RestoreResource;
+  registerResource: RegisterResource['execute'];
+  listResources: ListResources['execute'];
+  updateResource: UpdateResource['execute'];
+  archiveResource: ArchiveResource['execute'];
+  restoreResource: RestoreResource['execute'];
 }
 
 function toDto(resource: Resource): ResourceDto {
