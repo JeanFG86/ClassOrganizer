@@ -9,6 +9,8 @@ import { accessApiKey, createSessionStore } from '../modules/access/presentation
 import { createGenerationApi } from '../modules/generation/infra/generation-http-api.ts';
 import { generationApiKey } from '../modules/generation/presentation/generation-key.ts';
 import { createGridApi } from '../modules/planning/infra/grid-http-api.ts';
+import { createTimetableReportsApi } from '../modules/planning/infra/timetable-reports-http-api.ts';
+import { timetableReportsApiKey } from '../modules/planning/presentation/timetable-reports-key.ts';
 import { createPlanningsApi } from '../modules/planning/infra/plannings-http-api.ts';
 import { gridApiKey } from '../modules/planning/presentation/grid-key.ts';
 import { planningsApiKey } from '../modules/planning/presentation/plannings-key.ts';
@@ -49,6 +51,7 @@ export function composeWebApp() {
     .provide(teachersApiKey, createTeachersApi(client))
     .provide(assignmentsApiKey, createAssignmentsApi(client))
     .provide(gridApiKey, createGridApi(client))
+    .provide(timetableReportsApiKey, createTimetableReportsApi(client))
     .provide(generationApiKey, createGenerationApi(client));
 
   return { app, router, session };

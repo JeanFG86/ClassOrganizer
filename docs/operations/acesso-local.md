@@ -62,6 +62,16 @@ Abra um planejamento e use **Versões do planejamento**. Escolha a revisão de o
 
 Só o último rascunho pode receber alterações na grade. As revisões anteriores continuam disponíveis para consulta, comparação e restauração. Todos os perfis podem comparar; somente administrador e editor podem nomear, preservar e restaurar revisões de planejamentos ativos.
 
+## Imprimir horários e salvar PDF
+
+Em **Planejamentos**, abra o planejamento e use **Imprimir revisão N** na revisão desejada. O link **Imprimir ou salvar PDF desta revisão**, na Grade, abre a mesma saída histórica.
+
+Na página **Impressão e PDF**, escolha revisão, **Turma** ou **Professor**, e uma entidade ou todas. Confira a prévia e as pendências. O botão **Imprimir / salvar PDF** abre o diálogo do navegador; escolha a impressora ou **Salvar como PDF**. Use Chrome ou Edge atual, papel A4 em paisagem, escala padrão e sem cabeçalhos/rodapés adicionais do navegador. O relatório já repete sua identificação e numera as páginas.
+
+Cada turma ou professor tem folhas próprias por turno. Folhas extensas continuam nas páginas seguintes. Os nomes e horários são os da revisão escolhida, mesmo que os cadastros tenham mudado depois. **RASCUNHO** indica uma revisão ainda não concluída; guardar ou imprimir não equivale a aprovar a grade.
+
+A prévia permanece estável enquanto está aberta. Use **Atualizar prévia** para carregar mudanças posteriores no rascunho. Os PDFs são salvos no destino escolhido no navegador e devem permanecer no ambiente de trabalho autorizado.
+
 ## E2E
 
 Use banco de teste e dados inteiramente fictícios. Antes da primeira suíte, crie o administrador pela mesma CLI com usuário `e2e-admin` e senha `senha ficticia e2e 2026!`. Esses valores são fixtures públicas de teste, não credenciais para uma instalação real. Credenciais diferentes podem ser passadas por `E2E_USERNAME` e `E2E_PASSWORD`.

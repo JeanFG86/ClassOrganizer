@@ -4,6 +4,7 @@ import {
   renameRevisionSchema,
   restoreRevisionSchema,
   compareRevisionsSchema,
+  timetableReportQuerySchema,
 } from '@classorganizer/contracts';
 import { z } from 'zod';
 import { idParamsSchema, parseRequest } from './errors.ts';
@@ -13,6 +14,13 @@ import { PlanningController, type PlanningOperations } from '../controllers/plan
 export function registerPlanningRoutes(app: FastifyInstance, operations: PlanningOperations): void {
   const controller = new PlanningController(operations);
   const revisionParams = z.object({ id: z.uuid(), revisionId: z.uuid() });
+  app.get('/api/v1/plannings/:id/report', (request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return controller.timetableReport({
+      ...parseRequest(idParamsSchema, request.params),
+      ...parseRequest(timetableReportQuerySchema, request.query),
+    });
+  });
   app.post('/api/v1/plannings/:id/revisions/:revisionId/preserve', async (request, reply) =>
     reply.code(201).send(
       await controller.preserveRevision({

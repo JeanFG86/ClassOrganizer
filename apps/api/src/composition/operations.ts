@@ -94,6 +94,12 @@ export function composeOperations(
 
   return {
     catalog,
+    timetableReport: protect(
+      READ_ROLES,
+      undefined,
+      (services, actor, input: Input<Services['plannings']['report']>) =>
+        services.plannings.report(actor, input),
+    ),
     preserveRevision: protect(
       WRITE_ROLES,
       'planning.revisionPreserve',

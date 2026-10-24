@@ -18,6 +18,7 @@ import {
   RenamePlanningRevision,
   RestorePlanningRevision,
   PreservePlanningRevision,
+  GetTimetableReport,
   type GenerationSettings,
 } from '@classorganizer/core';
 import {
@@ -41,6 +42,7 @@ export function composePlanning(tx: PersistenceClient, settings: GenerationSetti
   const digest = sha256Digest;
   return {
     plannings: {
+      report: bindUseCase(new GetTimetableReport({ plannings, grids, clock })),
       preserveRevision: bindUseCase(
         new PreservePlanningRevision({ repository: plannings, grids, clock, ids }),
       ),
