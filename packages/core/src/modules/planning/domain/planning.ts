@@ -14,6 +14,8 @@ export interface CatalogSnapshot {
   classGroups: JsonValue[];
   shifts: JsonValue[];
   assignments: JsonValue[];
+  /** Ausente nas fotografias anteriores aos recursos especiais (ADR 0016). */
+  resources?: JsonValue[];
 }
 export interface PlanningRevision {
   id: string;

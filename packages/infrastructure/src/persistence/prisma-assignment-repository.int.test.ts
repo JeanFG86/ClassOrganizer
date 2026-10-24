@@ -6,6 +6,7 @@ import {
   createAssignment,
   createClassGroup,
   createSubject,
+  createResource,
   createTeacher,
 } from '@classorganizer/core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -13,6 +14,7 @@ import { startTestDatabase } from '../testing/postgres-container.ts';
 import type { TestDatabase } from '../testing/postgres-container.ts';
 import { PrismaAssignmentRepository } from './prisma-assignment-repository.ts';
 import { PrismaClassGroupRepository } from './prisma-class-group-repository.ts';
+import { PrismaResourceRepository } from './prisma-resource-repository.ts';
 import { PrismaSubjectRepository } from './prisma-subject-repository.ts';
 import { PrismaTeacherRepository } from './prisma-teacher-repository.ts';
 
@@ -25,6 +27,8 @@ const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const SECOND_TEACHER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const A1 = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1';
 const A2 = 'a2a2a2a2-a2a2-4a2a-8a2a-a2a2a2a2a2a2';
+const LAB = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1';
+const COURT = 'c2c2c2c2-c2c2-4c2c-8c2c-c2c2c2c2c2c2';
 
 describe('PrismaAssignmentRepository (PostgreSQL)', () => {
   let testDb: TestDatabase;
@@ -37,6 +41,7 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
       classGroupId: C6A,
       participants: [{ subjectId: MATH, teacherId: ANA }],
       weeklyLessons: 5,
+      resourceIds: [],
       createdAt,
     });
 
@@ -67,6 +72,9 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
     await teachers.add(
       createTeacher({ id: ANA, name: 'Ana', subjectIds: [MATH, HISTORY], createdAt }),
     );
+    const resources = new PrismaResourceRepository(testDb.db);
+    await resources.add(createResource({ id: LAB, name: 'Laboratório', createdAt }));
+    await resources.add(createResource({ id: COURT, name: 'Quadra', createdAt }));
     await teachers.add(
       createTeacher({ id: SECOND_TEACHER, name: 'Docente Beta', subjectIds: [HISTORY], createdAt }),
     );
@@ -225,6 +233,34 @@ describe('PrismaAssignmentRepository (PostgreSQL)', () => {
     expect(await assignments.subjectIdsAssignedTo(ANA)).toEqual(new Set());
     await assignments.remove(reduced);
     expect(await testDb.db.assignmentParticipant.count()).toBe(0);
+  });
+
+  it('grava e edita os recursos do bloco por diferença, na ordem informada', async () => {
+    const original = { ...mathFor6A(), resourceIds: [LAB] };
+    await assignments.add(original);
+    expect(await assignments.findById(A1)).toEqual(original);
+    const both = await assignments.update({ ...original, resourceIds: [COURT, LAB] });
+    expect((await assignments.findById(A1))?.resourceIds).toEqual([COURT, LAB]);
+    const none = await assignments.update({ ...both, resourceIds: [] });
+    expect(await assignments.findById(A1)).toEqual(none);
+    expect(await testDb.db.assignmentResource.count()).toBe(0);
+  });
+
+  it('o banco recusa recurso inexistente e protege recurso em uso', async () => {
+    await expect(
+      assignments.add({ ...mathFor6A(), resourceIds: ['c9c9c9c9-c9c9-4c9c-8c9c-c9c9c9c9c9c9'] }),
+    ).rejects.toThrow(InvalidAssignmentReferenceError);
+    expect(await assignments.findById(A1)).toBeNull();
+    await assignments.add({ ...mathFor6A(), resourceIds: [LAB] });
+    await expect(testDb.db.resource.delete({ where: { id: LAB } })).rejects.toThrow();
+    await expect(
+      testDb.db.assignmentResource.update({
+        where: { assignmentId_resourceId: { assignmentId: A1, resourceId: LAB } },
+        data: { position: 5 },
+      }),
+    ).rejects.toThrow(/assignment_resource_position_range/);
+    await assignments.remove({ ...mathFor6A(), resourceIds: [LAB] });
+    expect(await testDb.db.assignmentResource.count()).toBe(0);
   });
 
   it('falha de habilitação reverte participantes, carga e versão juntos', async () => {

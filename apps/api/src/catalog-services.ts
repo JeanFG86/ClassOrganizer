@@ -1,5 +1,10 @@
 import {
   makeArchiveClassGroup,
+  makeArchiveResource,
+  makeListResources,
+  makeRegisterResource,
+  makeRestoreResource,
+  makeUpdateResource,
   makeArchiveShift,
   makeArchiveSubject,
   makeArchiveTeacher,
@@ -29,6 +34,7 @@ import {
 import {
   PrismaAssignmentRepository,
   PrismaClassGroupRepository,
+  PrismaResourceRepository,
   PrismaShiftRepository,
   PrismaSubjectRepository,
   PrismaTeacherRepository,
@@ -42,6 +48,7 @@ export function makeCatalogServices(db: PersistenceClient) {
   const classGroups = new PrismaClassGroupRepository(db);
   const shifts = new PrismaShiftRepository(db);
   const assignments = new PrismaAssignmentRepository(db);
+  const resources = new PrismaResourceRepository(db);
   const clock = systemClock;
   const ids = uuidGenerator;
 
@@ -63,6 +70,11 @@ export function makeCatalogServices(db: PersistenceClient) {
     changeClassGroupSchedule: makeChangeClassGroupSchedule({ classGroups, shifts }),
     archiveClassGroup: makeArchiveClassGroup({ classGroups, clock }),
     restoreClassGroup: makeRestoreClassGroup({ classGroups }),
+    registerResource: makeRegisterResource({ resources, clock, ids }),
+    listResources: makeListResources({ resources }),
+    updateResource: makeUpdateResource({ resources }),
+    archiveResource: makeArchiveResource({ resources, clock }),
+    restoreResource: makeRestoreResource({ resources }),
     registerShift: makeRegisterShift({ shifts, clock, ids }),
     listShifts: makeListShifts({ shifts }),
     updateShift: makeUpdateShift({ shifts, classGroups, ids }),
@@ -73,11 +85,12 @@ export function makeCatalogServices(db: PersistenceClient) {
       teachers,
       subjects,
       classGroups,
+      resources,
       clock,
       ids,
     }),
     listAssignments: makeListAssignments({ assignments }),
-    changeAssignment: makeChangeAssignment({ assignments, teachers, subjects }),
+    changeAssignment: makeChangeAssignment({ assignments, teachers, subjects, resources }),
     removeAssignment: makeRemoveAssignment({ assignments }),
   };
 }

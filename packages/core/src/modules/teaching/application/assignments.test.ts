@@ -6,6 +6,7 @@ import {
   AssignmentNotFoundError,
   InvalidAssignmentParticipantsError,
   InvalidAssignmentReferenceError,
+  InvalidAssignmentResourcesError,
   InvalidWeeklyLessonsError,
   TeacherNotQualifiedError,
   createAssignment,
@@ -36,6 +37,7 @@ describe('atribuições em blocos de aulas', () => {
   let assignments: InMemoryAssignmentRepository;
   let teachersById: Map<string, Teacher>;
   let subjectStatus: Map<string, EntityStatus>;
+  let resourceStatus: Map<string, EntityStatus>;
   let assign: ReturnType<typeof makeAssignTeaching>;
   let change: ReturnType<typeof makeChangeAssignment>;
   let remove: ReturnType<typeof makeRemoveAssignment>;
@@ -53,6 +55,11 @@ describe('atribuições em blocos de aulas', () => {
       ['history', 'active'],
       ['latin', 'archived'],
     ]);
+    resourceStatus = new Map([
+      ['lab', 'active'],
+      ['court', 'active'],
+      ['old-room', 'archived'],
+    ]);
     const classGroups = new Map<string, EntityStatus>([
       ['6A', 'active'],
       ['6B', 'active'],
@@ -69,6 +76,10 @@ describe('atribuições em blocos de aulas', () => {
           new Map([...subjectStatus].filter(([id]) => ids.includes(id))),
       },
       classGroups: { classGroupStatus: async (id: string) => classGroups.get(id) },
+      resources: {
+        resourceStatuses: async (ids: readonly string[]) =>
+          new Map([...resourceStatus].filter(([id]) => ids.includes(id))),
+      },
     };
     let sequence = 0;
     assign = makeAssignTeaching({
@@ -82,7 +93,13 @@ describe('atribuições em blocos de aulas', () => {
 
   it('atribui um professor e lista o bloco', async () => {
     const assignment = await assign(valid);
-    expect(assignment).toEqual({ id: 'a-1', ...valid, createdAt: now, version: 1 });
+    expect(assignment).toEqual({
+      id: 'a-1',
+      ...valid,
+      resourceIds: [],
+      createdAt: now,
+      version: 1,
+    });
     expect(await makeListAssignments({ assignments })()).toEqual([assignment]);
   });
   it('aceita acompanhamento, divisão em blocos e disciplinas simultâneas', async () => {
@@ -185,10 +202,49 @@ describe('atribuições em blocos de aulas', () => {
   });
   it('não retém referências mutáveis da entrada', () => {
     const participants = [{ ...first }];
-    const assignment = createAssignment({ ...valid, id: 'a1', participants, createdAt: now });
+    const assignment = createAssignment({
+      ...valid,
+      id: 'a1',
+      participants,
+      resourceIds: [],
+      createdAt: now,
+    });
     if (participants[0]) participants[0].teacherId = 'changed';
     participants.push(second);
     expect(assignment.participants).toEqual([first]);
+  });
+  it('reserva recursos ativos, sem repetir, e mantém os atuais quando não informados', async () => {
+    expect((await assign(valid)).resourceIds).toEqual([]);
+    const assignment = await assign({ ...valid, resourceIds: ['lab', 'court'] });
+    expect(assignment.resourceIds).toEqual(['lab', 'court']);
+    for (const resourceIds of [['old-room'], ['missing']])
+      await expect(assign({ ...valid, resourceIds })).rejects.toThrow(
+        InvalidAssignmentReferenceError,
+      );
+    await expect(assign({ ...valid, resourceIds: ['lab', 'lab'] })).rejects.toThrow(
+      InvalidAssignmentResourcesError,
+    );
+    const kept = await change({
+      id: assignment.id,
+      version: 1,
+      participants: [first],
+      weeklyLessons: 3,
+    });
+    expect(kept.resourceIds).toEqual(['lab', 'court']);
+    resourceStatus.set('lab', 'archived');
+    // O recurso que já estava no bloco pode continuar mesmo arquivado; um novo, não.
+    await expect(
+      change({ ...kept, participants: [first], weeklyLessons: 3, resourceIds: ['lab'] }),
+    ).resolves.toMatchObject({ resourceIds: ['lab'], version: 3 });
+    await expect(
+      change({
+        id: kept.id,
+        version: 3,
+        participants: [first],
+        weeklyLessons: 3,
+        resourceIds: ['old-room'],
+      }),
+    ).rejects.toThrow(InvalidAssignmentReferenceError);
   });
   it('remove somente com versão atual', async () => {
     const assignment = await assign(valid);

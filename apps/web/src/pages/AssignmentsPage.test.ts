@@ -1,6 +1,7 @@
 import type {
   AssignmentDto,
   ClassGroupDto,
+  ResourceDto,
   SubjectDto,
   TeacherDto,
 } from '@classorganizer/contracts';
@@ -10,6 +11,7 @@ import { ApiRequestError } from '../services/api-client.ts';
 import { assignmentsApiKey, type AssignmentsApi } from '../services/assignments-api.ts';
 import type { CatalogApi } from '../services/catalog-api.ts';
 import { classGroupsApiKey } from '../services/class-groups-api.ts';
+import { resourcesApiKey } from '../services/resources-api.ts';
 import { subjectsApiKey } from '../services/subjects-api.ts';
 import { teachersApiKey, type TeachersApi } from '../services/teachers-api.ts';
 import AssignmentsPage from './AssignmentsPage.vue';
@@ -22,6 +24,8 @@ const c6a: ClassGroupDto = { id: 'c6a', name: '6º ano A', ...noShift, ...base }
 const c6b: ClassGroupDto = { id: 'c6b', name: '6º ano B', ...noShift, ...base };
 const math: SubjectDto = { id: 'math', name: 'Matemática', ...base };
 const history: SubjectDto = { id: 'hist', name: 'História', ...base };
+const lab: ResourceDto = { id: 'lab', name: 'Laboratório', ...base };
+const oldRoom: ResourceDto = { id: 'old', name: 'Sala antiga', ...base, archivedAt: createdAt };
 const noLimits = { maxWeeklyLessons: null, planningPeriods: 0, unavailable: [] };
 const ana: TeacherDto = {
   id: 'ana',
@@ -97,6 +101,7 @@ function assignment(
     classGroupId,
     participants: [{ subjectId, teacherId }],
     weeklyLessons,
+    resourceIds: [],
     createdAt,
     version: 1,
   };
@@ -104,7 +109,11 @@ function assignment(
 
 async function mountPage(
   assignmentsApi: AssignmentsApi,
-  options: { teachers?: TeacherDto[]; classGroups?: ClassGroupDto[] } = {},
+  options: {
+    teachers?: TeacherDto[];
+    classGroups?: ClassGroupDto[];
+    resources?: ResourceDto[];
+  } = {},
 ) {
   const teachersApi: TeachersApi = {
     list: vi.fn(async () => options.teachers ?? [ana, secondTeacher, carla]),
@@ -120,6 +129,7 @@ async function mountPage(
         [assignmentsApiKey as symbol]: assignmentsApi,
         [classGroupsApiKey as symbol]: catalog(options.classGroups ?? [c6a, c6b]),
         [subjectsApiKey as symbol]: catalog([math, history]),
+        [resourcesApiKey as symbol]: catalog(options.resources ?? []),
         [teachersApiKey as symbol]: teachersApi,
       },
       stubs: { RouterLink: RouterLinkStub },
@@ -250,7 +260,9 @@ describe('AssignmentsPage', () => {
       classGroupId: 'c6a',
       participants: [{ subjectId: 'math', teacherId: 'ana' }],
       weeklyLessons: 5,
+      resourceIds: [],
     });
+    expect(wrapper.text()).not.toContain('Recursos especiais');
     expect(wrapper.get('[role="status"]').text()).toBe('Bloco de aulas em 6º ano A criado.');
     expect((wrapper.get('#assignment-class-group').element as HTMLSelectElement).value).toBe('c6a');
     expect((wrapper.get('#assignment-subject-0').element as HTMLSelectElement).value).toBe('');
@@ -275,6 +287,7 @@ describe('AssignmentsPage', () => {
     expect(api.update).toHaveBeenCalledWith('a1', {
       participants: [{ subjectId: 'math', teacherId: 'secondTeacher' }],
       weeklyLessons: 4,
+      resourceIds: [],
       version: 1,
     });
     expect(wrapper.get('[role="status"]').text()).toBe('Bloco de aulas atualizado.');
@@ -404,6 +417,47 @@ describe('AssignmentsPage', () => {
         { subjectId: 'math', teacherId: 'secondTeacher' },
         { subjectId: 'hist', teacherId: 'carla' },
       ],
+      resourceIds: [],
+    });
+  });
+
+  it('marca recursos especiais no bloco e mostra os arquivados só onde já estão', async () => {
+    const used = { ...assignment('a1', 'c6a', 'math', 'ana', 5), resourceIds: ['old'] };
+    const api = fakeAssignmentsApi([used]);
+    const wrapper = await mountPage(api, { resources: [lab, oldRoom] });
+    const labels = (selector: string) =>
+      wrapper.findAll(selector + ' label.check').map((l) => l.text());
+
+    const create = wrapper.get('form[aria-labelledby="assignment-form-title"]');
+    expect(create.text()).toContain('Recursos especiais usados pelo bloco (opcional)');
+    expect(labels('form[aria-labelledby="assignment-form-title"]')).toEqual(['Laboratório']);
+    expect(wrapper.get('section[aria-label="Turma 6º ano A"]').text()).toContain(
+      'Recurso: Sala antiga (arquivado)',
+    );
+    await wrapper.get('#assignment-class-group').setValue('c6b');
+    await wrapper.get('#assignment-subject-0').setValue('math');
+    await wrapper.get('#assignment-teacher-0').setValue('ana');
+    await wrapper.get('#assignment-lessons').setValue('2');
+    await create.get('input[type="checkbox"][value="lab"]').setValue(true);
+    await create.trigger('submit');
+    await flushPromises();
+    expect(api.create).toHaveBeenCalledWith({
+      classGroupId: 'c6b',
+      participants: [{ subjectId: 'math', teacherId: 'ana' }],
+      weeklyLessons: 2,
+      resourceIds: ['lab'],
+    });
+
+    await wrapper.get('button[aria-label="Editar bloco 1 em 6º ano A"]').trigger('click');
+    expect(labels('td form')).toEqual(['Laboratório', 'Sala antiga (arquivado)']);
+    await wrapper.get('td form input[type="checkbox"][value="old"]').setValue(false);
+    await wrapper.get('td form').trigger('submit');
+    await flushPromises();
+    expect(api.update).toHaveBeenCalledWith('a1', {
+      participants: [{ subjectId: 'math', teacherId: 'ana' }],
+      weeklyLessons: 5,
+      resourceIds: [],
+      version: 1,
     });
   });
 
@@ -432,6 +486,7 @@ describe('AssignmentsPage', () => {
     expect(api.update).toHaveBeenCalledWith('a1', {
       weeklyLessons: 5,
       version: 1,
+      resourceIds: [],
       participants: [
         { subjectId: 'math', teacherId: 'ana' },
         { subjectId: 'hist', teacherId: 'carla' },

@@ -33,6 +33,7 @@ const assignment = createAssignment({
   classGroupId: C6A,
   participants: [{ subjectId: MATH, teacherId: ANA }],
   weeklyLessons: 5,
+  resourceIds: [],
   createdAt,
 });
 
@@ -134,7 +135,7 @@ describe('API HTTP — turmas e atribuições', () => {
           },
         ],
       };
-      const block = createAssignment({ id: A1, ...payload, createdAt });
+      const block = createAssignment({ id: A1, ...payload, resourceIds: [], createdAt });
       const assignTeaching = vi.fn<AssignTeaching>(async () => block);
       const changeAssignment = vi.fn<ChangeAssignment>(async () => ({ ...block, version: 2 }));
       app = buildTestApp({ assignTeaching, changeAssignment });

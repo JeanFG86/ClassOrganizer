@@ -33,10 +33,11 @@ describe('migração de atribuições existentes para blocos', () => {
   }
   beforeAll(async () => {
     container = await new PostgreSqlContainer('postgres:18.6-alpine').start();
-    const previous = readdirSync(migrations, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name < targetMigration)
+    const all = readdirSync(migrations, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort();
+    const previous = all.filter((name) => name < targetMigration);
     for (const migration of previous)
       await sql(readFileSync(new URL(migration + '/migration.sql', migrations), 'utf8'));
     await sql(`
@@ -48,7 +49,9 @@ describe('migração de atribuições existentes para blocos', () => {
         ('${firstId}', '${classGroupId}', '${subjectId}', '${teacherId}', 5, '${createdAt.toISOString()}', 3),
         ('${secondId}', '${otherClassGroupId}', '${subjectId}', '${teacherId}', 2, '${createdAt.toISOString()}', 7);
     `);
-    await sql(readFileSync(new URL(targetMigration + '/migration.sql', migrations), 'utf8'));
+    // A migração-alvo e as seguintes: o repositório atual lê o esquema mais recente.
+    for (const migration of all.filter((name) => name >= targetMigration))
+      await sql(readFileSync(new URL(migration + '/migration.sql', migrations), 'utf8'));
     db = createDatabase(container.getConnectionUri());
   });
   afterAll(async () => {
@@ -66,6 +69,7 @@ describe('migração de atribuições existentes para blocos', () => {
         version: 3,
         createdAt,
         participants: [{ teacherId, subjectId }],
+        resourceIds: [],
       },
       {
         id: secondId,
@@ -74,6 +78,7 @@ describe('migração de atribuições existentes para blocos', () => {
         version: 7,
         createdAt,
         participants: [{ teacherId, subjectId }],
+        resourceIds: [],
       },
     ];
     expect((await repository.listAll()).toSorted((a, b) => a.id.localeCompare(b.id))).toEqual(

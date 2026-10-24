@@ -44,6 +44,7 @@ export function gridLookup(view: GridViewDto) {
   const teachers = new Map(timetable.teachers.map((t) => [t.id, t]));
   const classGroups = new Map(timetable.classGroups.map((c) => [c.id, c]));
   const assignments = new Map(timetable.assignments.map((a) => [a.id, a]));
+  const resources = new Map(timetable.resources.map((r) => [r.id, r.name]));
   const shifts = new Map(view.shifts.map((s) => [s.id, s]));
 
   function time(periodId: string): string {
@@ -72,6 +73,13 @@ export function gridLookup(view: GridViewDto) {
       .map((p) => teachers.get(p.teacherId)?.name ?? '?')
       .join(', ');
   }
+  /** Recursos especiais do bloco, com o separador; vazio na maioria dos blocos. */
+  function resourceSuffix(assignmentId: string): string {
+    const names = (assignments.get(assignmentId)?.resourceIds ?? []).map(
+      (id) => resources.get(id) ?? '?',
+    );
+    return names.length ? ' · ' + names.join(', ') : '';
+  }
   function className(assignmentId: string): string {
     const classGroupId = assignments.get(assignmentId)?.classGroupId;
     return (classGroupId && classGroups.get(classGroupId)?.name) || 'Turma removida';
@@ -81,7 +89,11 @@ export function gridLookup(view: GridViewDto) {
     const what =
       p.kind === 'planning'
         ? 'Hora-atividade de ' + (teachers.get(p.entityId)?.name ?? 'professor removido')
-        : subjectNames(p.entityId) + ' (' + className(p.entityId) + ')';
+        : subjectNames(p.entityId) +
+          ' (' +
+          className(p.entityId) +
+          resourceSuffix(p.entityId) +
+          ')';
     return what + ', ' + dayName(p.weekday) + ' ' + time(p.periodId);
   }
   function itemFor(p: PlacementDto, perspective: 'class' | 'teacher'): GridItem {
@@ -94,7 +106,9 @@ export function gridLookup(view: GridViewDto) {
     return {
       placement: p,
       title: subjectNames(p.entityId),
-      detail: perspective === 'class' ? teacherNames(p.entityId) : className(p.entityId),
+      detail:
+        (perspective === 'class' ? teacherNames(p.entityId) : className(p.entityId)) +
+        resourceSuffix(p.entityId),
     };
   }
   function lessonsOf(teacherId: string) {

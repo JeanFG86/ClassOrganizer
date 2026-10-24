@@ -17,6 +17,7 @@ import { PrismaTeacherRepository } from './prisma-teacher-repository.ts';
 import { PrismaClassGroupRepository } from './prisma-class-group-repository.ts';
 import { PrismaShiftRepository } from './prisma-shift-repository.ts';
 import { PrismaAssignmentRepository } from './prisma-assignment-repository.ts';
+import { PrismaResourceRepository } from './prisma-resource-repository.ts';
 import { systemClock } from '../system/system-ports.ts';
 
 function jsonRows(rows: unknown[]): JsonValue[] {
@@ -92,6 +93,7 @@ export class PrismaPlanningRepository implements PlanningRepository {
     const classGroups = await new PrismaClassGroupRepository(this.#db).listAll();
     const shifts = await new PrismaShiftRepository(this.#db).listAll();
     const assignments = await new PrismaAssignmentRepository(this.#db).listAll();
+    const resources = await new PrismaResourceRepository(this.#db).listAll();
     return {
       formatVersion: 1,
       catalogVersion: state.catalogVersion,
@@ -101,6 +103,7 @@ export class PrismaPlanningRepository implements PlanningRepository {
       classGroups: jsonRows(classGroups),
       shifts: jsonRows(shifts),
       assignments: jsonRows(assignments),
+      resources: jsonRows(resources),
     };
   }
 }

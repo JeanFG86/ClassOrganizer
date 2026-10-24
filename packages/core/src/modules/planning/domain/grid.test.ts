@@ -133,6 +133,34 @@ describe('tradução da fotografia para o validador', () => {
     expect(translateCatalog(catalog, DEFAULT_GRID_RULES, 'r').timetable.lessonMinutes).toBe(50);
   });
 
+  it('leva os recursos ativos dos blocos e acusa um recurso usado duas vezes no horário', () => {
+    expect(translated().timetable.resources).toEqual([]);
+    expect(translated().timetable.assignments.every((a) => a.resourceIds.length === 0)).toBe(true);
+    const catalog = makeCatalogFixture();
+    catalog.resources = [
+      { id: 'lab', name: 'Laboratório', archivedAt: null },
+      { id: 'old', name: 'Sala antiga', archivedAt: '2026-01-01T00:00:00.000Z' },
+    ];
+    const block = (id: string) =>
+      catalog.assignments.find((a) => (a as { id: string }).id === id) as {
+        resourceIds?: string[];
+      };
+    // A turma de a4 é arquivada na fixture; aqui ela volta para dividir o horário com a1.
+    for (const c of catalog.classGroups as { id: string; archivedAt: string | null }[])
+      if (c.id === 'c3') c.archivedAt = null;
+    block('a1').resourceIds = ['lab'];
+    block('a4').resourceIds = ['lab', 'old'];
+    const withLab = translateCatalog(catalog, DEFAULT_GRID_RULES, 'r');
+    expect(withLab.timetable.resources).toEqual([{ id: 'lab', name: 'Laboratório' }]);
+    expect(withLab.timetable.assignments.find((a) => a.id === 'a4')?.resourceIds).toEqual(['lab']);
+    const diagnosis = diagnoseGrid(withLab, [
+      placed(lesson('a1', 1, 'pa1')),
+      placed(lesson('a4', 1, 'pa1')),
+    ]);
+    expect(codes(diagnosis.problems)).toEqual(['conflict.resource']);
+    expect(diagnosis.problems[0]?.message).toContain('O recurso Laboratório');
+  });
+
   it('aplica a política de hora-atividade e as exceções diárias', () => {
     const catalog = makeCatalogFixture();
     const t2 = catalog.teachers[1] as { planningPeriods: number };

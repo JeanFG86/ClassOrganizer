@@ -103,6 +103,12 @@ export function translateCatalog(
     id: text(row, 'id'),
     name: text(row, 'name'),
   }));
+  // Fotografias anteriores aos recursos (ADR 0016) não têm a lista; recursos arquivados não
+  // reservam horários.
+  const resources = rows(catalog.resources ?? [])
+    .filter(active)
+    .map((row) => ({ id: text(row, 'id'), name: text(row, 'name') }));
+  const resourceIds = new Set(resources.map((r) => r.id));
   const teacherRows = rows(catalog.teachers).filter(active);
   const teacherIds = new Set(teacherRows.map((row) => text(row, 'id')));
   const assignments = rows(catalog.assignments).flatMap((row) => {
@@ -119,7 +125,10 @@ export function translateCatalog(
         classGroupId,
         participants,
         weeklyLessons: integer(row, 'weeklyLessons'),
-        resourceIds: [],
+        resourceIds:
+          row['resourceIds'] === undefined
+            ? []
+            : texts(row, 'resourceIds').filter((id) => resourceIds.has(id)),
       },
     ];
   });
@@ -179,7 +188,7 @@ export function translateCatalog(
       classGroups: classGroups.map(({ id, name, periodIds }) => ({ id, name, periodIds })),
       teachers,
       assignments,
-      resources: [],
+      resources,
       subjectRules: [...subjectRules.values()],
       fixedLessons: [],
       fixedPlanning: [],

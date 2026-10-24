@@ -47,6 +47,12 @@ export interface ClassGroupStatusLookup {
   classGroupStatus(id: string): Promise<EntityStatus | undefined>;
 }
 
+/** O que o módulo de ensino precisa saber sobre recursos especiais (módulo school-structure). */
+export interface ResourceLookup {
+  /** Situação de cada recurso existente dentre os ids informados; ids ausentes não existem. */
+  resourceStatuses(ids: readonly string[]): Promise<Map<string, EntityStatus>>;
+}
+
 /** O que o módulo de ensino precisa saber sobre as aulas dos turnos (módulo school-structure). */
 export interface PeriodLookup {
   /** Dentre os ids informados, os que são aulas existentes de algum turno. */

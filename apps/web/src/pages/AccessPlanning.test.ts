@@ -47,6 +47,7 @@ const planning: PlanningDetailDto = {
         classGroups: [],
         shifts: [],
         assignments: [],
+        resources: [],
       },
     },
   ],

@@ -4,6 +4,7 @@ export * from './common.ts';
 export * from './errors.ts';
 export * from './shifts.ts';
 export * from './subjects.ts';
+export * from './resources.ts';
 export * from './teachers.ts';
 export * from './generation.ts';
 

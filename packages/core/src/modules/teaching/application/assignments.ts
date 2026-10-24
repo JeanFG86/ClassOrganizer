@@ -12,6 +12,7 @@ import type { AssignmentParticipant, TeachingAssignment } from '../domain/assign
 import type {
   AssignmentRepository,
   ClassGroupStatusLookup,
+  ResourceLookup,
   SubjectLookup,
   TeacherRepository,
 } from './ports.ts';
@@ -21,6 +22,7 @@ interface AssignmentDeps {
   teachers: TeacherRepository;
   subjects: SubjectLookup;
   classGroups: ClassGroupStatusLookup;
+  resources: ResourceLookup;
 }
 
 /** O professor precisa existir, estar ativo e ser habilitado na disciplina. */
@@ -60,6 +62,21 @@ async function assertParticipants(
   }
 }
 
+/** Recursos novos no bloco precisam existir e estar ativos; os mantidos podem estar arquivados. */
+async function assertResources(resources: ResourceLookup, ids: readonly string[]): Promise<void> {
+  if (!ids.length) return;
+  const statuses = await resources.resourceStatuses(ids);
+  for (const id of ids) {
+    const status = statuses.get(id);
+    if (status === undefined) {
+      throw new InvalidAssignmentReferenceError('O recurso selecionado não existe mais.');
+    }
+    if (status === 'archived') {
+      throw new InvalidAssignmentReferenceError('O recurso selecionado está arquivado.');
+    }
+  }
+}
+
 async function loadForChange(
   assignments: AssignmentRepository,
   ref: VersionedRef,
@@ -77,10 +94,13 @@ export function makeAssignTeaching(deps: AssignmentDeps & { clock: Clock; ids: I
     classGroupId: string;
     participants: readonly AssignmentParticipant[];
     weeklyLessons: number;
+    /** Ausente: o bloco não usa recurso especial. */
+    resourceIds?: readonly string[] | undefined;
   }): Promise<TeachingAssignment> {
     const assignment = createAssignment({
       id: deps.ids.next(),
       ...input,
+      resourceIds: input.resourceIds ?? [],
       createdAt: deps.clock.now(),
     });
 
@@ -93,6 +113,7 @@ export function makeAssignTeaching(deps: AssignmentDeps & { clock: Clock; ids: I
     }
 
     await assertParticipants(deps, assignment.participants);
+    await assertResources(deps.resources, assignment.resourceIds);
 
     await deps.assignments.add(assignment);
     return assignment;
@@ -109,12 +130,21 @@ export function makeChangeAssignment(deps: {
   assignments: AssignmentRepository;
   teachers: TeacherRepository;
   subjects: SubjectLookup;
+  resources: ResourceLookup;
 }) {
   return async function changeAssignmentUseCase(
-    input: VersionedRef & { participants: readonly AssignmentParticipant[]; weeklyLessons: number },
+    input: VersionedRef & {
+      participants: readonly AssignmentParticipant[];
+      weeklyLessons: number;
+      /** Ausente: mantém os recursos atuais do bloco. */
+      resourceIds?: readonly string[] | undefined;
+    },
   ): Promise<TeachingAssignment> {
     const current = await loadForChange(deps.assignments, input);
-    const changed = changeAssignment(current, input);
+    const changed = changeAssignment(current, {
+      ...input,
+      resourceIds: input.resourceIds ?? current.resourceIds,
+    });
 
     // Participações mantidas podem referenciar disciplina arquivada, como antes.
     const added = changed.participants.filter(
@@ -124,6 +154,10 @@ export function makeChangeAssignment(deps: {
         ),
     );
     await assertParticipants(deps, added);
+    await assertResources(
+      deps.resources,
+      changed.resourceIds.filter((id) => !current.resourceIds.includes(id)),
+    );
 
     return deps.assignments.update(changed);
   };

@@ -6,6 +6,8 @@ const participantSchema = z.object({ teacherId: z.string(), subjectId: z.string(
 const assignmentInput = {
   participants: z.array(participantSchema),
   weeklyLessons: z.number(),
+  /** Recursos especiais do bloco; ausente mantém os atuais ao editar (ADR 0016). */
+  resourceIds: z.array(z.string()).optional(),
 };
 
 export const createAssignmentRequestSchema = z.object({
@@ -29,6 +31,8 @@ export const assignmentSchema = z.object({
   classGroupId: z.string(),
   participants: z.array(participantSchema).min(1),
   weeklyLessons: z.number().int(),
+  /** Ausente nas fotografias anteriores aos recursos especiais. */
+  resourceIds: z.array(z.string()).default([]),
   createdAt: z.iso.datetime(),
   version: versionSchema,
 });
