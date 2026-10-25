@@ -46,11 +46,13 @@ export function validateCredentials(username: string, password: string): string 
   validatePassword(password);
   return normalized;
 }
+/** Tamanho mínimo da senha; a instalação é local e a entrada tem limite de tentativas (ADR 0011). */
+export const MIN_PASSWORD_LENGTH = 5;
 export function validatePassword(password: string): void {
-  if (password.length < 15 || password.length > 128)
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > 128)
     throw new AccessError(
       'access.password_invalid',
-      'A senha deve ter entre 15 e 128 caracteres.',
+      'A senha deve ter entre ' + MIN_PASSWORD_LENGTH + ' e 128 caracteres.',
       'validation',
     );
 }

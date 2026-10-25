@@ -47,7 +47,7 @@ async function save() {
         v-model="password"
         type="password"
         autocomplete="new-password"
-        minlength="15"
+        minlength="5"
         maxlength="128"
         required
       />

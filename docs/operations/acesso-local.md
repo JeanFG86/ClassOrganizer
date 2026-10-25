@@ -13,7 +13,7 @@ No computador responsável pela instalação, crie um arquivo UTF-8 em `privado/
 }
 ```
 
-O usuário precisa começar por uma letra sem acento e ter de 4 a 40 caracteres; depois aceita letras sem acento, números, ponto, hífen e sublinhado. A senha precisa ter de 15 a 128 caracteres, preservando espaços e acentos. O exemplo acima é apenas o formato: escolha outra senha.
+O usuário precisa começar por uma letra sem acento e ter de 4 a 40 caracteres; depois aceita letras sem acento, números, ponto, hífen e sublinhado. A senha precisa ter de 5 a 128 caracteres, preservando espaços e acentos. No PowerShell do Windows, prefira senhas sem acentos ao enviar o arquivo pela CLI: o terminal pode trocar caracteres acentuados. O exemplo acima é apenas o formato: escolha outra senha.
 
 Em PowerShell:
 
