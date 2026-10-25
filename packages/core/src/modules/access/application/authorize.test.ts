@@ -87,6 +87,10 @@ describe('autorização na aplicação', () => {
   it('normaliza usuário sem modificar a senha e rejeita credenciais curtas', () => {
     expect(validateCredentials(' ADMIN-Test ', ' senha longa 123 ')).toBe('admin-test');
     expect(() => validateCredentials('inválido', 'uma senha longa')).toThrow();
-    expect(() => validateCredentials('valid-user', 'curta')).toThrow();
+    expect(validateCredentials('valid-user', '12345')).toBe('valid-user');
+    expect(() => validateCredentials('valid-user', '1234')).toThrow(
+      'A senha deve ter entre 5 e 128 caracteres.',
+    );
+    expect(() => validateCredentials('valid-user', 'x'.repeat(129))).toThrow();
   });
 });

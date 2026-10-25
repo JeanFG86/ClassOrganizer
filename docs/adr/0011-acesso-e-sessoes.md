@@ -3,6 +3,7 @@
 - **Estado:** aceita
 - **Data:** 2026-10-23
 - **Etapa:** E4
+- **Atualizada em:** 2026-10-24 (E8), quanto ao tamanho mínimo da senha
 
 ## Contexto
 
@@ -10,7 +11,7 @@ Os cadastros anteriores eram acessíveis sem autenticação. Antes de usar dados
 
 ## Decisão
 
-Usar contas locais com usuário normalizado e senha de 15 a 128 caracteres, sem senha padrão. A CLI `admin:create` recebe JSON pela entrada padrão, exige banco sem usuários e cria exatamente o primeiro administrador sob bloqueio transacional. Não existe rota HTTP de instalação. A senha não aparece em argumentos, logs ou auditoria. A criação subsequente é exclusiva de administradores.
+Usar contas locais com usuário normalizado e senha de 5 a 128 caracteres, sem senha padrão. A CLI `admin:create` recebe JSON pela entrada padrão, exige banco sem usuários e cria exatamente o primeiro administrador sob bloqueio transacional. Não existe rota HTTP de instalação. A senha não aparece em argumentos, logs ou auditoria. A criação subsequente é exclusiva de administradores.
 
 Senhas usam `scrypt` do Node com sal aleatório de 128 bits, `N=32768`, `r=8`, `p=3`, saída de 64 bytes e comparação constante. Essa combinação consta na [orientação de armazenamento de senhas da OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). Os parâmetros pertencem ao formato atual; uma mudança exige versionar o formato e preservar a verificação das credenciais existentes.
 
@@ -45,4 +46,5 @@ Contas têm versão otimista. A aplicação impede autodesativação, redução 
 - A migração preserva os cadastros existentes e inicia o sistema sem contas. É necessário executar a CLI antes do primeiro acesso. Não atribuímos alterações antigas a um autor fictício.
 - Toda pessoa autenticada pode consultar os dados da organização. Exportações futuras de PDF/XLSX/CSV devem aplicar a mesma autorização, inclusive ao baixar arquivos gerados pelo worker.
 - O bloqueio global simplifica consistência e revisão de permissões na instalação local. Otimizar essa serialização exige preservar a atomicidade e a ordem de bloqueios.
+- **Tamanho mínimo da senha (atualização da E8).** O mínimo, antes de 15 caracteres, passou a 5 a pedido do usuário, para facilitar o uso diário pela secretaria. A interface é publicada só em `127.0.0.1` e o limite de tentativas acima continua valendo. Antes de liberar o acesso pela rede (E9), o mínimo deve ser revisto junto com HTTPS e a origem configurada. As senhas já cadastradas não mudam.
 - A operação em rede exige HTTPS, origem configurada e proteção do banco/backups. Não há MFA, redefinição por e-mail, ACL por planejamento ou recuperação automática de administrador nesta etapa. Recuperação operacional será definida na E8, sem rota pública de reinicialização.

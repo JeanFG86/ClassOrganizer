@@ -448,6 +448,16 @@ describe('E4: HTTP, autorização, transações e revisões no PostgreSQL', () =
     expect(response.statusCode).toBe(201);
     expect(response.body).not.toContain(passwordHash);
     userAccountSchema.parse(response.json());
+    // Senha mínima de 5 caracteres (ADR 0011, atualização da E8).
+    const create = (username: string, secret: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/users',
+        headers: headers(),
+        payload: { username, password: secret, role: 'viewer' },
+      });
+    expect((await create('senha-minima', '12345')).statusCode).toBe(201);
+    expect((await create('senha-curta', '1234')).statusCode).toBe(400);
     const edit = { role: 'viewer', disabled: true, version: 1 };
     expect(
       (

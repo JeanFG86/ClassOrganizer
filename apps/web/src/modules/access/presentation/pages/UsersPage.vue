@@ -91,7 +91,7 @@ onMounted(load);
         v-model="password"
         type="password"
         autocomplete="new-password"
-        minlength="15"
+        minlength="5"
         maxlength="128"
         required
       />
@@ -144,7 +144,7 @@ onMounted(load);
         v-model="resetPassword"
         type="password"
         autocomplete="new-password"
-        minlength="15"
+        minlength="5"
         maxlength="128"
       />
       <div class="actions">
